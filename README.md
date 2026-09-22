@@ -1,43 +1,58 @@
-# rūsc — nouveau site (banc d'essai rselavy.com → studio-rusc.com)
+# rūsc — site (Next.js)
 
-Site statique bilingue FR/EN, prêt à déployer sur Cloudflare Pages.
+Site bilingue FR/EN de l'atelier rūsc (Chamonix) : Next.js 16 (App Router), exporté en HTML statique et hébergé sur Cloudflare Pages. Les réservations passent par Acuity Scheduling, intégré dans la page.
+
+Notes détaillées pour les agents et l'historique de la migration : [AGENTS.md](AGENTS.md).
+
+## Développement
+
+```bash
+npm install
+npm run dev     # http://localhost:3000
+npm run build   # export statique dans out/
+npm run lint
+```
 
 ## Structure
 
 ```
-sites/rusc-new/
-├── index.html        FR (racine)
-├── en/index.html     EN (/en/)
-├── robots.txt
-├── sitemap.xml
-└── assets/           (vide — visuels à fournir)
+app/(fr)/page.tsx              accueil FR (/)
+app/(fr)/conditions/page.tsx   conditions générales (/conditions/)
+app/(en)/en/page.tsx           accueil EN (/en/)
+app/(en)/en/terms/page.tsx     terms (/en/terms/)
+components/                    en-tête, pied de page, réservation Acuity, formulaire…
+lib/                           coordonnées, compte Acuity, formulaire
+styles/                        CSS repris tel quel de l'ancien site
+assets/                        photos et logos
+public/_redirects              redirections Cloudflare (anciennes URL)
 ```
 
-## À configurer avant mise en ligne
+## À configurer
 
 | Élément | Où | Valeur actuelle |
 |---|---|---|
-| Réservation (Acuity) | `assets/acuity-embed.js` — `OWNER` | `19154889` (compte Acuity existant) |
-| Formulaire de contact | `FORM_ENDPOINT` (en bas de chaque page) | vide → repli `mailto:` |
-| Images | objet `IMAGES` (en bas de chaque page) | vide → cadres masqués |
-| Domaine canonique | `<link rel="canonical">` | `https://studio-rusc.com` |
+| Compte Acuity | `lib/acuity.ts` — `ACUITY_OWNER` | `19154889` |
+| Ateliers liés depuis les cartes | `lib/acuity.ts` — `APPOINTMENT_TYPES` | IDs Acuity des anciens liens `rusc.as.me` |
+| Formulaire de contact | `lib/site.ts` — `FORM_ENDPOINT` | vide → repli `mailto:` |
+| Coordonnées | `lib/site.ts` | info@studio-rusc.com · +33 7 82 40 60 16 |
+| Domaine canonique | `lib/site.ts` — `SITE_URL` | `https://studio-rusc.com` |
 
 ## Déploiement — Cloudflare Pages
 
-Le dossier entier `sites/rusc-new/` est la racine du site (pas de build).
+Le site publié est le dossier `out/` produit par `npm run build` (il n'y a plus de HTML à la racine du dépôt).
 
-**Option A — wrangler (comme en juin)**
+**Option A — wrangler (comme avant)**
 ```bash
-cd sites/rusc-new
-CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy . --project-name=rselavy
+npm run build
+CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy out --project-name=rselavy
 ```
 
-**Option B — tableau de bord Cloudflare**
-Pages → projet `rselavy` → Create new deployment → glisser le dossier `rusc-new`.
+**Option B — intégration Git de Cloudflare Pages**
+Build command `npm run build`, output directory `out`, variable `NODE_VERSION=22` (Next.js 16 demande Node 20.9 ou plus).
 
 ## Bascule finale
 
 1. Valider le site sur `rselavy.com`.
 2. Dans Cloudflare : ajouter `studio-rusc.com` comme custom domain du projet Pages.
-3. Mettre à jour le CNAME du domaine (via Squarespace Domain Connect ou manuellement).
-4. Annuler Squarespace.
+3. Mettre à jour le DNS du domaine (Squarespace Domains reste le registrar).
+4. Annuler le site Squarespace, en gardant l'abonnement Acuity. Les anciennes URL (`/rserver`, `/about`, `/contact`…) sont redirigées par `public/_redirects`.

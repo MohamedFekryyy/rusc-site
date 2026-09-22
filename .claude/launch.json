@@ -1,5 +1,4 @@
 {"version":"0.0.1","configurations":[
-  {"name":"site","runtimeExecutable":"python3","runtimeArgs":["-m","http.server","8123"],"port":8123},
-  {"name":"ref","runtimeExecutable":"python3","runtimeArgs":["-m","http.server","8124","-d","/private/tmp/claude-501/-Users-fekryaiad-mba-dev-rusc-site/36bac3f7-b2a5-4947-8fe4-05b855175cba/scratchpad/ref"],"port":8124},
+  {"name":"dev","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000},
   {"name":"export","runtimeExecutable":"python3","runtimeArgs":["-m","http.server","8125","-d","out"],"port":8125}
 ]}

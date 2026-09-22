@@ -78,3 +78,25 @@ Each step below is one commit on the `nextjs-migration` branch.
 
   They now load the matching Acuity page inside the embed. The appointment-type IDs in `lib/acuity.ts` come from where each `rusc.as.me` link redirects.
 - **Booking embed loading order:** the iframe mounts after hydration, and only then does Acuity's `embed.js` load (via `next/script`). The script only attaches to iframes that already point at Acuity when it runs. Switching views clears the pinned iframe height so `embed.js` can measure the new page.
+
+### 4. Checked against the old site
+- **Method:** the old static site (`31c0342`) and the new `out/` were served side by side and compared element by element. Each visible element's position within its section, size, font, colour and text were compared at 1280×800 and 375×812, on `/`, `/en/`, `/conditions/` and `/en/terms/`.
+- **Found and fixed:**
+  - `next/image` writes `width`/`height` attributes, which made `.card .thumb` and `.about-ph img` as tall as the source photos. They now have `height:auto` (the last rule of `styles/home.css`).
+  - "← Back to site" was split into two text nodes, which made it 1px wider. It's now a single string.
+  - Jost italic was preloaded on every page, but only the hidden reviews block uses italic. It was dropped; `app/fonts.ts` explains how to add it back.
+- **Result:** identical everywhere except the two intended FR fixes from step 3 (price grid back inside `.wrap`, duplicate terms link removed). Remaining differences aren't visible: `next/image` makes alt text transparent while an image loads, and Next adds `twitter:*` tags and an absolute `og:image` URL.
+- **Booking embed, tested with real clicks:**
+  - The scheduler loads on page load.
+  - A workshop button opens that workshop (`appointmentType=…`).
+  - The tabs switch to the catalog and to gift vouchers.
+  - Each time, `embed.js` resizes the iframe and scrolls it into place just below the sticky nav.
+- **Contact form:** `mailtoHref()` produces the same output as the old inline script, in both FR and EN.
+
+### 5. Removed the static version
+- Deleted:
+  - the old pages: `index.html`, `en/index.html`, `conditions.html`, `en/terms.html`
+  - `robots.txt` and `sitemap.xml`, which are now generated
+  - `assets/acuity-embed.js`, replaced by `BookingEmbed`
+- `README.md` is rewritten for Next.js (still in French). Deploying now means `npm run build`, then publishing `out/`.
+- `.claude/launch.json` has two configs: `dev` (next dev) and `export` (serves `out/` on :8125).
