@@ -32,7 +32,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix: French at `/`
 
 ## Migration log: static HTML → Next.js (2026-09-22)
 
-Each step below is one commit on the `nextjs-migration` branch.
+All of this is on the `nextjs-migration` branch. Some steps were committed from GitHub Desktop while the work was in progress: step 3 is `07008f5` ("push"), and the font change in step 4 is `5558a28`.
 
 ### 1. Tooling scaffold
 - Copied the Next.js 16.3.6 `create-next-app` template (App Router, TypeScript, ESLint, no Tailwind) into the repo: `package.json`, `tsconfig.json`, `eslint.config.mjs`.
