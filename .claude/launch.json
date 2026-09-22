@@ -1,4 +1,4 @@
 {"version":"0.0.1","configurations":[
   {"name":"dev","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000},
-  {"name":"export","runtimeExecutable":"python3","runtimeArgs":["-m","http.server","8125","-d","out"],"port":8125}
+  {"name":"prod","runtimeExecutable":"npm","runtimeArgs":["run","start","--","-p","3001"],"port":3001}
 ]}

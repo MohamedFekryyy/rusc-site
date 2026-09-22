@@ -10,11 +10,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language has three pages: home (`/`, `/en/`), booking (`/reserver/`, `/en/booking/`) and terms (`/conditions/`, `/en/terms/`).
 
-- **Stack:** Next.js 16 (App Router, TypeScript), exported as static HTML (`output: "export"`).
-- **Hosting:**
-  - Vercel project `rusc-preview`, connected to this GitHub repo. Every push to `main` deploys to https://rusc-preview.vercel.app; other branches get preview deploys behind Vercel login.
-  - Cloudflare Pages (`rselavy` project) serves the test domain rselavy.com. It is deployed by hand with wrangler.
-  - The target domain is studio-rusc.com. Squarespace only manages the domain now.
+- **Stack:** Next.js 16 (App Router, TypeScript), hosted on Vercel. Every page is prerendered at build time.
+- **Hosting:** Vercel only.
+  - The Vercel project `rusc-preview` is connected to this GitHub repo. Every push to `main` deploys to https://rusc-preview.vercel.app; other branches get preview deploys behind Vercel login.
+  - The target domain, studio-rusc.com, isn't attached to Vercel yet. Squarespace Domains stays the registrar.
+  - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Acuity Scheduling, owner ID `19154889`, embedded in the booking pages. The Acuity dashboard (services, hours, prices, payments) stays in Acuity.
 
 ## Commands
@@ -22,7 +22,8 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 | Command | What it does |
 |---|---|
 | `npm run dev` | Dev server on http://localhost:3000 |
-| `npm run build` | Static export into `out/` (this folder is what gets deployed) |
+| `npm run build` | Production build (`.next/`); Vercel runs the same command |
+| `npm run start` | Serve the production build locally |
 | `npm run lint` | ESLint (Next.js core-web-vitals + TypeScript rules) |
 
 ## Shipping (pushing to `main`)
@@ -30,11 +31,6 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 - **`main` is production.** Every push to it redeploys https://rusc-preview.vercel.app. Run `npm run build` and `npm run lint` first; both must pass.
 - **Vercel builds this as a Next.js app** because `vercel.json` pins `"framework": "nextjs"`. Keep that file: without a preset, Vercel served only `public/` and every page was a 404.
 - **Check a deploy without the dashboard:** `gh api repos/MohamedFekryyy/rusc-site/commits/<sha>/status` returns the Vercel state; then open the public URL. The Vercel tools here can't read build logs (401).
-- **rselavy.com is not deployed from Git.** After `main` changes, publish it by hand:
-
-  ```bash
-  npm run build && CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy out --project-name=rselavy
-  ```
 - **The owner also uses GitHub Desktop on this same checkout,** and may commit, push or switch branches while you work. Check `git branch --show-current` before every commit, and commit each step as soon as it's done.
 - **Log each change** in the migration log below: what changed, why, and the commit.
 
@@ -48,7 +44,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Buttons that name a workshop or offer are `BookingButton`s. They link to the booking page with `?workshop=<slug>` or `?view=catalog|gifts` (see `bookingHref` in `lib/routes.ts`).
   - On the booking page, `BookingEmbed` opens the Acuity page that the URL names. Its tabs switch the view in place and update the URL.
   - Do not link to `rusc.as.me` or `app.acuityscheduling.com` directly.
-- **It's a static export,** so there's no `redirects()`, `headers()`, API routes or server actions. Redirects live in `public/_redirects` (Cloudflare Pages format).
+- **Redirects live in `next.config.ts`** (`redirects()`), and Vercel runs them. Old paths without an extension take two hops: the trailing slash is added first, then the redirect applies.
 
 ## Migration log: static HTML → Next.js (2026-09-22)
 
@@ -154,3 +150,16 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - `/reserver` redirects with a 308 to `/reserver/`
 - **Not updated yet:** rselavy.com (Cloudflare) still serves the old static site until the wrangler deploy under "Shipping" is run.
 - **This documentation** (the "Shipping" section, this step, `CLAUDE.md`, README) was committed on `main` and pushed as well.
+
+### 9. Vercel only (no Cloudflare)
+- **Hosting:** the site is hosted on Vercel only. Cloudflare Pages hosted the old static site (rselavy.com, deployed with wrangler), and that setup is dropped. Mentions of Cloudflare and `out/` in steps 1–8 are history.
+- **Normal Next.js build:** `output: "export"` is removed from `next.config.ts`. Every page is still prerendered (○ static). `trailingSlash` and unoptimised images are kept.
+- **Redirects:** moved from `public/_redirects` (Cloudflare's format, which Vercel ignores) into `redirects()` in `next.config.ts`; `public/` is gone. Checked with `next start`:
+  - old `.html` URLs redirect in one hop
+  - `/about` goes to `/about/`, then to `/#us`
+  - `/atelier-cramique-2h` lands on `/reserver/?workshop=atelier-ceramique-2h`
+  - `/rserver` and `/cart` land on `/reserver/`
+- **Smaller changes:**
+  - `dynamic = "force-static"` is dropped from the robots and sitemap routes (only the static export needed it).
+  - A `npm run start` script is added.
+  - `.claude/launch.json` now has `dev` and `prod` (next start on :3001).

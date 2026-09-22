@@ -1,6 +1,6 @@
 # rūsc — site (Next.js)
 
-Site bilingue FR/EN de l'atelier rūsc (Chamonix) : Next.js 16 (App Router), exporté en HTML statique et hébergé sur Cloudflare Pages. Les réservations passent par Acuity Scheduling, intégré dans la page.
+Site bilingue FR/EN de l'atelier rūsc (Chamonix) : Next.js 16 (App Router), hébergé sur Vercel. Les réservations passent par Acuity Scheduling, intégré dans le site.
 
 Notes détaillées pour les agents et l'historique de la migration : [AGENTS.md](AGENTS.md).
 
@@ -9,7 +9,8 @@ Notes détaillées pour les agents et l'historique de la migration : [AGENTS.md]
 ```bash
 npm install
 npm run dev     # http://localhost:3000
-npm run build   # export statique dans out/
+npm run build   # build de production (.next/)
+npm run start   # sert ce build en local
 npm run lint
 ```
 
@@ -26,7 +27,7 @@ components/                    en-tête, pied de page, réservation Acuity, form
 lib/                           coordonnées, compte Acuity, URLs des pages, formulaire
 styles/                        CSS repris tel quel de l'ancien site
 assets/                        photos et logos
-public/_redirects              redirections Cloudflare (anciennes URL)
+next.config.ts                 redirections (anciennes URL)
 ```
 
 ## À configurer
@@ -40,24 +41,13 @@ public/_redirects              redirections Cloudflare (anciennes URL)
 | Coordonnées | `lib/site.ts` | info@studio-rusc.com · +33 7 82 40 60 16 |
 | Domaine canonique | `lib/site.ts` — `SITE_URL` | `https://studio-rusc.com` |
 
-## Déploiement — Cloudflare Pages
+## Déploiement — Vercel
 
-Le site publié est le dossier `out/` produit par `npm run build` (il n'y a plus de HTML à la racine du dépôt).
-
-**Option A — wrangler (comme avant)**
-```bash
-npm run build
-CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy out --project-name=rselavy
-```
-
-**Option B — intégration Git de Cloudflare Pages**
-Build command `npm run build`, output directory `out`, variable `NODE_VERSION=22` (Next.js 16 demande Node 20.9 ou plus).
-
-**Vercel (aperçu)** — chaque push sur `main` redéploie automatiquement https://rusc-preview.vercel.app (build Next.js imposé par `vercel.json`).
+Le dépôt GitHub est relié au projet Vercel `rusc-preview`. Chaque push sur `main` est mis en ligne automatiquement sur https://rusc-preview.vercel.app ; les autres branches ont des aperçus (connexion Vercel requise). `vercel.json` impose le build Next.js : ne pas le supprimer.
 
 ## Bascule finale
 
-1. Valider le site sur `rselavy.com`.
-2. Dans Cloudflare : ajouter `studio-rusc.com` comme custom domain du projet Pages.
-3. Mettre à jour le DNS du domaine (Squarespace Domains reste le registrar).
-4. Annuler le site Squarespace, en gardant l'abonnement Acuity. Les anciennes URL (`/rserver`, `/about`, `/contact`…) sont redirigées par `public/_redirects`.
+1. Valider le site sur https://rusc-preview.vercel.app.
+2. Dans Vercel → projet `rusc-preview` → Settings → Domains : ajouter `studio-rusc.com` (et `www.studio-rusc.com`).
+3. Chez Squarespace Domains (registrar), créer les enregistrements DNS indiqués par Vercel.
+4. Annuler le site Squarespace, en gardant l'abonnement Acuity. Les anciennes URL (`/rserver`, `/about`, `/contact`…) sont redirigées par `next.config.ts`.
