@@ -29,7 +29,7 @@ export default function LegalPage({ home, back, address, copy, children }: Props
 
       <main className="wrap">
         {children}
-        <a className="back" href={home}>← {back}</a>
+        <a className="back" href={home}>{`← ${back}`}</a>
       </main>
 
       <footer>

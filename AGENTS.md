@@ -47,3 +47,34 @@ Each step below is one commit on the `nextjs-migration` branch.
   - `styles/home.css`: the FR home stylesheet, verbatim. The EN home page had an older copy of the same sheet, and a rule-by-rule diff found only two differences that show: hero text width (640px vs 620px) and the colour of `<strong>` inside the membership price list. Both are kept as `html[lang="en"]` overrides at the end of the file.
   - `styles/legal.css`: the terms-page stylesheet, verbatim (FR and EN were identical).
 - The terms sheet styles bare `p`, `li`, `header` and `footer`, so it must never share a page with `home.css` (see the rules of thumb above).
+
+### 3. Pages and components (commit `07008f5`, "push")
+- **Routing:** two route groups, `app/(fr)` and `app/(en)`, each with its own root layout, so every page gets the right `<html lang>`. Pages:
+  - `/`: `app/(fr)/page.tsx`
+  - `/conditions/`: `app/(fr)/conditions/page.tsx`
+  - `/en/`: `app/(en)/en/page.tsx`
+  - `/en/terms/`: `app/(en)/en/terms/page.tsx`
+- **Markup:** JSX ported from the old HTML with the same classes and inline styles. Fonts come from `next/font` (`app/fonts.ts`).
+- **Components:**
+  - page chrome: `Header`, `Footer`, `SectionHead`, `LegalPage` (the terms-page shell)
+  - interactive (client components): `BookingEmbed`, `ContactForm`
+  - `BookingButton`: an in-site booking link
+  - `JsonLd`: schema.org data
+- **`lib/`:**
+  - `site.ts`: contact details, `FORM_ENDPOINT` and the base schema.org data
+  - `acuity.ts`: Acuity owner ID, appointment types and the URL builder
+  - `contact.ts`: the `mailto:` builder for the contact form
+- **Images:** imported from `assets/` through `next/image`, so width and height come from the file. Below-the-fold images load lazily; the hero is eager with `fetchPriority="high"`.
+- **SEO:** metadata (title, description, canonical, hreflang, Open Graph), JSON-LD, `app/robots.ts`, `app/sitemap.ts`, and `public/_redirects` (old `.html` URLs and old Squarespace paths).
+- **Merge leftovers in the old FR `index.html`, fixed on purpose:**
+  1. A stray `</div>` in `#tarifs` pushed the price grid outside `.wrap`, so the cards ran edge to edge. They are back inside.
+  2. The "Conditions générales" link under the booking embed appeared twice, with an empty `<p>` after it. Only one remains.
+  3. A stray `</article>` and a dead `data-sb-navigate` attribute were dropped.
+- **Behaviour change (the owner asked that bookings stay on the site):** these buttons used to open `rusc.as.me/<slug>` in a new tab:
+  - the two workshop cards
+  - the six booking cards
+  - "réserver un créneau"
+  - the gift-voucher "+ info"
+
+  They now load the matching Acuity page inside the embed. The appointment-type IDs in `lib/acuity.ts` come from where each `rusc.as.me` link redirects.
+- **Booking embed loading order:** the iframe mounts after hydration, and only then does Acuity's `embed.js` load (via `next/script`). The script only attaches to iframes that already point at Acuity when it runs. Switching views clears the pinned iframe height so `embed.js` can measure the new page.
