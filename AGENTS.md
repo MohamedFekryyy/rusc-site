@@ -123,3 +123,8 @@ All of this is on the `nextjs-migration` branch. Some steps were committed from 
   - The tabs update the URL.
   - `/en/booking/?view=gifts` opens on the gift vouchers.
   - No sideways scrolling at 375px.
+
+### 7. Vercel preview project
+- The repo's Vercel project (`rusc-preview`) had no framework preset, so it served `public/` (only `_redirects`) and returned 404 everywhere, even before the migration.
+- `vercel.json` now pins `"framework": "nextjs"`. Vercel then builds the app and serves the static export at rusc-preview.vercel.app.
+- This doesn't affect Cloudflare: that deploy still publishes `out/` with wrangler.
