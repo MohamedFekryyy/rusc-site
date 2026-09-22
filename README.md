@@ -17,7 +17,7 @@ sites/rusc-new/
 
 | Élément | Où | Valeur actuelle |
 |---|---|---|
-| Lien de réservation | `BOOKING_URL` — dans les `<a class="btn">` et `.nav-cta` | `https://studio-rusc.simplybook.me` (placeholder) |
+| Réservation (Acuity) | `assets/acuity-embed.js` — `OWNER` | `19154889` (compte Acuity existant) |
 | Formulaire de contact | `FORM_ENDPOINT` (en bas de chaque page) | vide → repli `mailto:` |
 | Images | objet `IMAGES` (en bas de chaque page) | vide → cadres masqués |
 | Domaine canonique | `<link rel="canonical">` | `https://studio-rusc.com` |

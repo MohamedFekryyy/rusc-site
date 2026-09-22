@@ -195,36 +195,38 @@
     .hero p{font-size:17px}
   }
 
-  /* ── EMBEDDED BOOKING (SimplyBook) ── */
-  #reservation .sb-shell{
+  /* ── EMBEDDED BOOKING (Acuity) ── */
+  #reservation .bk-shell{
     max-width:1000px;margin:0 auto;background:#fff;border:1px solid var(--line);
     border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(20,20,21,.08);
   }
-  #reservation .sb-bar{
+  #reservation .bk-bar{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
     padding:11px 18px;border-bottom:1px solid var(--line);
     font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
     background:linear-gradient(0deg,rgba(227,229,215,.55),rgba(227,229,215,.55));
   }
-  #reservation .sb-bar b{
+  #reservation .bk-bar b{
     font-family:var(--display);font-weight:400;font-size:15px;
     letter-spacing:0;text-transform:none;color:var(--ink);
   }
-  #reservation .sb-bar a{color:var(--accent);text-decoration:none;white-space:nowrap}
-  #reservation .sb-bar a:hover{border-bottom:1px solid var(--accent)}
-  #sb-bookings{position:relative;min-height:640px;background:#fff}
-  #sb-bookings:empty::after{
+  #reservation .bk-tabs{display:flex;gap:16px;flex-wrap:wrap}
+  #reservation .bk-tabs a{color:var(--muted);text-decoration:none;white-space:nowrap;border-bottom:1px solid transparent;padding-bottom:1px}
+  #reservation .bk-tabs a:hover{color:var(--accent)}
+  #reservation .bk-tabs a[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+  #bk-bookings{position:relative;min-height:640px;background:#fff}
+  #bk-bookings:empty::after{
     content:'';position:absolute;inset:0;
     background:linear-gradient(90deg,rgba(227,229,215,.35) 25%,rgba(227,229,215,.7) 37%,rgba(227,229,215,.35) 63%);
-    background-size:400% 100%;animation:sbShimmer 1.4s ease-in-out infinite;
+    background-size:400% 100%;animation:bkShimmer 1.4s ease-in-out infinite;
   }
-  @keyframes sbShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
-  .sb-frame{display:block;width:100%;border:0;height:900px;background:#fff}
-  .sb-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
+  @keyframes bkShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  .bk-frame{display:block;width:100%;border:0;min-height:900px;background:#fff}
+  .bk-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
   @media (max-width:640px){
-    #reservation .sb-shell{border-radius:10px}
-    #reservation .sb-bar{font-size:10.5px;padding:10px 13px;flex-wrap:wrap;justify-content:center;text-align:center}
-    .sb-frame{height:1100px}
+    #reservation .bk-shell{border-radius:10px}
+    #reservation .bk-bar{font-size:10.5px;padding:10px 13px;flex-wrap:wrap;justify-content:center;text-align:center}
+    .bk-frame{min-height:1100px}
   }
 </style>
 </head>
@@ -241,7 +243,7 @@
       <a href="#us">Ūs</a>
       <a href="#contact">Contact</a>
       <span class="lang"><a href="/" class="on">FR</a><a href="/en/">EN</a></span>
-      <a class="cta" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+      <a class="cta" href="#reservation">Réserver</a>
     </nav>
   </div>
 </header>
@@ -252,7 +254,7 @@
   <span class="rule"></span>
   <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
   <div class="actions">
-    <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver un atelier</a>
+    <a class="btn" href="#reservation">Réserver un atelier</a>
     <a class="btn ghost" href="#ateliers">Voir la programmation</a>
   </div>
 </section>
@@ -275,7 +277,7 @@
         <h3>ateliers enfants</h3>
         <p>Pour les 7–12 ans. Un temps ludique pour découvrir la terre, façonner et créer, hors vacances scolaires.</p>
         <p class="price">Places limitées · réservation conseillée</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <a class="btn" href="#reservation">Réserver</a>
       </article>
       <article class="card">
         <img class="thumb" src="assets/photos/atelier-03.jpg" alt="Tournage sur tour de potier — stage rūsc">
@@ -283,7 +285,7 @@
         <h3>stages</h3>
         <p>Céramique, porcelaine et autres disciplines. Une immersion complète pour apprendre les gestes et repartir avec vos pièces.</p>
         <p class="price">Formules d&rsquo;une journée ou de week-end</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <a class="btn" href="#reservation">Réserver</a>
       </article>
       <article class="card">
         <img class="thumb" src="assets/photos/atelier-10.jpg" alt="Ateliers réguliers de céramique à Chamonix">
@@ -292,7 +294,7 @@
         <p>Progresser pas à pas, séance après séance. La céramique en est le cœur, enrichie par d&rsquo;autres disciplines invitées : tapisserie, modelage, intervenants invités.</p>
         <p class="price">Carnet 5 séances valable 6 mois · Carnet 10 séances valable 1 an</p>
         <p class="price" style="color:var(--ink)">Séance 2&nbsp;h&nbsp;: 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€<br><span style="color:var(--accent)">Membre&nbsp;: –10&nbsp;% (45&nbsp;€ / 189&nbsp;€ / 315&nbsp;€)</span></p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <a class="btn" href="#reservation">Réserver</a>
       </article>
     </div>
     <div class="head" style="margin-top:52px">
@@ -329,8 +331,8 @@
           <p style="margin-top:14px;font-size:15px;color:var(--muted)">Les membres bénéficient de <strong>–10&nbsp;%</strong> sur la séance de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 séances et le carnet 10 séances. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
         </div>
         <div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px">
-          <a class="btn" href="#reservation" data-sb-navigate="membership">Adhérer</a>
-          <a class="btn ghost" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver un créneau</a>
+          <a class="btn" href="#reservation" data-booking="catalog">Adhérer</a>
+          <a class="btn ghost" href="#reservation">Réserver un créneau</a>
         </div>
       </div>
       <div class="art-stack">
@@ -348,8 +350,8 @@
       <p class="sub">clairs, sans surprise</p>
       <span class="rule"></span>
     </div>
-    <div class="sb-shell" style="box-shadow:none">
-      <div class="sb-bar"><span><b>Tout compris</b> · terre, engobes, émail et cuisson d'une pièce inclus</span></div>
+    <div class="bk-shell" style="box-shadow:none">
+      <div class="bk-bar"><span><b>Tout compris</b> · terre, engobes, émail et cuisson d'une pièce inclus</span></div>
     </div>
     <div class="price-grid" style="margin-top:26px">
       <article class="pcard">
@@ -362,7 +364,7 @@
           <div class="row"><span class="lbl">Carnet 10 séances<small>valable 1 an</small></span><span class="val">350&nbsp;€<small>membre 315&nbsp;€</small></span></div>
           <div class="row"><span class="lbl">Décor à cru<small>à l&rsquo;heure</small></span><span class="val">20&nbsp;€<small>membre 18&nbsp;€</small></span></div>
         </div>
-        <div class="foot"><a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a></div>
+        <div class="foot"><a class="btn" href="#reservation">Réserver</a></div>
       </article>
 
       <article class="pcard highlight">
@@ -388,7 +390,7 @@
           <div class="row"><span class="lbl">Atelier 2 jours</span><span class="val">260&nbsp;€</span></div>
           <div class="row"><span class="lbl">Bon cadeau<small>montant libre · valable 1 an</small></span><span class="val">dès 50&nbsp;€</span></div>
         </div>
-        <div class="foot"><a class="btn" href="#reservation">Réserver / offrir</a></div>
+        <div class="foot"><a class="btn" href="#reservation" data-booking="gifts">Réserver / offrir</a></div>
       </article>
     </div>
     <p style="text-align:center;margin-top:34px;font-size:14.5px;color:var(--muted);max-width:640px;margin-left:auto;margin-right:auto">
@@ -418,7 +420,7 @@
       <div class="ad-box">
         <p class="num">50&nbsp;€</p>
         <p class="per">Par an</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Adhérer maintenant</a>
+        <a class="btn" href="#reservation" data-booking="catalog">Adhérer maintenant</a>
         <p class="fine">Dès le premier carnet de 20&nbsp;h, l&rsquo;adhésion est déjà amortie par la remise.</p>
       </div>
     </div>
@@ -464,15 +466,15 @@
       <p style="color:var(--muted);margin-bottom:26px">Réservez votre atelier directement ci-dessous, ou offrez l&rsquo;expérience rūsc&nbsp;: nos bons cadeaux sont valables sur l&rsquo;ensemble des ateliers.</p>
     </div>
 
-    <!-- ── SimplyBook embedded booking ── -->
-    <div class="sb-shell">
-      <div class="sb-bar">
+    <!-- ── Acuity embedded booking ── -->
+    <div class="bk-shell">
+      <div class="bk-bar">
         <span><b>Réservation en ligne</b> &nbsp;·&nbsp; ateliers, stages &amp; créneaux libres</span>
-        <a href="https://studiorusc.simplybook.it/v2/" target="_blank" rel="noopener">Ouvrir en plein écran ↗</a>
+        <nav class="bk-tabs" role="tablist"><a href="#reservation" role="tab" data-booking="schedule">Ateliers</a><a href="#reservation" role="tab" data-booking="catalog">Carnets &amp; adhésion</a><a href="#reservation" role="tab" data-booking="gifts">Bons cadeaux</a></nav>
       </div>
-      <div id="sb-bookings" data-sb-lang="fr"></div>
+      <div id="bk-bookings" data-title="Réservation rūsc"></div>
     </div>
-    <p class="sb-note">Réservation sécurisée par SimplyBook. Les carnets, l&rsquo;adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s&rsquo;applique automatiquement.</p>
+    <p class="bk-note">Réservation sécurisée par Acuity Scheduling. Les carnets, l&rsquo;adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s&rsquo;applique automatiquement.</p>
 
     <p style="text-align:center;margin-top:30px;font-size:14px;color:var(--muted)">
       <a href="/conditions.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent)">Conditions générales &amp; annulation</a>
@@ -541,13 +543,11 @@
   <p class="copy">© rūsc — tous droits réservés</p>
 </footer>
 
-<script src="/assets/sb-embed.js"></script>
+<script src="/assets/acuity-embed.js"></script>
 
 <script>
-  const BOOKING_URL = 'https://studiorusc.simplybook.it';
   const FORM_ENDPOINT = '';
   const FORM_FALLBACK = 'info@studio-rusc.com';
-  document.querySelectorAll('a[href*="simplybook"]').forEach(a => a.href = BOOKING_URL);
   document.getElementById('contact-form').addEventListener('submit', function(e){
     e.preventDefault();
     const f=e.target;

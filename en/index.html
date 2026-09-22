@@ -133,36 +133,38 @@
     .hero p{font-size:17px}
   }
 
-  /* ── EMBEDDED BOOKING (SimplyBook) ── */
-  #reservation .sb-shell{
+  /* ── EMBEDDED BOOKING (Acuity) ── */
+  #reservation .bk-shell{
     max-width:1000px;margin:0 auto;background:#fff;border:1px solid var(--line);
     border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(20,20,21,.08);
   }
-  #reservation .sb-bar{
+  #reservation .bk-bar{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
     padding:11px 18px;border-bottom:1px solid var(--line);
     font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
     background:linear-gradient(0deg,rgba(227,229,215,.55),rgba(227,229,215,.55));
   }
-  #reservation .sb-bar b{
+  #reservation .bk-bar b{
     font-family:var(--display);font-weight:400;font-size:15px;
     letter-spacing:0;text-transform:none;color:var(--ink);
   }
-  #reservation .sb-bar a{color:var(--accent);text-decoration:none;white-space:nowrap}
-  #reservation .sb-bar a:hover{border-bottom:1px solid var(--accent)}
-  #sb-bookings{position:relative;min-height:640px;background:#fff}
-  #sb-bookings:empty::after{
+  #reservation .bk-tabs{display:flex;gap:16px;flex-wrap:wrap}
+  #reservation .bk-tabs a{color:var(--muted);text-decoration:none;white-space:nowrap;border-bottom:1px solid transparent;padding-bottom:1px}
+  #reservation .bk-tabs a:hover{color:var(--accent)}
+  #reservation .bk-tabs a[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+  #bk-bookings{position:relative;min-height:640px;background:#fff}
+  #bk-bookings:empty::after{
     content:'';position:absolute;inset:0;
     background:linear-gradient(90deg,rgba(227,229,215,.35) 25%,rgba(227,229,215,.7) 37%,rgba(227,229,215,.35) 63%);
-    background-size:400% 100%;animation:sbShimmer 1.4s ease-in-out infinite;
+    background-size:400% 100%;animation:bkShimmer 1.4s ease-in-out infinite;
   }
-  @keyframes sbShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
-  .sb-frame{display:block;width:100%;border:0;height:900px;background:#fff}
-  .sb-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
+  @keyframes bkShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  .bk-frame{display:block;width:100%;border:0;min-height:900px;background:#fff}
+  .bk-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
   @media (max-width:640px){
-    #reservation .sb-shell{border-radius:10px}
-    #reservation .sb-bar{font-size:10.5px;padding:10px 13px;flex-wrap:wrap;justify-content:center;text-align:center}
-    .sb-frame{height:1100px}
+    #reservation .bk-shell{border-radius:10px}
+    #reservation .bk-bar{font-size:10.5px;padding:10px 13px;flex-wrap:wrap;justify-content:center;text-align:center}
+    .bk-frame{min-height:1100px}
   }
 </style>
 </head>
@@ -178,7 +180,7 @@
       <a href="#about">Ūs</a>
       <a href="#contact">Contact</a>
       <span class="lang"><a href="/">FR</a><a href="/en/" class="on">EN</a></span>
-      <a class="cta" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book</a>
+      <a class="cta" href="#reservation">Book</a>
     </nav>
   </div>
 </header>
@@ -189,7 +191,7 @@
   <span class="rule"></span>
   <p>At rūsc, our workshops are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
   <div class="actions">
-    <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book a workshop</a>
+    <a class="btn" href="#reservation">Book a workshop</a>
     <a class="btn ghost" href="#workshops">See the programme</a>
   </div>
 </section>
@@ -212,7 +214,7 @@
         <h3>children&rsquo;s workshops</h3>
         <p>For ages 7–12. A playful time to discover clay, shape and create, outside school holidays.</p>
         <p class="price">Limited places · booking recommended</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book</a>
+        <a class="btn" href="#reservation">Book</a>
       </article>
       <article class="card">
         <img class="thumb" src="../assets/photos/atelier-03.jpg" alt="Wheel-throwing — short course at rūsc">
@@ -220,7 +222,7 @@
         <h3>short courses</h3>
         <p>Ceramics, porcelain and other disciplines. A full immersion to learn the gestures and leave with your pieces.</p>
         <p class="price">One-day or weekend formats</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book</a>
+        <a class="btn" href="#reservation">Book</a>
       </article>
       <article class="card">
         <img class="thumb" src="../assets/photos/atelier-10.jpg" alt="Regular ceramics classes in Chamonix">
@@ -228,7 +230,7 @@
         <h3>regular classes</h3>
         <p>Progress step by step, session after session. Ceramics is at its heart, enriched by other invited disciplines: upholstery, hand-building, guest tutors.</p>
         <p class="price">5-session card valid 6 months · 10-session card valid 1 year</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book</a>
+        <a class="btn" href="#reservation">Book</a>
       </article>
     </div>
     <div class="head" style="margin-top:52px">
@@ -265,8 +267,8 @@
           <p style="margin-top:14px;font-size:15px;color:var(--muted)">Members get <strong>–10%</strong> on the 2-hour session, the 5-session card and the 10-session card. This is a strictly personal benefit: reserved for the member, non-transferable.</p>
         </div>
         <div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px">
-          <a class="btn" href="#reservation" data-sb-navigate="membership">Join</a>
-          <a class="btn ghost" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Book a slot</a>
+          <a class="btn" href="#reservation" data-booking="catalog">Join</a>
+          <a class="btn ghost" href="#reservation">Book a slot</a>
         </div>
       </div>
       <div class="art-stack">
@@ -289,15 +291,15 @@
       <p style="color:var(--muted);margin-bottom:26px">Book your workshop directly below, or give the rūsc experience: our gift vouchers are valid across all workshops.</p>
     </div>
 
-    <!-- ── SimplyBook embedded booking ── -->
-    <div class="sb-shell">
-      <div class="sb-bar">
+    <!-- ── Acuity embedded booking ── -->
+    <div class="bk-shell">
+      <div class="bk-bar">
         <span><b>Online booking</b> &nbsp;·&nbsp; workshops, courses &amp; open slots</span>
-        <a href="https://studiorusc.simplybook.it/v2/" target="_blank" rel="noopener">Open full screen ↗</a>
+        <nav class="bk-tabs" role="tablist"><a href="#reservation" role="tab" data-booking="schedule">Workshops</a><a href="#reservation" role="tab" data-booking="catalog">Cards &amp; membership</a><a href="#reservation" role="tab" data-booking="gifts">Gift vouchers</a></nav>
       </div>
-      <div id="sb-bookings" data-sb-lang="en"></div>
+      <div id="bk-bookings" data-title="rūsc booking"></div>
     </div>
-    <p class="sb-note">Secure booking by SimplyBook. Class cards, the annual membership and gift vouchers (valid 1 year) are offered at checkout. The 10% member discount is applied automatically.</p>
+    <p class="bk-note">Secure booking by Acuity Scheduling. Class cards, the annual membership and gift vouchers (valid 1 year) are offered at checkout. The 10% member discount is applied automatically.</p>
     <p style="text-align:center;margin-top:30px;font-size:14px;color:var(--muted)">
       <a href="/en/terms.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent)">Terms &amp; cancellation</a>
     </p>
@@ -365,13 +367,11 @@
   <p class="copy">© rūsc — all rights reserved</p>
 </footer>
 
-<script src="/assets/sb-embed.js"></script>
+<script src="/assets/acuity-embed.js"></script>
 
 <script>
-  const BOOKING_URL = 'https://studiorusc.simplybook.it';
   const FORM_ENDPOINT = '';
   const FORM_FALLBACK = 'info@studio-rusc.com';
-  document.querySelectorAll('a[href*="simplybook"]').forEach(a => a.href = BOOKING_URL);
   document.getElementById('contact-form').addEventListener('submit', function(e){
     e.preventDefault();
     const f=e.target;
