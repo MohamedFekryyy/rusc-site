@@ -10,18 +10,18 @@ import SectionHead from "@/components/SectionHead";
 import { EMAIL, INSTAGRAM, PHONE, PHONE_HREF, SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import drawing from "@/assets/dessin-sylwia.webp";
-import atelier01 from "@/assets/photos/atelier-01.jpg";
-import atelier02 from "@/assets/photos/atelier-02.jpg";
-import atelier03 from "@/assets/photos/atelier-03.jpg";
-import atelier04 from "@/assets/photos/atelier-04.jpg";
-import atelier05 from "@/assets/photos/atelier-05.jpg";
-import atelier06 from "@/assets/photos/atelier-06.jpg";
-import atelier07 from "@/assets/photos/atelier-07.jpg";
-import atelier08 from "@/assets/photos/atelier-08.jpg";
-import atelier09 from "@/assets/photos/atelier-09.jpg";
-import atelier10 from "@/assets/photos/atelier-10.jpg";
-import contact from "@/assets/photos/contact.jpg";
-import us03 from "@/assets/photos/us-03.jpg";
+import hero from "@/assets/photos/hero-o.jpg";
+import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
+import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
+import enfant from "@/assets/photos/enfant-o.jpg";
+import ceramique1j from "@/assets/photos/ceramique-1j-o.jpg";
+import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
+import porcelaine from "@/assets/photos/porcelaine-o.jpg";
+import tapisserie from "@/assets/photos/tapisserie-o.jpg";
+import membres from "@/assets/photos/membres-o.jpg";
+import usRaquel from "@/assets/photos/us-raquel-o.webp";
+import usChris from "@/assets/photos/us-chris-o.webp";
+import contact from "@/assets/photos/contact-o.webp";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -119,7 +119,7 @@ export default function Home() {
       </section>
 
       <figure className="hero-photo">
-        <Image src={atelier01} alt="Mains façonnant la terre à l’atelier rūsc, Chamonix" loading="eager" fetchPriority="high" />
+        <Image src={hero} alt="Mains façonnant la terre à l’atelier rūsc, Chamonix" loading="eager" fetchPriority="high" />
       </figure>
 
       <section id="ateliers">
@@ -127,7 +127,7 @@ export default function Home() {
           <SectionHead title="nos ateliers" sub={<>Osez l&rsquo;expérience</>} />
           <div className="grid">
             <article className="card">
-              <Image className="thumb" src={atelier03} alt="Tournage en céramique sur tour de potier à rūsc" />
+              <Image className="thumb" src={ceramique2h} alt="Atelier de tournage en céramique à rūsc" />
               <p className="k">Séances de 2&nbsp;h</p>
               <h3>atelier céramique 2h</h3>
               <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des séances de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
@@ -135,7 +135,7 @@ export default function Home() {
               <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={atelier02} alt="Modelage de l’argile à l’atelier rūsc" />
+              <Image className="thumb" src={modelage2h} alt="Atelier de modelage de l’argile à rūsc" />
               <p className="k">Séances de 2&nbsp;h</p>
               <h3>atelier modelage 2h</h3>
               <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
@@ -143,7 +143,7 @@ export default function Home() {
               <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={atelier07} alt="Atelier enfants 7–12 ans à rūsc" />
+              <Image className="thumb" src={enfant} alt="Atelier enfants 7–12 ans à rūsc" />
               <p className="k">Chaque mercredi</p>
               <h3>atelier enfant 2h30</h3>
               <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
@@ -151,24 +151,7 @@ export default function Home() {
               <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={atelier03} alt="Tournage sur tour de potier — stage rūsc" />
-              <p className="k">Journée ou week-end</p>
-              <h3>stages</h3>
-              <p>Céramique, porcelaine et autres disciplines. Une immersion complète pour apprendre les gestes et repartir avec vos pièces.</p>
-              <p className="price">Formules d’une journée ou de week-end</p>
-              <a className="btn" href="#reservation">Réserver</a>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={atelier10} alt="Ateliers réguliers de céramique à Chamonix" />
-              <p className="k">Toute l’année</p>
-              <h3>ateliers réguliers</h3>
-              <p>Progresser pas à pas, séance après séance. La céramique en est le cœur, enrichie par d’autres disciplines invitées : tapisserie, modelage, intervenants invités.</p>
-              <p className="price">Carnet 5 séances valable 6 mois · Carnet 10 séances valable 1 an</p>
-              <p className="price" style={{ color: "var(--ink)" }}>Séance 2&nbsp;h&nbsp;: 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€<br /><span style={{ color: "var(--accent)" }}>Membre&nbsp;: –10&nbsp;% (45&nbsp;€ / 189&nbsp;€ / 315&nbsp;€)</span></p>
-              <a className="btn" href="#reservation">Réserver</a>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={atelier05} alt="Atelier de tournage en grès — journée à rūsc" />
+              <Image className="thumb" src={ceramique1j} alt="Atelier de tournage en grès — une journée à rūsc" />
               <p className="k">10h – 17h</p>
               <h3>atelier céramique 1j</h3>
               <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
@@ -176,7 +159,7 @@ export default function Home() {
               <BookingButton lang="fr" workshop="atelier-ceramique-1j">S’inscrire</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={atelier08} alt="Atelier de tournage en grès sur deux jours à rūsc" />
+              <Image className="thumb" src={ceramique2j} alt="Atelier de tournage en grès sur deux jours à rūsc" />
               <p className="k">10h – 17h</p>
               <h3>atelier céramique 2 jours</h3>
               <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
@@ -184,12 +167,20 @@ export default function Home() {
               <BookingButton lang="fr" workshop="atelier-ceramique-2j">S’inscrire</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={atelier09} alt="Atelier de tournage en porcelaine à rūsc" />
+              <Image className="thumb" src={porcelaine} alt="Atelier de tournage en porcelaine à rūsc" />
               <p className="k">10h – 17h</p>
               <h3>atelier porcelaine 1j</h3>
               <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
               <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
               <BookingButton lang="fr" workshop="porcelaine">S’inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={tapisserie} alt="Atelier de tapisserie d’ameublement traditionnelle à rūsc" />
+              <p className="k">2 jours</p>
+              <h3>tapisserie traditionnelle d&rsquo;ameublement 2j</h3>
+              <p>Pour les débutants ou confirmés, venez apprendre toutes les étapes de la tapisserie d&rsquo;ameublement traditionnelle. Vous pouvez apporter votre projet personnel ou une chaise d&rsquo;école vous sera fournie pour pratiquer.</p>
+              <p className="price">Sur demande · nous contacter</p>
+              <a className="btn" href="#contact">+ info</a>
             </article>
           </div>
           <div className="head" style={{ marginTop: "52px" }}>
@@ -231,7 +222,7 @@ export default function Home() {
               </div>
             </div>
             <div className="art-stack">
-              <Image src={atelier04} alt="L’atelier rūsc : 7 tours de potier, espace professionnel" />
+              <Image src={membres} alt="L’atelier libre rūsc — espace professionnel équipé" />
               <Image className="drawing" src={drawing} alt="Dessin au trait de Sylwia — main, bouteilles, chaise" />
             </div>
           </div>
@@ -363,8 +354,8 @@ export default function Home() {
         <div className="wrap">
           <SectionHead title="ūs" sub="« dare art… »" />
           <div className="about-grid">
-            <figure className="about-ph"><Image src={atelier06} alt="Raquel Calleja, cofondatrice de rūsc" /></figure>
-            <figure className="about-ph"><Image src={us03} alt="Chris Kerr, cofondateur de rūsc" /></figure>
+            <figure className="about-ph"><Image src={usRaquel} alt="Raquel Calleja, cofondatrice de rūsc" /></figure>
+            <figure className="about-ph"><Image src={usChris} alt="Chris Kerr, cofondateur de rūsc" /></figure>
           </div>
           <div style={{ maxWidth: "720px", margin: "34px auto 0" }}>
             <p style={muted}>«&nbsp;Dare Art / Osez l&rsquo;art&nbsp;», disait Raquel Calleja. De ce rêve est né <strong>rūsc</strong>&nbsp;: créer à Chamonix un lieu où l&rsquo;art puisse circuler librement, entre effervescence et mémoire.</p>
@@ -377,8 +368,7 @@ export default function Home() {
             <div style={{ display: "grid", gap: "22px" }}>
               <Bio name="raquel calleja">Après une longue période à l&rsquo;étranger, c&rsquo;est en rentrant en France que Raquel découvre la céramique, une discipline qui deviendra bien plus qu&rsquo;un simple loisir&nbsp;: une véritable passion. Avec un parcours riche et éclectique, elle a d&rsquo;abord évolué dans le marketing, puis dans le management de luxe. Mais c&rsquo;est dans l&rsquo;art de la céramique que Raquel trouve son véritable épanouissement. Fascinée par l&rsquo;équilibre entre rigueur technique et liberté d&rsquo;expression, chaque geste, chaque cuisson, chaque émail est une quête d&rsquo;apprentissage et de perfection. Au sein de rūsc, elle partage cette passion avec une énergie contagieuse.</Bio>
               <Bio name="christopher kerr">Écossais d&rsquo;origine, Chris vit à Chamonix depuis plus de 15 ans. Après une carrière dans l&rsquo;immobilier et la gestion d&rsquo;entreprise, il découvre la céramique et s&rsquo;y investit pleinement, devenant le tout premier élève de Raquel. Aujourd&rsquo;hui partenaire essentiel de rūsc, il anime les séances du mercredi soir avec enthousiasme et bienveillance, et développe ses propres créations. Sa pédagogie naturelle et son dynamisme font de lui une figure incontournable de l&rsquo;atelier.</Bio>
-              <Bio name="anaïs lejeune">Formée en tapisserie d&rsquo;ameublement depuis plus de 10 ans et passionnée par la décoration, Anaïs combine ces deux expertises pour donner vie à des créations uniques. Travailler avec ses mains, au milieu des odeurs de toile de jute et de crin, est bien plus qu&rsquo;un métier&nbsp;: c&rsquo;est une véritable passion. Au sein de rūsc, elle anime avec enthousiasme les ateliers de tapisserie pour transmettre son savoir-faire.</Bio>
-              <Bio name="élodie lecont">Élodie découvre très tôt l&rsquo;artisanat et se laisse séduire par la magie de la terre, matière tactile et vivante. Elle rejoint l&rsquo;équipe rūsc pour partager à son tour son amour du geste et de la création.</Bio>
+              <Bio name="anaïs lejeune">Formée en tapisserie d&rsquo;ameublement depuis plus de 10 ans et passionnée par la décoration, Anaïs combine ces deux expertises pour donner vie à des créations uniques. Travailler avec ses mains, au milieu des odeurs de toile de jute et de crin, est bien plus qu&rsquo;un métier&nbsp;: c&rsquo;est une véritable passion. Au sein de rūsc, elle anime avec enthousiasme les ateliers de tapisserie pour transmettre son savoir-faire.</Bio>              <Bio name="élodie lecont">Élodie découvre très tôt l&rsquo;artisanat et se laisse séduire par la magie de la terre, matière tactile et vivante. Elle rejoint l&rsquo;équipe rūsc pour partager à son tour son amour du geste et de la création.</Bio>
             </div>
           </div>
         </div>
