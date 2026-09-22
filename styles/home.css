@@ -193,3 +193,8 @@ html[lang="en"] .feature .txt li strong{color:inherit}
 
 /* next/image writes width/height attributes; these images are sized by aspect-ratio. */
 .card .thumb,.about-ph img{height:auto}
+
+/* Booking page (/reserver/, /en/booking/): its section title is the page's h1. */
+.head h1{font-size:clamp(30px,4.4vw,44px)}
+/* Scrolling to the booking block stops where embed.js puts it (iframe data-offset-top 120). */
+#reservation .bk-shell{scroll-margin-top:70px}

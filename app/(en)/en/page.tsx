@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import BookingButton from "@/components/BookingButton";
-import BookingEmbed from "@/components/BookingEmbed";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
+import { BOOKING } from "@/lib/routes";
 import { EMAIL, INSTAGRAM, PHONE, PHONE_HREF, SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import drawing from "@/assets/dessin-sylwia.webp";
@@ -64,17 +64,7 @@ export default function Home() {
     <>
       <JsonLd data={jsonLd} />
 
-      <Header
-        lang="en"
-        links={[
-          { href: "#workshops", label: "Workshop" },
-          { href: "#members", label: "Become a member" },
-          { href: "#reservation", label: "Booking" },
-          { href: "#about", label: "Ūs" },
-          { href: "#contact", label: "Contact" },
-        ]}
-        cta="Book"
-      />
+      <Header lang="en" page="home" />
 
       <section className="hero wrap">
         <p className="eyebrow">Ceramics studio · Chamonix</p>
@@ -82,7 +72,7 @@ export default function Home() {
         <span className="rule"></span>
         <p>At rūsc, our workshops are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">
-          <a className="btn" href="#reservation">Book a workshop</a>
+          <a className="btn" href={BOOKING.en}>Book a workshop</a>
           <a className="btn ghost" href="#workshops">See the programme</a>
         </div>
       </section>
@@ -101,7 +91,7 @@ export default function Home() {
               <h3>children&rsquo;s workshops</h3>
               <p>For ages 7–12. A playful time to discover clay, shape and create, outside school holidays.</p>
               <p className="price">Limited places · booking recommended</p>
-              <a className="btn" href="#reservation">Book</a>
+              <BookingButton lang="en" workshop="modelage-enfant">Book</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier03} alt="Wheel-throwing — short course at rūsc" />
@@ -109,7 +99,7 @@ export default function Home() {
               <h3>short courses</h3>
               <p>Ceramics, porcelain and other disciplines. A full immersion to learn the gestures and leave with your pieces.</p>
               <p className="price">One-day or weekend formats</p>
-              <a className="btn" href="#reservation">Book</a>
+              <a className="btn" href={BOOKING.en}>Book</a>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier10} alt="Regular ceramics classes in Chamonix" />
@@ -117,7 +107,7 @@ export default function Home() {
               <h3>regular classes</h3>
               <p>Progress step by step, session after session. Ceramics is at its heart, enriched by other invited disciplines: upholstery, hand-building, guest tutors.</p>
               <p className="price">5-session card valid 6 months · 10-session card valid 1 year</p>
-              <a className="btn" href="#reservation">Book</a>
+              <a className="btn" href={BOOKING.en}>Book</a>
             </article>
           </div>
           <div className="head" style={{ marginTop: "52px" }}>
@@ -150,8 +140,8 @@ export default function Home() {
                 <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Members get <strong>–10%</strong> on the 2-hour session, the 5-session card and the 10-session card. This is a strictly personal benefit: reserved for the member, non-transferable.</p>
               </div>
               <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
-                <BookingButton view="catalog">Join</BookingButton>
-                <a className="btn ghost" href="#reservation">Book a slot</a>
+                <BookingButton lang="en" view="catalog">Join</BookingButton>
+                <a className="btn ghost" href={BOOKING.en}>Book a slot</a>
               </div>
             </div>
             <div className="art-stack">
@@ -162,26 +152,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="reservation">
-        <div className="wrap">
-          <SectionHead title="booking" sub="Dare the experience" />
-          <div style={{ maxWidth: "680px", margin: "0 auto 30px", textAlign: "center" }}>
-            <p style={{ color: "var(--muted)", marginBottom: "14px" }}>Places are limited to preserve the quality and attention given to each participant.</p>
-            <p style={{ color: "var(--muted)", marginBottom: "26px" }}>Book your workshop directly below, or give the rūsc experience: our gift vouchers are valid across all workshops.</p>
-          </div>
-
-          <BookingEmbed
-            heading="Online booking"
-            caption="workshops, courses & open slots"
-            tabs={{ schedule: "Workshops", catalog: "Cards & membership", gifts: "Gift vouchers" }}
-            title="rūsc booking"
-          />
-          <p className="bk-note">Secure booking by Acuity Scheduling. Class cards, the annual membership and gift vouchers (valid 1 year) are offered at checkout. The 10% member discount is applied automatically.</p>
-          <p style={{ textAlign: "center", marginTop: "30px", fontSize: "14px", color: "var(--muted)" }}>
-            <a href="/en/terms/" style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>Terms &amp; cancellation</a>
-          </p>
-        </div>
-      </section>
 
       <section id="about">
         <div className="wrap">
@@ -221,12 +191,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer
-        address="99 Promenade Marie Paradis · 74400 Chamonix-Mont-Blanc · France"
-        hours="Open to the public: Monday to Friday, 2pm – 6pm"
-        terms={{ href: "/en/terms/", label: "Terms & cancellation" }}
-        copy="© rūsc — all rights reserved"
-      />
+      <Footer lang="en" />
     </>
   );
 }

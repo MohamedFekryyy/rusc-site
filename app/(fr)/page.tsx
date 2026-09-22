@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import BookingButton from "@/components/BookingButton";
-import BookingEmbed from "@/components/BookingEmbed";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -61,11 +60,6 @@ const rateRow: CSSProperties = {
   justifyContent: "space-between",
   gap: "12px",
 };
-const termsLink: CSSProperties = {
-  color: "var(--accent)",
-  textDecoration: "none",
-  borderBottom: "1px solid var(--accent)",
-};
 
 function PriceRow({ label, note, value, valueNote }: {
   label: ReactNode;
@@ -111,18 +105,7 @@ export default function Home() {
     <>
       <JsonLd data={jsonLd} />
 
-      <Header
-        lang="fr"
-        links={[
-          { href: "#ateliers", label: "Workshop" },
-          { href: "#membres", label: "Devenir membre" },
-          { href: "#tarifs", label: "Tarifs" },
-          { href: "#reservation", label: "Réservation" },
-          { href: "#us", label: "Ūs" },
-          { href: "#contact", label: "Contact" },
-        ]}
-        cta="Réserver"
-      />
+      <Header lang="fr" page="home" />
 
       <section className="hero wrap">
         <p className="eyebrow">Atelier de céramique · Chamonix</p>
@@ -149,7 +132,7 @@ export default function Home() {
               <h3>atelier céramique 2h</h3>
               <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des séances de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
-              <BookingButton appointment="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier02} alt="Modelage de l’argile à l’atelier rūsc" />
@@ -157,7 +140,7 @@ export default function Home() {
               <h3>atelier modelage 2h</h3>
               <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
-              <BookingButton appointment="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier07} alt="Atelier enfants 7–12 ans à rūsc" />
@@ -165,7 +148,7 @@ export default function Home() {
               <h3>atelier enfant 2h30</h3>
               <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
               <p className="price">Places limitées · réservation conseillée</p>
-              <a className="btn" href="#reservation">Réserver</a>
+              <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier03} alt="Tournage sur tour de potier — stage rūsc" />
@@ -190,7 +173,7 @@ export default function Home() {
               <h3>atelier céramique 1j</h3>
               <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
               <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
-              <a className="btn" href="#reservation">S’inscrire</a>
+              <BookingButton lang="fr" workshop="atelier-ceramique-1j">S’inscrire</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier08} alt="Atelier de tournage en grès sur deux jours à rūsc" />
@@ -198,7 +181,7 @@ export default function Home() {
               <h3>atelier céramique 2 jours</h3>
               <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
               <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
-              <a className="btn" href="#reservation">S’inscrire</a>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2j">S’inscrire</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={atelier09} alt="Atelier de tournage en porcelaine à rūsc" />
@@ -206,7 +189,7 @@ export default function Home() {
               <h3>atelier porcelaine 1j</h3>
               <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
               <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
-              <a className="btn" href="#reservation">S’inscrire</a>
+              <BookingButton lang="fr" workshop="porcelaine">S’inscrire</BookingButton>
             </article>
           </div>
           <div className="head" style={{ marginTop: "52px" }}>
@@ -243,7 +226,7 @@ export default function Home() {
                 <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Les membres bénéficient de <strong>–10&nbsp;%</strong> sur la séance de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 séances et le carnet 10 séances. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
               </div>
               <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
-                <BookingButton view="catalog">Adhérer</BookingButton>
+                <BookingButton lang="fr" view="catalog">Adhérer</BookingButton>
                 <a className="btn ghost" href="#reservation">Réserver un créneau</a>
               </div>
             </div>
@@ -301,7 +284,7 @@ export default function Home() {
                 <PriceRow label="Atelier porcelaine 1 jour" note="une fois par mois" value={<>230&nbsp;€</>} />
                 <PriceRow label="Bon cadeau" note="montant libre · valable 1 an" value={<>dès 50&nbsp;€</>} />
               </div>
-              <div className="foot"><BookingButton view="gifts">Réserver / offrir</BookingButton></div>
+              <div className="foot"><BookingButton lang="fr" view="gifts">Réserver / offrir</BookingButton></div>
             </article>
           </div>
           <p style={{ textAlign: "center", marginTop: "34px", fontSize: "14.5px", color: "var(--muted)", maxWidth: "640px", marginLeft: "auto", marginRight: "auto" }}>
@@ -327,7 +310,7 @@ export default function Home() {
             <div className="ad-box">
               <p className="num">50&nbsp;€</p>
               <p className="per">Par an</p>
-              <BookingButton view="catalog">Adhérer maintenant</BookingButton>
+              <BookingButton lang="fr" view="catalog">Adhérer maintenant</BookingButton>
               <p className="fine">Dès le premier carnet de 20&nbsp;h, l&rsquo;adhésion est déjà amortie par la remise.</p>
             </div>
           </div>
@@ -337,53 +320,42 @@ export default function Home() {
       {/* Reviews: hidden until there are quotes to show (styles: .proof / .quote). */}
       <section id="avis" style={{ display: "none" }}></section>
 
+
       <section id="reservation">
         <div className="wrap">
           <SectionHead title="réserver" sub={<>Osez l&rsquo;expérience</>} />
-          {/* Each card opens its workshop in the booking embed below. */}
+          {/* Each card opens the booking page (/reserver/) on that workshop or offer. */}
           <div className="price-grid">
             <LinkCard tag={<>Tournage · séances de 2&nbsp;h</>} title="atelier céramique 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
-              <BookingButton appointment="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag={<>Modelage · séances de 2&nbsp;h</>} title="atelier modelage 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
-              <BookingButton appointment="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag="7–12 ans · chaque mercredi" title="atelier enfant 2h30" unit="Un temps ludique pour découvrir, façonner et créer">
-              <BookingButton appointment="modelage-enfant">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="modelage-enfant">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag="Tournage grès · 10h – 17h" title="atelier céramique 1j" unit={<>180&nbsp;€</>}>
-              <BookingButton appointment="atelier-ceramique-1j">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-ceramique-1j">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag="Tournage grès · 2 jours" title="atelier céramique 2 jours" unit={<>280&nbsp;€</>}>
-              <BookingButton appointment="atelier-ceramique-2j">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2j">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag="Porcelaine · 10h – 17h" title="atelier porcelaine 1j" unit={<>230&nbsp;€</>}>
-              <BookingButton appointment="porcelaine">S&rsquo;inscrire</BookingButton>
+              <BookingButton lang="fr" workshop="porcelaine">S&rsquo;inscrire</BookingButton>
             </LinkCard>
           </div>
           <div className="price-grid" style={{ marginTop: "26px" }}>
             <LinkCard tag="Atelier libre · membres" title="réserver un créneau" unit={<>Accès autonome à l&rsquo;espace équipé</>}>
-              <BookingButton>Réserver</BookingButton>
+              <BookingButton lang="fr">Réserver</BookingButton>
             </LinkCard>
             <LinkCard tag="Offrir" title="bon cadeau" unit="Valable 1 an pour toute formation ou carnet de cours">
-              <BookingButton view="gifts">+ info</BookingButton>
+              <BookingButton lang="fr" view="gifts">+ info</BookingButton>
             </LinkCard>
             <LinkCard tag="Sur mesure" title={<>location d&rsquo;espace &amp; résidence</>} unit={<>Anniversaire, EVJF, team building, résidence d&rsquo;artiste…</>}>
               <a className="btn" href="#contact">Nous contacter</a>
             </LinkCard>
           </div>
-
-          <BookingEmbed
-            heading="Réservation en ligne"
-            caption="ateliers, stages & créneaux libres"
-            tabs={{ schedule: "Ateliers", catalog: "Carnets & adhésion", gifts: "Bons cadeaux" }}
-            title="Réservation rūsc"
-          />
-          <p className="bk-note">Réservation sécurisée par Acuity Scheduling. Les carnets, l’adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s’applique automatiquement.</p>
-
-          <p style={{ textAlign: "center", marginTop: "34px", fontSize: "14px", color: "var(--muted)" }}>
-            <a href="/conditions/" style={termsLink}>Conditions générales &amp; annulation</a>
-          </p>
         </div>
       </section>
 
@@ -434,12 +406,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer
-        address="99 Promenade Marie Paradis · 74400 Chamonix-Mont-Blanc"
-        hours="Ouverture au public : du lundi au vendredi, 14h – 18h"
-        terms={{ href: "/conditions/", label: "Conditions générales & annulation" }}
-        copy="© rūsc — tous droits réservés"
-      />
+      <Footer lang="fr" />
     </>
   );
 }

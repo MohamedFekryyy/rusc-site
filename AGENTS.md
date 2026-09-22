@@ -8,11 +8,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # rūsc site: notes for agents
 
-Bilingual marketing site for rūsc, a ceramics studio in Chamonix: French at `/`, English at `/en/`, plus a terms page for each language (`/conditions/`, `/en/terms/`).
+Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language has three pages: home (`/`, `/en/`), booking (`/reserver/`, `/en/booking/`) and terms (`/conditions/`, `/en/terms/`).
 
 - **Stack:** Next.js 16 (App Router, TypeScript), exported as static HTML (`output: "export"`).
-- **Hosting:** Cloudflare Pages. The test domain is rselavy.com; the target domain is studio-rusc.com. Squarespace only manages the domain now.
-- **Bookings:** Acuity Scheduling, owner ID `19154889`, embedded in the page. The Acuity dashboard (services, hours, prices, payments) stays in Acuity.
+- **Hosting:** Cloudflare Pages. The test domain is rselavy.com, deployed by hand with wrangler; the target domain is studio-rusc.com. Squarespace only manages the domain now. The GitHub repo is also connected to a Vercel project, `rusc-preview`, which deploys every push (production from `main`).
+- **Bookings:** Acuity Scheduling, owner ID `19154889`, embedded in the booking pages. The Acuity dashboard (services, hours, prices, payments) stays in Acuity.
 
 ## Commands
 
@@ -27,7 +27,11 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix: French at `/`
 - **Keep the UI as it is.** The CSS was ported verbatim from the old static pages. Don't restyle anything unless asked.
 - **FR and EN are separate pages, and they differ.** EN has no pricing section, membership band or booking cards, and its section IDs differ (`#workshops`, `#members`, `#about` versus `#ateliers`, `#membres`, `#us`). When content should stay in sync, edit both pages.
 - **Link between the home and terms pages with plain `<a>`, not `next/link`.** The two page types style bare elements (`p`, `li`, `header`, `footer`) differently. Next.js does not unload global CSS on client-side navigation, so a `<Link>` would carry the home styles over into the terms page.
-- **Bookings never leave the site.** Buttons carry `data-booking="schedule|catalog|gifts"` (and optionally `data-appointment-type`). The `BookingEmbed` client component catches those clicks and loads the matching Acuity page in its iframe. Do not link to `rusc.as.me` or `app.acuityscheduling.com` directly.
+- **Bookings never leave the site.**
+  - The FR home page lists everything bookable in `#reservation`. EN has no list.
+  - Buttons that name a workshop or offer are `BookingButton`s. They link to the booking page with `?workshop=<slug>` or `?view=catalog|gifts` (see `bookingHref` in `lib/routes.ts`).
+  - On the booking page, `BookingEmbed` opens the Acuity page that the URL names. Its tabs switch the view in place and update the URL.
+  - Do not link to `rusc.as.me` or `app.acuityscheduling.com` directly.
 - **It's a static export,** so there's no `redirects()`, `headers()`, API routes or server actions. Redirects live in `public/_redirects` (Cloudflare Pages format).
 
 ## Migration log: static HTML → Next.js (2026-09-22)
@@ -100,3 +104,22 @@ All of this is on the `nextjs-migration` branch. Some steps were committed from 
   - `assets/acuity-embed.js`, replaced by `BookingEmbed`
 - `README.md` is rewritten for Next.js (still in French). Deploying now means `npm run build`, then publishing `out/`.
 - `.claude/launch.json` has two configs: `dev` (next dev) and `export` (serves `out/` on :8125).
+
+### 6. Booking on its own page
+- **New pages:** `/reserver/` and `/en/booking/`. Each holds the page title (an `h1` styled like the section titles), the Acuity embed, the payment note and the terms link. Nothing else, so a specific booking lands straight on its form.
+- **Home pages:**
+  - The FR home keeps its list of bookable items (`#reservation`, where it always was).
+  - Every card button opens the booking page on that item: `?workshop=<slug>`, `?view=catalog` (membership) or `?view=gifts`.
+  - General "Réserver" links (header, hero, generic cards) still scroll to that list.
+  - EN has no list, so its booking links go straight to `/en/booking/`.
+- **Deep links from the home workshop cards:** céramique 2h, modelage 2h, enfant, céramique 1j, céramique 2 jours and porcelaine all open their own workshop. Only "stages" and "ateliers réguliers" stay generic.
+- **Shared components:** `Header` and `Footer` now take `lang` (and `page` for the header). Nav links point at `/#section`, so they work from any page, and the FR/EN switch keeps you on the same page.
+- **URLs and SEO:**
+  - The sitemap lists both booking pages with hreflang.
+  - `public/_redirects` sends `/rserver`, `/cart`, `/appointments-1-2`, `/reservation` and `/en/reservation` to the booking pages, and `/atelier-cramique-2h` to that workshop.
+- **Checked:**
+  - The home sections have the same sizes as the verified port.
+  - Clicking a list card opens `/reserver/?workshop=porcelaine` directly on that workshop.
+  - The tabs update the URL.
+  - `/en/booking/?view=gifts` opens on the gift vouchers.
+  - No sideways scrolling at 375px.
