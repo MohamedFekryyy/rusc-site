@@ -11,7 +11,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language has three pages: home (`/`, `/en/`), booking (`/reserver/`, `/en/booking/`) and terms (`/conditions/`, `/en/terms/`).
 
 - **Stack:** Next.js 16 (App Router, TypeScript), exported as static HTML (`output: "export"`).
-- **Hosting:** Cloudflare Pages. The test domain is rselavy.com, deployed by hand with wrangler; the target domain is studio-rusc.com. Squarespace only manages the domain now. The GitHub repo is also connected to a Vercel project, `rusc-preview`, which deploys every push (production from `main`).
+- **Hosting:**
+  - Vercel project `rusc-preview`, connected to this GitHub repo. Every push to `main` deploys to https://rusc-preview.vercel.app; other branches get preview deploys behind Vercel login.
+  - Cloudflare Pages (`rselavy` project) serves the test domain rselavy.com. It is deployed by hand with wrangler.
+  - The target domain is studio-rusc.com. Squarespace only manages the domain now.
 - **Bookings:** Acuity Scheduling, owner ID `19154889`, embedded in the booking pages. The Acuity dashboard (services, hours, prices, payments) stays in Acuity.
 
 ## Commands
@@ -21,6 +24,19 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 | `npm run dev` | Dev server on http://localhost:3000 |
 | `npm run build` | Static export into `out/` (this folder is what gets deployed) |
 | `npm run lint` | ESLint (Next.js core-web-vitals + TypeScript rules) |
+
+## Shipping (pushing to `main`)
+
+- **`main` is production.** Every push to it redeploys https://rusc-preview.vercel.app. Run `npm run build` and `npm run lint` first; both must pass.
+- **Vercel builds this as a Next.js app** because `vercel.json` pins `"framework": "nextjs"`. Keep that file: without a preset, Vercel served only `public/` and every page was a 404.
+- **Check a deploy without the dashboard:** `gh api repos/MohamedFekryyy/rusc-site/commits/<sha>/status` returns the Vercel state; then open the public URL. The Vercel tools here can't read build logs (401).
+- **rselavy.com is not deployed from Git.** After `main` changes, publish it by hand:
+
+  ```bash
+  npm run build && CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy out --project-name=rselavy
+  ```
+- **The owner also uses GitHub Desktop on this same checkout,** and may commit, push or switch branches while you work. Check `git branch --show-current` before every commit, and commit each step as soon as it's done.
+- **Log each change** in the migration log below: what changed, why, and the commit.
 
 ## Rules of thumb
 
@@ -36,7 +52,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 
 ## Migration log: static HTML → Next.js (2026-09-22)
 
-All of this is on the `nextjs-migration` branch. Some steps were committed from GitHub Desktop while the work was in progress: step 3 is `07008f5` ("push"), and the font change in step 4 is `5558a28`.
+The work was done on the `nextjs-migration` branch and merged into `main` the same day (step 8). Some steps were committed from GitHub Desktop while the work was in progress: step 3 is `07008f5` ("push"), and the font change in step 4 is `5558a28`.
 
 ### 1. Tooling scaffold
 - Copied the Next.js 16.3.6 `create-next-app` template (App Router, TypeScript, ESLint, no Tailwind) into the repo: `package.json`, `tsconfig.json`, `eslint.config.mjs`.
@@ -128,3 +144,13 @@ All of this is on the `nextjs-migration` branch. Some steps were committed from 
 - The repo's Vercel project (`rusc-preview`) had no framework preset, so it served `public/` (only `_redirects`) and returned 404 everywhere, even before the migration.
 - `vercel.json` now pins `"framework": "nextjs"`. Vercel then builds the app and serves the static export at rusc-preview.vercel.app.
 - This doesn't affect Cloudflare: that deploy still publishes `out/` with wrangler.
+
+### 8. Pushed to `main`
+- **Merge:** at 22:13, GitHub Desktop fast-forwarded `main` to `nextjs-migration` (`d2e916a`, steps 1–5) and pushed it.
+- **Later commits:** step 6 (`012b84a`, booking pages) and step 7 (`fd35a29`, `vercel.json`) were committed straight on `main` and pushed. `nextjs-migration` was moved to the same commit; it has nothing extra and can be deleted.
+- **Vercel production for `fd35a29` is live** at https://rusc-preview.vercel.app. All seven routes return 200: `/`, `/en/`, `/reserver/`, `/en/booking/`, `/conditions/`, `/en/terms/`, `/sitemap.xml`. It is the Next.js build:
+  - `/_next/static/*` is served with `max-age=31536000, immutable`
+  - routes are matched Next-style (`x-matched-path: /reserver`)
+  - `/reserver` redirects with a 308 to `/reserver/`
+- **Not updated yet:** rselavy.com (Cloudflare) still serves the old static site until the wrangler deploy under "Shipping" is run.
+- **This documentation** (the "Shipping" section, this step, `CLAUDE.md`, README) was committed on `main` and pushed as well.

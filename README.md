@@ -53,6 +53,8 @@ CLOUDFLARE_API_TOKEN=... npx wrangler pages deploy out --project-name=rselavy
 **Option B — intégration Git de Cloudflare Pages**
 Build command `npm run build`, output directory `out`, variable `NODE_VERSION=22` (Next.js 16 demande Node 20.9 ou plus).
 
+**Vercel (aperçu)** — chaque push sur `main` redéploie automatiquement https://rusc-preview.vercel.app (build Next.js imposé par `vercel.json`).
+
 ## Bascule finale
 
 1. Valider le site sur `rselavy.com`.
