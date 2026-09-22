@@ -40,3 +40,10 @@ Each step below is one commit on the `nextjs-migration` branch.
 - `.gitignore` now ignores `node_modules`, `.next` and `out`.
 - Added this file, plus `CLAUDE.md` (which just includes it).
 - Starting point: `main` at `31c0342` ("Merge branch 'main'…"), a static site with `index.html`, `en/index.html`, `conditions.html`, `en/terms.html` and `assets/`.
+
+### 2. Styles
+- The old pages each carried an inline `<style>`. A script extracted them into:
+  - `styles/globals.css`: reset, colour tokens and `body`, which were identical on every page. The font tokens now point at the `next/font` variables.
+  - `styles/home.css`: the FR home stylesheet, verbatim. The EN home page had an older copy of the same sheet, and a rule-by-rule diff found only two differences that show: hero text width (640px vs 620px) and the colour of `<strong>` inside the membership price list. Both are kept as `html[lang="en"]` overrides at the end of the file.
+  - `styles/legal.css`: the terms-page stylesheet, verbatim (FR and EN were identical).
+- The terms sheet styles bare `p`, `li`, `header` and `footer`, so it must never share a page with `home.css` (see the rules of thumb above).

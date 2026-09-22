@@ -1,0 +1,10 @@
+/* Base shared by every page: reset, colour tokens, body. */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#e3e5d7; --ink:#141415; --accent:#3b4e3e; --accent-soft:#c3ccbe; --ochre:#846437;
+  --line:rgba(20,20,21,.16); --muted:rgba(20,20,21,.62);
+  /* --font-gilda / --font-jost come from next/font (app/fonts.ts). */
+  --display:var(--font-gilda),Georgia,serif;
+  --sans:var(--font-jost),system-ui,-apple-system,sans-serif;
+}
+body{font-family:var(--sans);font-weight:300;font-size:17px;line-height:1.7;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
