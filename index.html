@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>rūsc — atelier de céramique à Chamonix · oser l'art</title>
-<meta name="description" content="rūsc, atelier de céramique à Chamonix. Ateliers ouverts à tous sans prérequis, ateliers libres réservés aux membres, adhésion annuelle. Osez l'art.">
+<meta name="description" content="rūsc, atelier de céramique à Chamonix : tournage, modelage, porcelaine, tapisserie. Ateliers ouverts à tous sans prérequis, ateliers libres pour les membres, adhésion annuelle. Osez l'art.">
 <link rel="canonical" href="https://studio-rusc.com/">
 <link rel="alternate" hreflang="fr" href="https://studio-rusc.com/">
 <link rel="alternate" hreflang="en" href="https://studio-rusc.com/en/">
@@ -195,37 +195,11 @@
     .hero p{font-size:17px}
   }
 
-  /* ── EMBEDDED BOOKING (SimplyBook) ── */
-  #reservation .sb-shell{
-    max-width:1000px;margin:0 auto;background:#fff;border:1px solid var(--line);
-    border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(20,20,21,.08);
-  }
-  #reservation .sb-bar{
-    display:flex;align-items:center;justify-content:space-between;gap:14px;
-    padding:11px 18px;border-bottom:1px solid var(--line);
-    font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
-    background:linear-gradient(0deg,rgba(227,229,215,.55),rgba(227,229,215,.55));
-  }
-  #reservation .sb-bar b{
-    font-family:var(--display);font-weight:400;font-size:15px;
-    letter-spacing:0;text-transform:none;color:var(--ink);
-  }
-  #reservation .sb-bar a{color:var(--accent);text-decoration:none;white-space:nowrap}
-  #reservation .sb-bar a:hover{border-bottom:1px solid var(--accent)}
-  #sb-bookings{position:relative;min-height:640px;background:#fff}
-  #sb-bookings:empty::after{
-    content:'';position:absolute;inset:0;
-    background:linear-gradient(90deg,rgba(227,229,215,.35) 25%,rgba(227,229,215,.7) 37%,rgba(227,229,215,.35) 63%);
-    background-size:400% 100%;animation:sbShimmer 1.4s ease-in-out infinite;
-  }
-  @keyframes sbShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
-  .sb-frame{display:block;width:100%;border:0;height:900px;background:#fff}
-  .sb-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
-  @media (max-width:640px){
-    #reservation .sb-shell{border-radius:10px}
-    #reservation .sb-bar{font-size:10.5px;padding:10px 13px;flex-wrap:wrap;justify-content:center;text-align:center}
-    .sb-frame{height:1100px}
-  }
+  /* ── RÉSERVATION (cartes d'ateliers) ── */
+  #reservation .price-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  #reservation .pcard .foot{margin-top:auto;padding-top:14px}
+  #reservation .pcard .unit{font-size:14px;color:var(--muted);margin-bottom:8px}
+  @media (max-width:640px){#reservation .price-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -235,13 +209,13 @@
     <a href="#" class="logo"><img src="assets/logo-rusc.webp" alt="rūsc"></a>
     <nav>
       <a href="#ateliers">Workshop</a>
+      <a href="#membres">Devenir membre</a>
       <a href="#tarifs">Tarifs</a>
-      <a href="#adhesion">Adhésion</a>
       <a href="#reservation">Réservation</a>
       <a href="#us">Ūs</a>
       <a href="#contact">Contact</a>
       <span class="lang"><a href="/" class="on">FR</a><a href="/en/">EN</a></span>
-      <a class="cta" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+      <a class="cta" href="https://rusc.as.me/" target="_blank" rel="noopener">Réserver</a>
     </nav>
   </div>
 </header>
@@ -250,9 +224,8 @@
   <p class="eyebrow">Atelier de céramique · Chamonix</p>
   <h1>oser l&rsquo;art</h1>
   <span class="rule"></span>
-  <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
-  <div class="actions">
-    <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver un atelier</a>
+  <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>  <div class="actions">
+    <a class="btn" href="#reservation">Réserver un atelier</a>
     <a class="btn ghost" href="#ateliers">Voir la programmation</a>
   </div>
 </section>
@@ -270,29 +243,52 @@
     </div>
     <div class="grid">
       <article class="card">
+        <img class="thumb" src="assets/photos/atelier-03.jpg" alt="Tournage en céramique sur tour de potier à rūsc">
+        <p class="k">Séances de 2&nbsp;h</p>
+        <h3>atelier céramique 2h</h3>
+        <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des séances de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
+        <p class="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
+        <a class="btn" href="https://rusc.as.me/atelier-ceramique-2h" target="_blank" rel="noopener">S&rsquo;inscrire</a>
+      </article>
+      <article class="card">
+        <img class="thumb" src="assets/photos/atelier-02.jpg" alt="Modelage de l&rsquo;argile à l&rsquo;atelier rūsc">
+        <p class="k">Séances de 2&nbsp;h</p>
+        <h3>atelier modelage 2h</h3>
+        <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
+        <p class="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
+        <a class="btn" href="https://rusc.as.me/atelier-modelage-2h" target="_blank" rel="noopener">S&rsquo;inscrire</a>
+      </article>
+      <article class="card">
         <img class="thumb" src="assets/photos/atelier-07.jpg" alt="Atelier enfants 7–12 ans à rūsc">
         <p class="k">Chaque mercredi</p>
-        <h3>ateliers enfants</h3>
-        <p>Pour les 7–12 ans. Un temps ludique pour découvrir la terre, façonner et créer, hors vacances scolaires.</p>
+        <h3>atelier enfant 2h30</h3>
+        <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
         <p class="price">Places limitées · réservation conseillée</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <a class="btn" href="https://rusc.as.me/modelage-enfant" target="_blank" rel="noopener">S&rsquo;inscrire</a>
       </article>
       <article class="card">
-        <img class="thumb" src="assets/photos/atelier-03.jpg" alt="Tournage sur tour de potier — stage rūsc">
-        <p class="k">Journée ou week-end</p>
-        <h3>stages</h3>
-        <p>Céramique, porcelaine et autres disciplines. Une immersion complète pour apprendre les gestes et repartir avec vos pièces.</p>
-        <p class="price">Formules d&rsquo;une journée ou de week-end</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <img class="thumb" src="assets/photos/atelier-05.jpg" alt="Atelier de tournage en grès — journée à rūsc">
+        <p class="k">10h – 17h</p>
+        <h3>atelier céramique 1j</h3>
+        <p>Que vous soyez débutant ou dans le cadre d&rsquo;une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d&rsquo;une pièce en grès.</p>
+        <p class="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
+        <a class="btn" href="https://rusc.as.me/atelier-ceramique-1J" target="_blank" rel="noopener">S&rsquo;inscrire</a>
       </article>
       <article class="card">
-        <img class="thumb" src="assets/photos/atelier-10.jpg" alt="Ateliers réguliers de céramique à Chamonix">
-        <p class="k">Toute l&rsquo;année</p>
-        <h3>ateliers réguliers</h3>
-        <p>Progresser pas à pas, séance après séance. La céramique en est le cœur, enrichie par d&rsquo;autres disciplines invitées : tapisserie, modelage, intervenants invités.</p>
-        <p class="price">Carnet 5 séances valable 6 mois · Carnet 10 séances valable 1 an</p>
-        <p class="price" style="color:var(--ink)">Séance 2&nbsp;h&nbsp;: 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€<br><span style="color:var(--accent)">Membre&nbsp;: –10&nbsp;% (45&nbsp;€ / 189&nbsp;€ / 315&nbsp;€)</span></p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a>
+        <img class="thumb" src="assets/photos/atelier-08.jpg" alt="Atelier de tournage en grès sur deux jours à rūsc">
+        <p class="k">10h – 17h</p>
+        <h3>atelier céramique 2 jours</h3>
+        <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l&rsquo;engobage en passant par le tournassage.</p>
+        <p class="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
+        <a class="btn" href="https://rusc.as.me/atelier-ceramique-2J" target="_blank" rel="noopener">S&rsquo;inscrire</a>
+      </article>
+      <article class="card">
+        <img class="thumb" src="assets/photos/atelier-09.jpg" alt="Atelier de tournage en porcelaine à rūsc">
+        <p class="k">10h – 17h</p>
+        <h3>atelier porcelaine 1j</h3>
+        <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d&rsquo;ateliers permettent de l&rsquo;aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
+        <p class="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
+        <a class="btn" href="https://rusc.as.me/porcelaine" target="_blank" rel="noopener">S&rsquo;inscrire</a>
       </article>
     </div>
     <div class="head" style="margin-top:52px">
@@ -312,25 +308,29 @@
       <div class="txt">
         <h2>un espace pro, en autonomie</h2>
         <p>rūsc propose des ateliers libres destinés exclusivement à ses membres. Un espace professionnel équipé de matériel de qualité, idéal pour les céramistes amateurs comme confirmés.</p>
+        <p>Des matériaux fournis, vous permettant de vous concentrer sur votre créativité sans souci logistique. La possibilité de travailler à votre rythme tout en bénéficiant d&rsquo;un environnement convivial et stimulant.</p>
+        <h3 style="font-size:19px;margin:22px 0 10px">que sont les ateliers libres&nbsp;?</h3>
+        <p>Les ateliers libres sont dédiés à la céramique et offrent aux membres rūsc un accès autonome à notre espace entièrement équipé. Que vous souhaitiez perfectionner vos techniques ou simplement expérimenter, notre atelier est conçu pour répondre à vos besoins créatifs dans un cadre inspirant et professionnel.</p>
+        <h3 style="font-size:19px;margin:22px 0 10px">équipements et matériel à disposition</h3>
         <ul>
-          <li>7 tours de potier, pour le tournage et le modelage</li>
-          <li>Une sélection complète d&rsquo;outils de façonnage</li>
-          <li>Matériaux inclus : grès, engobes, émail transparent</li>
-          <li>Séances non encadrées, l&rsquo;équipe reste disponible</li>
-          <li>Cuissons gérées par l&rsquo;équipe rūsc — 6&nbsp;€ par pièce, réglées avant cuisson</li>
+          <li>7 tours de potier pour vos travaux de tournage et modelage</li>
+          <li>Une sélection complète des outils nécessaires au façonnage et au tournage de la terre</li>
+          <li>Les matériaux inclus&nbsp;: grès, engobes, et émail transparent pour finaliser vos créations</li>
         </ul>
-        <p><strong>Conditions d&rsquo;accès&nbsp;:</strong> avoir suivi au moins une initiation de 2&nbsp;heures avec l&rsquo;un de nos enseignants, et disposer d&rsquo;une adhésion active. Si ces conditions ne sont pas remplies, nous nous réservons le droit de refuser l&rsquo;accès.</p>
+        <p><strong>Conditions d&rsquo;accès&nbsp;:</strong> ces ateliers sont exclusivement réservés aux membres ayant suivi au moins une initiation de 2&nbsp;heures avec l&rsquo;un de nos enseignants. Une adhésion active est requise pour accéder à cet espace.</p>
+        <p><strong>Cuissons et fours&nbsp;:</strong> les cuissons des pièces et l&rsquo;utilisation des fours haute température (jusqu&rsquo;à 1280&nbsp;°C) sont exclusivement gérées par l&rsquo;équipe de rūsc. Toutefois, vos pièces peuvent être cuites pour un montant de 6&nbsp;€ par pièce, à régler avant la cuisson.</p>
         <div class="pricing" style="margin-top:20px;border-top:1px solid var(--line);padding-top:18px">
           <p class="price" style="margin-bottom:12px"><strong>Adhésion membre&nbsp;: 50&nbsp;€ / an</strong> — tarifs préférentiels et accès aux ateliers libres.</p>
           <ul style="list-style:none;padding:0;margin:0">
-            <li style="padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px"><span>Atelier libre — à l&rsquo;heure (carnet 10&nbsp;h)</span><span><strong>150&nbsp;€</strong> · valable 6 mois</span></li>
-            <li style="padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px"><span>Atelier libre — à l&rsquo;heure (carnet 20&nbsp;h)</span><span><strong>240&nbsp;€</strong> · valable 1 an</span></li>
+            <li style="padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px"><span>Atelier libre — séance à l&rsquo;unité</span><span><strong>22,50&nbsp;€</strong> / heure</span></li>
+            <li style="padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px"><span>Atelier libre — carnet 10&nbsp;h</span><span><strong>15&nbsp;€</strong> / heure · valable 6 mois</span></li>
+            <li style="padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px"><span>Atelier libre — carnet 20&nbsp;h</span><span><strong>12&nbsp;€</strong> / heure · valable 1 an</span></li>
           </ul>
           <p style="margin-top:14px;font-size:15px;color:var(--muted)">Les membres bénéficient de <strong>–10&nbsp;%</strong> sur la séance de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 séances et le carnet 10 séances. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
         </div>
         <div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px">
           <a class="btn" href="#reservation" data-sb-navigate="membership">Adhérer</a>
-          <a class="btn ghost" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver un créneau</a>
+          <a class="btn ghost" href="https://rusc.as.me/" target="_blank" rel="noopener">Réserver un créneau</a>
         </div>
       </div>
       <div class="art-stack">
@@ -348,21 +348,21 @@
       <p class="sub">clairs, sans surprise</p>
       <span class="rule"></span>
     </div>
-    <div class="sb-shell" style="box-shadow:none">
-      <div class="sb-bar"><span><b>Tout compris</b> · terre, engobes, émail et cuisson d'une pièce inclus</span></div>
+    <div class="sb-shell" style="box-shadow:none;background:none;border:0">
+      <p style="text-align:center;font-size:14px;color:var(--muted)">Prix affichés TTC. La cuisson d&rsquo;une pièce est comprise&nbsp;; terre, engobes et émail transparent fournis.</p>
     </div>
     <div class="price-grid" style="margin-top:26px">
       <article class="pcard">
         <p class="tag">Ouvert à tous · sans prérequis</p>
-        <h3>séance découverte</h3>
-        <p class="unit">Tournage ou modelage · 2&nbsp;heures</p>
+        <h3>ateliers 2h — céramique &amp; modelage</h3>
+        <p class="unit">Tournage ou modelage avec un professeur · 2&nbsp;heures</p>
         <div class="rows">
           <div class="row"><span class="lbl">Séance 2&nbsp;h</span><span class="val">50&nbsp;€<small>membre 45&nbsp;€</small></span></div>
           <div class="row"><span class="lbl">Carnet 5 séances<small>valable 6 mois</small></span><span class="val">210&nbsp;€<small>membre 189&nbsp;€</small></span></div>
           <div class="row"><span class="lbl">Carnet 10 séances<small>valable 1 an</small></span><span class="val">350&nbsp;€<small>membre 315&nbsp;€</small></span></div>
           <div class="row"><span class="lbl">Décor à cru<small>à l&rsquo;heure</small></span><span class="val">20&nbsp;€<small>membre 18&nbsp;€</small></span></div>
         </div>
-        <div class="foot"><a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Réserver</a></div>
+        <div class="foot"><a class="btn" href="#reservation">Réserver</a></div>
       </article>
 
       <article class="pcard highlight">
@@ -371,21 +371,23 @@
         <h3>atelier libre</h3>
         <p class="unit">En autonomie, à l&rsquo;heure</p>
         <div class="rows">
-          <div class="row"><span class="lbl">Carnet 10&nbsp;heures<small>valable 6 mois</small></span><span class="val">150&nbsp;€<small>soit 15&nbsp;€/h</small></span></div>
-          <div class="row"><span class="lbl">Carnet 20&nbsp;heures<small>valable 1 an</small></span><span class="val">240&nbsp;€<small>soit 12&nbsp;€/h</small></span></div>
+          <div class="row"><span class="lbl">Séance à l&rsquo;unité</span><span class="val">22,50&nbsp;€<small>/ heure</small></span></div>
+          <div class="row"><span class="lbl">Carnet 10&nbsp;heures<small>valable 6 mois</small></span><span class="val">15&nbsp;€<small>/ heure</small></span></div>
+          <div class="row"><span class="lbl">Carnet 20&nbsp;heures<small>valable 1 an</small></span><span class="val">12&nbsp;€<small>/ heure</small></span></div>
           <div class="row"><span class="lbl">Cuisson<small>par pièce</small></span><span class="val">6&nbsp;€</span></div>
         </div>
-        <div class="saving">Le format le plus économique : 12&nbsp;€/h au lieu de 25&nbsp;€/h en séance ponctuelle.</div>
+        <div class="saving">Le format le plus économique : 12&nbsp;€/h en carnet 20&nbsp;h, contre 22,50&nbsp;€/h à l&rsquo;unité.</div>
         <div class="foot" style="margin-top:16px"><a class="btn" href="#adhesion">Devenir membre</a></div>
       </article>
 
       <article class="pcard">
         <p class="tag">Journée ou week-end</p>
         <h3>stages &amp; bons cadeaux</h3>
-        <p class="unit">Immersion complète</p>
+        <p class="unit">Immersion complète · 10h – 17h</p>
         <div class="rows">
-          <div class="row"><span class="lbl">Atelier 1 jour</span><span class="val">150&nbsp;€</span></div>
-          <div class="row"><span class="lbl">Atelier 2 jours</span><span class="val">260&nbsp;€</span></div>
+          <div class="row"><span class="lbl">Atelier céramique 1 jour</span><span class="val">180&nbsp;€</span></div>
+          <div class="row"><span class="lbl">Atelier céramique 2 jours</span><span class="val">280&nbsp;€</span></div>
+          <div class="row"><span class="lbl">Atelier porcelaine 1 jour<small>une fois par mois</small></span><span class="val">230&nbsp;€</span></div>
           <div class="row"><span class="lbl">Bon cadeau<small>montant libre · valable 1 an</small></span><span class="val">dès 50&nbsp;€</span></div>
         </div>
         <div class="foot"><a class="btn" href="#reservation">Réserver / offrir</a></div>
@@ -418,38 +420,14 @@
       <div class="ad-box">
         <p class="num">50&nbsp;€</p>
         <p class="per">Par an</p>
-        <a class="btn" href="https://studiorusc.simplybook.it" target="_blank" rel="noopener">Adhérer maintenant</a>
+        <a class="btn" href="https://rusc.as.me/" target="_blank" rel="noopener">Adhérer maintenant</a>
         <p class="fine">Dès le premier carnet de 20&nbsp;h, l&rsquo;adhésion est déjà amortie par la remise.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section id="avis">
-  <div class="wrap">
-    <div class="head">
-      <h2>elles &amp; ils ont osé</h2>
-      <p class="sub">à l&rsquo;atelier</p>
-      <span class="rule"></span>
-    </div>
-    <div class="proof">
-      <blockquote class="quote">
-        <p class="stars">★★★★★</p>
-        <p>«&nbsp;Un endroit où l&rsquo;on prend le temps. On apprend les gestes, on rate, on recommence — et on repart avec une pièce dont on est fier.&nbsp;»</p>
-        <p class="who">Participante · initiation 2&nbsp;h</p>
-      </blockquote>
-      <blockquote class="quote">
-        <p class="stars">★★★★★</p>
-        <p>«&nbsp;L&rsquo;atelier libre a changé ma pratique. Je viens quand je veux, je travaille à mon rythme, et l&rsquo;équipe est toujours là si besoin.&nbsp;»</p>
-        <p class="who">Membre · atelier libre</p>
-      </blockquote>
-      <blockquote class="quote">
-        <p class="stars">★★★★★</p>
-        <p>«&nbsp;J&rsquo;avais offert un bon cadeau. Ma fille en parle encore. On y retourne ensemble ce printemps.&nbsp;»</p>
-        <p class="who">Bon cadeau · séance découverte</p>
-      </blockquote>
-    </div>
-  </div>
+<section id="avis" style="display:none">
 </section>
 
 <section id="reservation">
@@ -459,22 +437,67 @@
       <p class="sub">Osez l&rsquo;expérience</p>
       <span class="rule"></span>
     </div>
-    <div style="max-width:680px;margin:0 auto 30px;text-align:center">
-      <p style="color:var(--muted);margin-bottom:14px">Les places sont limitées afin de préserver la qualité et l&rsquo;attention donnée à chaque participant.</p>
-      <p style="color:var(--muted);margin-bottom:26px">Réservez votre atelier directement ci-dessous, ou offrez l&rsquo;expérience rūsc&nbsp;: nos bons cadeaux sont valables sur l&rsquo;ensemble des ateliers.</p>
+    <!-- ── Acuity direct booking links ── -->
+    <div class="price-grid">
+      <article class="pcard">
+        <p class="tag">Tournage · séances de 2&nbsp;h</p>
+        <h3>atelier céramique 2h</h3>
+        <p class="unit">Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/atelier-ceramique-2h" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Modelage · séances de 2&nbsp;h</p>
+        <h3>atelier modelage 2h</h3>
+        <p class="unit">Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/atelier-modelage-2h" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">7–12 ans · chaque mercredi</p>
+        <h3>atelier enfant 2h30</h3>
+        <p class="unit">Un temps ludique pour découvrir, façonner et créer</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/modelage-enfant" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Tournage grès · 10h – 17h</p>
+        <h3>atelier céramique 1j</h3>
+        <p class="unit">180&nbsp;€</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/atelier-ceramique-1J" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Tournage grès · 2 jours</p>
+        <h3>atelier céramique 2 jours</h3>
+        <p class="unit">280&nbsp;€</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/atelier-ceramique-2J" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Porcelaine · 10h – 17h</p>
+        <h3>atelier porcelaine 1j</h3>
+        <p class="unit">230&nbsp;€</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/porcelaine" target="_blank" rel="noopener">S&rsquo;inscrire</a></div>
+      </article>
+    </div>
+    <div class="price-grid" style="margin-top:26px">
+      <article class="pcard">
+        <p class="tag">Atelier libre · membres</p>
+        <h3>réserver un créneau</h3>
+        <p class="unit">Accès autonome à l&rsquo;espace équipé</p>
+        <div class="foot"><a class="btn" href="https://rusc.as.me/" target="_blank" rel="noopener">Réserver</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Offrir</p>
+        <h3>bon cadeau</h3>
+        <p class="unit">Valable 1 an pour toute formation ou carnet de cours</p>
+        <div class="foot"><a class="btn" href="https://app.acuityscheduling.com/catalog.php?owner=19154889&category=Bons+Cadeaux" target="_blank" rel="noopener">+ info</a></div>
+      </article>
+      <article class="pcard">
+        <p class="tag">Sur mesure</p>
+        <h3>location d&rsquo;espace &amp; résidence</h3>
+        <p class="unit">Anniversaire, EVJF, team building, résidence d&rsquo;artiste…</p>
+        <div class="foot"><a class="btn" href="#contact">Nous contacter</a></div>
+      </article>
     </div>
 
-    <!-- ── SimplyBook embedded booking ── -->
-    <div class="sb-shell">
-      <div class="sb-bar">
-        <span><b>Réservation en ligne</b> &nbsp;·&nbsp; ateliers, stages &amp; créneaux libres</span>
-        <a href="https://studiorusc.simplybook.it/v2/" target="_blank" rel="noopener">Ouvrir en plein écran ↗</a>
-      </div>
-      <div id="sb-bookings" data-sb-lang="fr"></div>
-    </div>
-    <p class="sb-note">Réservation sécurisée par SimplyBook. Les carnets, l&rsquo;adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s&rsquo;applique automatiquement.</p>
-
-    <p style="text-align:center;margin-top:30px;font-size:14px;color:var(--muted)">
+    <p style="text-align:center;margin-top:34px;font-size:14px;color:var(--muted)">
       <a href="/conditions.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent)">Conditions générales &amp; annulation</a>
     </p>
   </div>
@@ -492,10 +515,31 @@
       <figure class="about-ph"><img src="assets/photos/us-03.jpg" alt="Chris Kerr, cofondateur de rūsc"></figure>
     </div>
     <div style="max-width:720px;margin:34px auto 0">
-      <p style="color:var(--muted);margin-bottom:16px">«&nbsp;Dare Art / Osez l&rsquo;art&nbsp;», disait Raquel Calleja.</p>
-      <p style="color:var(--muted);margin-bottom:16px">De ce rêve est né <strong>rūsc</strong>&nbsp;: créer à Chamonix un lieu où l&rsquo;art puisse circuler librement, entre effervescence et mémoire.</p>
+      <p style="color:var(--muted);margin-bottom:16px">«&nbsp;Dare Art / Osez l&rsquo;art&nbsp;», disait Raquel Calleja. De ce rêve est né <strong>rūsc</strong>&nbsp;: créer à Chamonix un lieu où l&rsquo;art puisse circuler librement, entre effervescence et mémoire.</p>
       <p style="color:var(--muted);margin-bottom:16px">Raquel s&rsquo;est associée à Chris Kerr pour donner corps à cette vision. Ensemble, ils ont façonné un atelier qui leur ressemble&nbsp;: enraciné dans la céramique, leur base commune, mais ouvert à d&rsquo;autres pratiques invitées.</p>
-      <p style="color:var(--muted)"><strong>rūsc</strong> signifie «&nbsp;ruche&nbsp;» dans de nombreuses langues anciennes. Et dans <strong>rūsc</strong>, il y a évidemment le <strong>R</strong> de Raquel et le <strong>C</strong> de Chris… mais avant tout <strong>ūs</strong>&nbsp;: nous tous, ceux qui donnent et ceux qui reçoivent, ceux qui partagent un geste et transmettent une expérience — mais surtout, ceux qui osent.</p>
+      <p style="color:var(--muted);margin-bottom:16px"><strong>rūsc</strong> signifie «&nbsp;ruche&nbsp;» dans de nombreuses langues anciennes. Et dans <strong>rūsc</strong>, il y a évidemment le <strong>R</strong> de Raquel et le <strong>C</strong> de Chris… mais avant tout <strong>ūs</strong>&nbsp;: nous tous, ceux qui donnent et ceux qui reçoivent, ceux qui partagent un geste et transmettent une expérience — mais surtout, ceux qui osent.</p>
+      <p style="color:var(--muted);margin-bottom:16px">Aujourd&rsquo;hui, on y pratique la céramique, le modelage, la tapisserie… Demain, d&rsquo;autres disciplines encore. La programmation évolue au rythme des rencontres&nbsp;; pour la découvrir, suivez-nous ici ou sur Instagram.</p>
+      <p style="color:var(--muted);margin-bottom:16px">Au cœur de rūsc, il y a de l&rsquo;audace&nbsp;: celle de créer sans retenue. Il y a aussi de la soif&nbsp;: celle d&rsquo;apprendre, de s&rsquo;exprimer et de transmettre avec intensité. rūsc, c&rsquo;est apprendre, explorer, créer, et laisser une trace dans cet élan partagé.</p>
+      <p style="color:var(--muted);margin-bottom:34px">Envie de transmettre&nbsp;? Faites une demande pour rejoindre la famille rūsc via notre <a href="#contact" style="color:var(--accent)">formulaire de contact</a>.</p>
+
+      <div style="display:grid;gap:22px">
+        <div style="border-top:1px solid var(--line);padding-top:20px">
+          <h3 style="font-size:22px;margin-bottom:8px">raquel calleja</h3>
+          <p style="color:var(--muted);font-size:16px">Après une longue période à l&rsquo;étranger, c&rsquo;est en rentrant en France que Raquel découvre la céramique, une discipline qui deviendra bien plus qu&rsquo;un simple loisir&nbsp;: une véritable passion. Avec un parcours riche et éclectique, elle a d&rsquo;abord évolué dans le marketing, puis dans le management de luxe. Mais c&rsquo;est dans l&rsquo;art de la céramique que Raquel trouve son véritable épanouissement. Fascinée par l&rsquo;équilibre entre rigueur technique et liberté d&rsquo;expression, chaque geste, chaque cuisson, chaque émail est une quête d&rsquo;apprentissage et de perfection. Au sein de rūsc, elle partage cette passion avec une énergie contagieuse.</p>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:20px">
+          <h3 style="font-size:22px;margin-bottom:8px">christopher kerr</h3>
+          <p style="color:var(--muted);font-size:16px">Écossais d&rsquo;origine, Chris vit à Chamonix depuis plus de 15 ans. Après une carrière dans l&rsquo;immobilier et la gestion d&rsquo;entreprise, il découvre la céramique et s&rsquo;y investit pleinement, devenant le tout premier élève de Raquel. Aujourd&rsquo;hui partenaire essentiel de rūsc, il anime les séances du mercredi soir avec enthousiasme et bienveillance, et développe ses propres créations. Sa pédagogie naturelle et son dynamisme font de lui une figure incontournable de l&rsquo;atelier.</p>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:20px">
+          <h3 style="font-size:22px;margin-bottom:8px">anaïs lejeune</h3>
+          <p style="color:var(--muted);font-size:16px">Formée en tapisserie d&rsquo;ameublement depuis plus de 10 ans et passionnée par la décoration, Anaïs combine ces deux expertises pour donner vie à des créations uniques. Travailler avec ses mains, au milieu des odeurs de toile de jute et de crin, est bien plus qu&rsquo;un métier&nbsp;: c&rsquo;est une véritable passion. Au sein de rūsc, elle anime avec enthousiasme les ateliers de tapisserie pour transmettre son savoir-faire.</p>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:20px">
+          <h3 style="font-size:22px;margin-bottom:8px">élodie lecont</h3>
+          <p style="color:var(--muted);font-size:16px">Élodie découvre très tôt l&rsquo;artisanat et se laisse séduire par la magie de la terre, matière tactile et vivante. Elle rejoint l&rsquo;équipe rūsc pour partager à son tour son amour du geste et de la création.</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -541,13 +585,9 @@
   <p class="copy">© rūsc — tous droits réservés</p>
 </footer>
 
-<script src="/assets/sb-embed.js"></script>
-
 <script>
-  const BOOKING_URL = 'https://studiorusc.simplybook.it';
   const FORM_ENDPOINT = '';
   const FORM_FALLBACK = 'info@studio-rusc.com';
-  document.querySelectorAll('a[href*="simplybook"]').forEach(a => a.href = BOOKING_URL);
   document.getElementById('contact-form').addEventListener('submit', function(e){
     e.preventDefault();
     const f=e.target;
