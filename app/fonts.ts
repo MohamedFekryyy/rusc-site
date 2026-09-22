@@ -8,9 +8,11 @@ export const gilda = Gilda_Display({
   variable: "--font-gilda",
 });
 
+// No italic: nothing visible uses it, and next/font would preload it on
+// every page. Add style: ["normal", "italic"] if the reviews block
+// (.quote p, italic) is ever shown.
 export const jost = Jost({
   weight: ["300", "400", "500"],
-  style: ["normal", "italic"],
   subsets: ["latin"],
   variable: "--font-jost",
 });
