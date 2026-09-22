@@ -190,3 +190,6 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 /* The EN page shipped with a slightly older stylesheet; keep its two differences. */
 html[lang="en"] .hero p{max-width:640px}
 html[lang="en"] .feature .txt li strong{color:inherit}
+
+/* next/image writes width/height attributes; these images are sized by aspect-ratio. */
+.card .thumb,.about-ph img{height:auto}

@@ -1,0 +1,17 @@
+# Cloudflare Pages redirects (next.config redirects() don't run in a static export).
+
+# URLs of the old static site
+/conditions.html      /conditions/     301
+/en/terms.html        /en/terms/       301
+/en/index.html        /en/             301
+
+# Old Squarespace pages, once studio-rusc.com points at this site
+/about                /#us             301
+/contact              /#contact        301
+/workshop             /#ateliers       301
+/atelier-cramique-2h  /#ateliers       301
+/appointments-1-2     /#reservation    301
+/rserver              /#reservation    301
+/membre               /#membres        301
+/member-site          /#membres        301
+/cart                 /#reservation    301
