@@ -75,7 +75,7 @@ export default function Home() {
           <SectionHead title="the studio" sub="What you'll find here" />
           <div className="grid">
             {CARDS.map((c) => (
-              <article className="card" key={c.href}>
+              <article className={c.drawing ? "card member" : "card"} key={c.href}>
                 <Image className={c.drawing ? "thumb drawing" : "thumb"} src={c.img} alt={c.title} />
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>
