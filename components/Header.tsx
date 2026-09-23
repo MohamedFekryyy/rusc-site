@@ -54,6 +54,8 @@ const CART_LABEL = { fr: "Panier", en: "Cart" };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
 // Tagline shown as the center brand mark in the header (in place of the logo).
 const SLOGAN = { fr: "oser l'art", en: "dare art" };
+// Sub-line shown under the tagline in the header.
+const SUBLINE = { fr: "Atelier de céramique à Chamonix", en: "Ceramics studio in Chamonix" };
 
 type Props = {
   lang: Lang;
@@ -85,9 +87,10 @@ export default function Header({ lang, page }: Props) {
           </button>
         </div>
 
-        {/* Center: tagline (brand mark) */}
+        {/* Left brand block: tagline + subline */}
         <a href={page === "home" ? "#" : HOME[lang]} className="logo logo-word" onClick={close}>
-          {SLOGAN[lang]}
+          <span className="logo-line">{SLOGAN[lang]}</span>
+          <span className="logo-sub">{SUBLINE[lang]}</span>
         </a>
 
         {/* Right: lang switch + Réserver + login + cart */}
