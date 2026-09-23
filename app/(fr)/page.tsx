@@ -12,6 +12,7 @@ import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import enfant from "@/assets/photos/enfant2-o.jpg";
 import residence from "@/assets/photos/residence-o.jpg";
+import privatisation from "@/assets/photos/atelier-05.jpg";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -64,10 +65,17 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
   },
   {
     href: PAGES.privatisation.fr,
-    img: residence,
+    img: privatisation,
     tag: "Sur mesure",
     title: "privatisation",
     text: "Team building, EVJF, anniversaires, dîners à thème. Privatisez l'atelier.",
+  },
+  {
+    href: PAGES.residence.fr,
+    img: residence,
+    tag: "Résidence",
+    title: "résidence d'artiste",
+    text: "Artisans, peintres, plasticiens, photographes. Une formule sur mesure, accompagnée jusqu'à l'inauguration.",
   },
 ];
 
@@ -110,7 +118,6 @@ export default function Home() {
             ))}
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
-            <a className="btn ghost" href={PAGES.residence.fr}>Résidence d&rsquo;artiste</a>
             <a className="btn ghost" href={PAGES.expo.fr}>Expo</a>
             <a className="btn ghost" href={PAGES.cuisson.fr}>Cuisson</a>
             <a className="btn ghost" href={PAGES.us.fr}>Ūs</a>

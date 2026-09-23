@@ -12,6 +12,7 @@ import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import enfant from "@/assets/photos/enfant2-o.jpg";
 import residence from "@/assets/photos/residence-o.jpg";
+import privatisation from "@/assets/photos/atelier-05.jpg";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -44,7 +45,8 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
   { href: PAGES.membres.en, img: enfant, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates." },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single or by card." },
   { href: PAGES.stages.en, img: ceramique2h, tag: "Immersion · 10am – 5pm", title: "intensives", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
-  { href: PAGES.privatisation.en, img: residence, tag: "Tailor-made", title: "space hire", text: "Team building, hen parties, birthdays, themed dinners. Hire the studio." },
+  { href: PAGES.privatisation.en, img: privatisation, tag: "Tailor-made", title: "space hire", text: "Team building, hen parties, birthdays, themed dinners. Hire the studio." },
+  { href: PAGES.residence.en, img: residence, tag: "Residency", title: "artist residency", text: "Craftspeople, painters, sculptors, photographers. A tailor-made programme, supported through to the opening." },
 ];
 
 export default function Home() {
@@ -85,7 +87,6 @@ export default function Home() {
             ))}
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
-            <a className="btn ghost" href={PAGES.residence.en}>Artist residency</a>
             <a className="btn ghost" href={PAGES.expo.en}>Exhibitions</a>
             <a className="btn ghost" href={PAGES.cuisson.en}>Firing</a>
             <a className="btn ghost" href={PAGES.us.en}>Ūs</a>
