@@ -16,7 +16,13 @@ import type { Lang } from "@/lib/routes";
 // NEXT_PUBLIC_CAL_ORIGIN to the self-hosted instance's URL once it runs.
 export const CAL_ORIGIN = process.env.NEXT_PUBLIC_CAL_ORIGIN ?? "https://app.cal.com";
 
-export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "rusc-studio";
+// Live Cal.com account. NOTE: the intended public handle is `rusc-studio`,
+// but the account Fekry created was auto-assigned `fekry-aiad-qijijq` (the
+// username is only mutable via the Cal.com web UI, not the API). Once the
+// account is renamed to `rusc-studio` in Settings -> General -> Username,
+// flip the fallback below back to "rusc-studio". Set NEXT_PUBLIC_CAL_USERNAME
+// to override either way.
+export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "fekry-aiad-qijijq";
 
 // Cal link for the embed: "<username>" (the account page listing every event
 // type) or "<username>/<event-slug>".
