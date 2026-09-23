@@ -15,6 +15,7 @@ import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
 import enfant from "@/assets/photos/enfant-o.jpg";
+import residence from "@/assets/photos/residence-o.jpg";
 import mv3h from "@/assets/photos/model-vivant-3h-o.jpg";
 import ceramique1j from "@/assets/photos/ceramique-1j-o.jpg";
 import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
@@ -386,6 +387,40 @@ export default function Home() {
             <LinkCard tag="Gift voucher" title="give the experience" unit="Any amount · valid 1 year">
               <BookingButton lang="en" view="gifts">Give</BookingButton>
             </LinkCard>
+          </div>
+        </div>
+      </section>
+
+      <section id="privatisation">
+        <div className="wrap">
+          <SectionHead title="space hire" sub="Tailor-made" />
+          <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+            <p style={{ fontSize: "15.5px" }}>Birthday, hen party, team building, themed dinner, creative workshop, body expression, exhibition… <strong>Privatise the space for half a day</strong> and create your own piece.</p>
+            <p style={{ fontSize: "15.5px" }}>On the wheel or with slabs, all the equipment is at your disposal for a playful, friendly moment.</p>
+            <p style={{ fontSize: "15.5px" }}>You can also hire the space <strong>without the ceramics equipment</strong>: you then have a fully equipped kitchen and a 60&nbsp;m² modular space.</p>
+            <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+              <a className="btn" href="#contact">Request a quote</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="residence">
+        <div className="wrap">
+          <SectionHead title="artist residency" sub="Tailor-made programme" />
+          <div className="feature">
+            <div className="txt">
+              <h2>a place to express yourself</h2>
+              <p>Artisans, painters, visual artists, photographers… Looking for a place to express yourself? Need specific pottery equipment? Short of inspiration? This tailor-made programme is for you.</p>
+              <p>We support you through your personal project up to the opening day, when your work is presented at the studio.</p>
+              <p><strong>Residencies last a minimum of one month.</strong></p>
+              <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+                <a className="btn" href="#contact">Apply</a>
+              </div>
+            </div>
+            <div className="art-stack">
+              <Image src={residence} alt="Artist residency at the rūsc studio" />
+            </div>
           </div>
         </div>
       </section>

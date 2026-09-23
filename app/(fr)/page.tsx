@@ -13,7 +13,8 @@ import drawing from "@/assets/dessin-sylwia.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
-import enfant from "@/assets/photos/enfant-o.jpg";
+import enfant from "@/assets/photos/enfant2-o.jpg";
+import residence from "@/assets/photos/residence-o.jpg";
 import ceramique1j from "@/assets/photos/ceramique-1j-o.jpg";
 import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
 import porcelaine from "@/assets/photos/porcelaine-o.jpg";
@@ -442,9 +443,40 @@ export default function Home() {
             <LinkCard tag="Offrir" title="bon cadeau" unit="Valable 1 an pour toute formation ou carnet de cours">
               <BookingButton lang="fr" view="gifts">+ info</BookingButton>
             </LinkCard>
-            <LinkCard tag="Sur mesure" title={<>location d&rsquo;espace &amp; résidence</>} unit={<>Anniversaire, EVJF, team building, résidence d&rsquo;artiste…</>}>
-              <a className="btn" href="#contact">Nous contacter</a>
-            </LinkCard>
+          </div>
+        </div>
+      </section>
+
+      <section id="privatisation">
+        <div className="wrap">
+          <SectionHead title="privatisation" sub={<>Sur mesure</>} />
+          <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+            <p style={{ fontSize: "15.5px" }}>Anniversaire, EVJF, team building, dîner à thème, atelier créatif, expression corporelle, exposition… <strong>Privatisez l&rsquo;espace le temps d&rsquo;une demi-journée</strong> et créez votre propre pièce.</p>
+            <p style={{ fontSize: "15.5px" }}>Au tour ou à la plaque, tout le matériel est mis à votre disposition pour partager un moment ludique et convivial.</p>
+            <p style={{ fontSize: "15.5px" }}>Vous pouvez aussi privatiser l&rsquo;espace <strong>hors équipement céramique</strong>&nbsp;: vous bénéficiez alors d&rsquo;une cuisine équipée et d&rsquo;un espace de 60&nbsp;m² modulable.</p>
+            <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+              <a className="btn" href="#contact">Demander un devis</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="residence">
+        <div className="wrap">
+          <SectionHead title="résidence d&rsquo;artiste" sub={<>Formule sur mesure</>} />
+          <div className="feature">
+            <div className="txt">
+              <h2>un lieu pour vous exprimer</h2>
+              <p>Artisans, artistes peintres, plasticiens, photographes… Vous cherchez un lieu pour vous exprimer&nbsp;? Vous avez besoin de matériel ou d&rsquo;un équipement spécifique à la poterie&nbsp;? L&rsquo;inspiration vous manque&nbsp;? Cette formule sur mesure est pour vous.</p>
+              <p>Nous vous encadrons dans votre projet personnel jusqu&rsquo;au jour de l&rsquo;inauguration, où votre œuvre sera présentée à l&rsquo;atelier.</p>
+              <p><strong>Les résidences sont d&rsquo;une durée minimale d&rsquo;un mois.</strong></p>
+              <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+                <a className="btn" href="#contact">Candidater</a>
+              </div>
+            </div>
+            <div className="art-stack">
+              <Image src={residence} alt="Résidence d'artiste à l'atelier rūsc" />
+            </div>
           </div>
         </div>
       </section>
