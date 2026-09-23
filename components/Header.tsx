@@ -4,9 +4,9 @@ import Image from "next/image";
 import { useState } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
 import { cartCount, useCart } from "@/lib/cart";
-import { BOOKING, CART, HOME, PAGES, type Lang, type PageKey } from "@/lib/routes";
+import { BOOKING, CART, HOME, LOGIN, PAGES, type Lang, type PageKey } from "@/lib/routes";
 
-export type NavPage = "home" | "booking" | "cart" | PageKey;
+export type NavPage = "home" | "booking" | "cart" | "connexion" | PageKey;
 
 // Menu order (validated by Raquel): Ūs · Espace membre · Cours · Stages ·
 // Privatisation · Résidence d'artiste · Expo · Cuisson · Contact.
@@ -68,7 +68,7 @@ export default function Header({ lang, page }: Props) {
   const labels = LABELS[lang];
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
-  const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : PAGES[page];
+  const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : page === "connexion" ? LOGIN : PAGES[page];
   const frHref = same.fr;
   const enHref = same.en;
   const count = cartCount(useCart());
@@ -108,9 +108,8 @@ export default function Header({ lang, page }: Props) {
           <a className="cta" href={cta.href}>
             {cta.label}
           </a>
-          {/* Login: Cal.com has no client login, and nothing on the site may
-              send visitors to cal.com, so this leads to the member area. */}
-          <a className="auth" href={PAGES.membres[lang]}>
+          {/* Login / account: leads to the sign-in & sign-up page. */}
+          <a className="auth" href={LOGIN[lang]}>
             {AUTH_LABEL[lang]}
           </a>
           {/* Cart (lib/cart.ts): its item count, live across the site. */}

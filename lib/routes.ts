@@ -6,6 +6,7 @@ export const HOME = { fr: "/", en: "/en/" } as const;
 export const BOOKING = { fr: "/reserver/", en: "/en/booking/" } as const;
 export const TERMS = { fr: "/conditions/", en: "/en/terms/" } as const;
 export const CART = { fr: "/panier/", en: "/en/cart/" } as const;
+export const LOGIN = { fr: "/connexion/", en: "/en/login/" } as const;
 
 // One entry per menu item. slug is the URL segment; en pages live under /en/.
 export const PAGES: Record<PageKey, { fr: string; en: string }> = {
