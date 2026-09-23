@@ -1,0 +1,49 @@
+# rūsc booking server: Cal.diy (the self-hosted, MIT fork of Cal.com) on
+# Fly.io. The site on Vercel embeds it. Setup and updates: README.md here.
+#
+# The image is ghcr.io/mohamedfekryyy/rusc-cal:<tag>, built by
+# .github/workflows/cal-image.yml; deploy.sh passes the tag from CAL_DIY_REF.
+# The database is the rusc-cal-db app (fly.db.toml), on Fly's private network.
+# Secrets (database URL, NEXTAUTH_SECRET, CALENDSO_ENCRYPTION_KEY, cron keys,
+# Brevo login) are Fly secrets: `fly secrets list -a rusc-cal`.
+
+app = "rusc-cal"
+primary_region = "ams"
+
+[env]
+  # Public address of the booking system. Switch both lines to
+  # https://booking.studio-rusc.com once its certificate is issued (README).
+  NEXT_PUBLIC_WEBAPP_URL = "https://rusc-cal.fly.dev"
+  NEXTAUTH_URL = "https://rusc-cal.fly.dev"
+  # start.sh waits for this address before running the migrations.
+  DATABASE_HOST = "rusc-cal-db.internal:5432"
+  # Booking emails go through Brevo; its SMTP login is a secret.
+  EMAIL_FROM = "reservation@studio-rusc.com"
+  EMAIL_FROM_NAME = "rūsc"
+  EMAIL_SERVER_HOST = "smtp-relay.brevo.com"
+  EMAIL_SERVER_PORT = "587"
+  CALCOM_TELEMETRY_DISABLED = "1"
+  NEXT_PUBLIC_LICENSE_CONSENT = "agree"
+
+# Cal.diy's own start script (migrations, app store, server), with the
+# background-task loop (cron.sh) beside it on the same machine.
+[processes]
+  app = "/bin/sh -c '/bin/sh /rusc/cron.sh & exec /calcom/scripts/start.sh'"
+
+[[files]]
+  guest_path = "/rusc/cron.sh"
+  local_path = "cron.sh"
+
+# HTTPS is handled by Fly. One machine, always on: the embed must answer
+# at once, and the cron loop runs every minute anyway.
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "2gb"

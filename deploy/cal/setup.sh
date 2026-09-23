@@ -1,42 +1,56 @@
 #!/bin/sh
-# One-time setup of the rūsc booking server (Hetzner, Ubuntu 24.04).
-# Run as root from this folder:  sh setup.sh
-# Safe to run again: an existing .env is never overwritten.
+# First setup of the rūsc booking server on Fly.io (README.md, "First setup").
+# Run from this folder, logged in to Fly (`fly auth login`):  sh setup.sh
+#
+# Safe to run again: existing apps and secrets are kept. The secrets are
+# generated here and piped straight into Fly; they are never printed or saved
+# to a file. Never regenerate them once the server has run: the database
+# password is fixed when the volume is initialised, and
+# CALENDSO_ENCRYPTION_KEY encrypts what Cal.diy stores.
 set -eu
 cd "$(dirname "$0")"
+ORG=personal
 
-# Docker (Ubuntu's packages) and a firewall that only lets SSH and the web in.
-apt-get update
-apt-get install -y docker.io docker-compose-v2 ufw openssl
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443
-ufw --force enable
+has_app() { fly apps list --json | grep -q "\"Name\": \"$1\""; }
+has_secret() { fly secrets list -a "$1" --json | grep -q "\"$2\""; }
 
-# Settings: .env is created once from example.env, with fresh secrets.
-if [ ! -f .env ]; then
-	cp example.env .env
-	chmod 600 .env
-	for key in NEXTAUTH_SECRET CRON_API_KEY CRON_SECRET POSTGRES_PASSWORD; do
-		sed -i "s|^$key=.*|$key=$(openssl rand -hex 32)|" .env
-	done
-	# 32 characters, as Cal.diy's AES-256 key requires.
-	sed -i "s|^CALENDSO_ENCRYPTION_KEY=.*|CALENDSO_ENCRYPTION_KEY=$(openssl rand -base64 24)|" .env
+has_app rusc-cal-db || fly apps create rusc-cal-db --org "$ORG"
+has_app rusc-cal || fly apps create rusc-cal --org "$ORG"
+
+if ! has_secret rusc-cal-db POSTGRES_PASSWORD; then
+	password=$(openssl rand -hex 32)
+	printf 'POSTGRES_PASSWORD=%s\n' "$password" | fly secrets import --stage -a rusc-cal-db
+	url="postgresql://cal:$password@rusc-cal-db.internal:5432/cal"
+	printf 'DATABASE_URL=%s\nDATABASE_DIRECT_URL=%s\n' "$url" "$url" | fly secrets import --stage -a rusc-cal
+	unset password url
 fi
-sed -i "s|^CAL_IMAGE_TAG=.*|CAL_IMAGE_TAG=$(cut -c1-12 CAL_DIY_REF)|" .env
-mkdir -p backups
+if ! has_secret rusc-cal NEXTAUTH_SECRET; then
+	{
+		printf 'NEXTAUTH_SECRET=%s\n' "$(openssl rand -hex 32)"
+		# 32 characters, as Cal.diy's AES-256 key requires.
+		printf 'CALENDSO_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 24)"
+		printf 'CRON_API_KEY=%s\n' "$(openssl rand -hex 32)"
+		printf 'CRON_SECRET=%s\n' "$(openssl rand -hex 32)"
+	} | fly secrets import --stage -a rusc-cal
+fi
 
-# The certificate email and the Brevo login are filled in by hand.
-missing=""
-for key in ACME_EMAIL EMAIL_SERVER_USER EMAIL_SERVER_PASSWORD; do
-	grep -q "^$key=." .env || missing="$missing $key"
+# The database first (one machine, its volume is created on the way), then
+# Cal.diy, whose first start applies every migration (a few minutes).
+fly deploy -c fly.db.toml --ha=false --yes
+sh deploy.sh
+
+# Close public sign-up with Cal.diy's "disable-signup" flag, as soon as the
+# migrations have created it. The studio's admin account is then created at
+# /auth/setup, which works only while no account exists.
+tries=0
+until fly ssh console -a rusc-cal-db \
+	-C "psql -U cal -d cal -tAc \"UPDATE \\\"Feature\\\" SET enabled = true WHERE slug = 'disable-signup'\"" \
+	2>/dev/null | grep -q 'UPDATE 1'; do
+	tries=$((tries + 1))
+	if [ "$tries" -gt 30 ]; then
+		echo "Could not turn on disable-signup yet: see README.md, then run sh setup.sh again."
+		exit 1
+	fi
+	sleep 20
 done
-if [ -n "$missing" ]; then
-	echo "Fill in these lines in $(pwd)/.env, then run sh setup.sh again:$missing"
-	exit 1
-fi
-
-docker compose pull
-docker compose up -d
-domain=$(grep '^CAL_DOMAIN=' .env | cut -d= -f2)
-echo "Started. Create the studio's admin account at https://$domain/auth/setup"
+echo "Sign-up is closed. Create the studio's admin account at https://rusc-cal.fly.dev/auth/setup"

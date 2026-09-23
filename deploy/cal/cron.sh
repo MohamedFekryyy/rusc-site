@@ -1,15 +1,19 @@
 #!/bin/sh
 # Calls Cal.diy's background-task endpoints on the schedule Cal.com runs them
-# on Vercel (apps/web/vercel.json in calcom/cal.diy). Runs in the "cron"
-# service; CRON_API_KEY and CRON_SECRET come from .env.
+# on Vercel (apps/web/vercel.json in calcom/cal.diy). Runs in the background
+# of the Cal.diy machine (the "app" command in fly.toml), next to the server;
+# CRON_API_KEY and CRON_SECRET are Fly secrets.
 set -u
-BASE="http://cal:3000/api"
+BASE="http://localhost:3000/api"
 
 hit() {
 	wget -q -O /dev/null -T 55 \
 		--header "authorization: Bearer ${CRON_SECRET}" \
-		"${BASE}$1?apiKey=${CRON_API_KEY}" || echo "$(date -Iseconds) $1 failed"
+		"${BASE}$1?apiKey=${CRON_API_KEY}" || echo "cron: $1 failed"
 }
+
+# The server needs a few minutes to start (migrations on first boot).
+sleep 180
 
 while :; do
 	m=$(date +%M | sed 's/^0//')

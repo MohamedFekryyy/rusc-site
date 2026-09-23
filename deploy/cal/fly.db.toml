@@ -1,0 +1,31 @@
+# Database of the rūsc booking server: PostgreSQL 16 on a Fly volume.
+# No public address: only rusc-cal reaches it, at rusc-cal-db.internal:5432
+# on Fly's private network. The password is the Fly secret POSTGRES_PASSWORD.
+#
+# Backups: Fly snapshots the volume every day and keeps 14 days of them
+# (`fly volumes snapshots list <volume id>`; restoring: README.md).
+
+app = "rusc-cal-db"
+primary_region = "ams"
+
+[build]
+  image = "postgres:16-alpine"
+
+[env]
+  POSTGRES_USER = "cal"
+  POSTGRES_DB = "cal"
+  # A folder inside the volume: its root holds lost+found, which initdb refuses.
+  PGDATA = "/var/lib/postgresql/data/pgdata"
+
+[mounts]
+  source = "pgdata"
+  destination = "/var/lib/postgresql/data"
+  initial_size = "1gb"
+  snapshot_retention = 14
+
+[[restart]]
+  policy = "always"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

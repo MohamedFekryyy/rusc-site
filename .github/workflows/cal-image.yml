@@ -4,7 +4,7 @@
 #
 # Cal.diy publishes no image of its own yet, and its build needs ~6 GB of
 # memory, more than the booking server has. The build only uses Cal.diy's
-# placeholder secrets; the real ones stay in .env on the server.
+# placeholder secrets; the real ones are Fly secrets (deploy/cal/README.md).
 name: Cal.diy image
 
 on:
