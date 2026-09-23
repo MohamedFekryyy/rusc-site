@@ -72,6 +72,7 @@ export default function Header({ lang, page }: Props) {
   const close = () => setOpen(false);
 
   return (
+    <>
     <header>
       <div className="wrap nav">
         {/* Left: burger menu */}
@@ -116,10 +117,14 @@ export default function Header({ lang, page }: Props) {
           </a>
         </div>
       </div>
+    </header>
 
       {/* Dropdown panel (mobile + desktop burger). Kept mounted so it can
           animate both in and out; `open` class drives the transition and a
-          scrim closes it on click. */}
+          scrim closes it on click. Both sit outside <header>: the header's
+          backdrop-filter would otherwise confine the scrim to the header
+          strip, and the header (z-index 70) stays above them so the X is
+          always visible and clickable. */}
       <div
         className={"mobile-panel" + (open ? " open" : "")}
         aria-hidden={!open}
@@ -138,6 +143,6 @@ export default function Header({ lang, page }: Props) {
         </span>
       </div>
       {open && <div className="panel-scrim" onClick={close} />}
-    </header>
+    </>
   );
 }
