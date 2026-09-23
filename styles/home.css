@@ -1,5 +1,4 @@
 /* Home pages (/ and /en/). Ported verbatim from the old index.html. */
-html{scroll-behavior:smooth}
 .wrap{max-width:1080px;margin:0 auto;padding:0 26px}
 h1,h2,h3,.display{font-family:var(--display);font-weight:400;line-height:1.15}
 

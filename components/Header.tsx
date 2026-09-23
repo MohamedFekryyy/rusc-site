@@ -127,6 +127,7 @@ export default function Header({ lang, page }: Props) {
           always visible and clickable. */}
       <div
         className={"mobile-panel" + (open ? " open" : "")}
+        data-lenis-prevent
         aria-hidden={!open}
         onClick={close}
       >
