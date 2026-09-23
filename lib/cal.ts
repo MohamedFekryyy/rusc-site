@@ -1,20 +1,27 @@
 import type { Lang } from "@/lib/routes";
 
-// Cal.com config — the source of truth behind every booking now that the
-// Acuity -> Cal.com migration has landed.
+// Cal.com config: the source of truth behind every booking since the
+// Acuity -> Cal.com migration.
 //
-// The plain-Cal.com embed has no ?lang= param: the booker language follows the
-// browser/account locale. To honour the site rule "FR page -> French booker,
-// EN page -> English booker", each service gets TWO event types (suffixed
-// -fr / -en) and the FR pages link the -fr slug, the EN pages the -en slug.
-// Fill CAL_USERNAME once the rūsc Cal.com account exists.
+// Bookings never leave the site: Cal.com is only ever shown inside the
+// booking pages (components/BookingEmbed.tsx). Nothing on the site links to
+// cal.com.
+//
+// The embed has no ?lang= param: the booker language follows the event type.
+// To honour "FR page -> French booker, EN page -> English booker", each
+// service has TWO event types (suffixed -fr / -en). FR pages embed the -fr
+// slug, EN pages the -en slug.
+
+// The Cal.com server behind the embed. cal.com's hosted app for now; set
+// NEXT_PUBLIC_CAL_ORIGIN to the self-hosted instance's URL once it runs.
+export const CAL_ORIGIN = process.env.NEXT_PUBLIC_CAL_ORIGIN ?? "https://app.cal.com";
 
 export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "rusc-studio";
 
-// Public Cal.com URL for one username + optional event-type slug.
-// e.g. https://cal.com/rusc/atelier-ceramique-2h-fr
-export function calUrl(username: string, eventSlug?: string) {
-  return `https://cal.com/${username}${eventSlug ? `/${eventSlug}` : ""}`;
+// Cal link for the embed: "<username>" (the account page listing every event
+// type) or "<username>/<event-slug>".
+export function calLink(eventSlug?: string | null) {
+  return eventSlug ? `${CAL_USERNAME}/${eventSlug}` : CAL_USERNAME;
 }
 
 // One service in the studio. `fr` and `en` are the Cal.com event-type slugs
@@ -35,10 +42,12 @@ export function serviceByKey(key: string) {
   return SERVICES.find((s) => s.key === key);
 }
 
+export function isServiceKey(value: unknown): value is ServiceKey {
+  return typeof value === "string" && serviceByKey(value) !== undefined;
+}
+
 // What the embed can show. Cal.com has no separate catalog the way Acuity
-// did, so membership and gift vouchers are their own event-type slugs. Until
-// those slugs are created in the rūsc Cal.com account, `schedule` is the only
-// fully-wired view.
+// did, so membership and gift vouchers are their own event-type slugs.
 export const BOOKING_VIEWS = ["schedule", "catalog", "gifts"] as const;
 
 export type BookingView = (typeof BOOKING_VIEWS)[number];
@@ -48,8 +57,18 @@ export function isBookingView(value: unknown): value is BookingView {
 }
 
 // Cal.com event-type slugs for the two extra views (created in the account).
-// Null = not yet created; the embed falls back to the account's main page.
+// Null = not yet created; the embed shows the account page instead.
 export const VIEW_SLUGS: Record<Exclude<BookingView, "schedule">, Record<Lang, string | null>> = {
   catalog: { fr: null, en: null }, // membership / class cards
   gifts: { fr: null, en: null }, // gift vouchers
 };
+
+// The Cal link to embed for a view, or for one workshop.
+export function bookingCalLink(lang: Lang, view: BookingView, workshop?: string | null) {
+  if (workshop) {
+    const service = serviceByKey(workshop);
+    if (service) return calLink(service[lang]);
+  }
+  if (view !== "schedule") return calLink(VIEW_SLUGS[view][lang]);
+  return calLink();
+}
