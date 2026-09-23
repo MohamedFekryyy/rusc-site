@@ -8,6 +8,7 @@ const NAV = {
     links: [
       { href: "/#cours", label: "Workshop" },
       { href: "/#stages", label: "Stages" },
+      { href: "/#cuisson", label: "Cuisson" },
       { href: "/#membres", label: "Devenir membre" },
       { href: "/#tarifs", label: "Tarifs" },
       { href: "/#reservation", label: "Réservation" },

@@ -19,6 +19,7 @@ import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
 import porcelaine from "@/assets/photos/porcelaine-o.jpg";
 import tapisserie from "@/assets/photos/tapisserie-o.jpg";
 import logoWhite from "@/assets/logo-rusc.webp";
+import mv3h from "@/assets/photos/model-vivant-3h-o.jpg";
 import usRaquel from "@/assets/photos/us-raquel-o.webp";
 import usChris from "@/assets/photos/us-chris-o.webp";
 import contact from "@/assets/photos/contact-o.webp";
@@ -171,6 +172,7 @@ export default function Home() {
               <h3>tournage 2h</h3>
               <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
@@ -179,6 +181,7 @@ export default function Home() {
               <h3>modelage 2h</h3>
               <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
@@ -187,6 +190,7 @@ export default function Home() {
               <h3>décor à cru 1h</h3>
               <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
               <p className="price">Cours d&rsquo;1h&nbsp;: 20&nbsp;€ · membre 18&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <a className="btn" href="#contact">+ info</a>
             </article>
             <article className="card">
@@ -198,11 +202,12 @@ export default function Home() {
               <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
             </article>
             <article className="card">
-              <Image className="thumb" src={logoWhite} alt="Model vivant — rūsc" />
+              <Image className="thumb" src={mv3h} alt="Cours de modèle vivant à rūsc" />
               <p className="k">Cours de 3&nbsp;h</p>
               <h3>model vivant 3h</h3>
               <p>Un cours de trois heures autour du modèle vivant&nbsp;: observer, dessiner, façonner d&rsquo;après le corps en mouvement.</p>
               <p className="price">Cours de 3h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <a className="btn" href="#contact">+ info</a>
             </article>
           </div>
@@ -219,6 +224,7 @@ export default function Home() {
               <h3>céramique 2j</h3>
               <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
               <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <BookingButton lang="fr" workshop="atelier-ceramique-2j">S’inscrire</BookingButton>
             </article>
             <article className="card">
@@ -227,6 +233,7 @@ export default function Home() {
               <h3>céramique 1j</h3>
               <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
               <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <BookingButton lang="fr" workshop="atelier-ceramique-1j">S’inscrire</BookingButton>
             </article>
             <article className="card">
@@ -235,6 +242,7 @@ export default function Home() {
               <h3>porcelaine 1j</h3>
               <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
               <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
+              <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
               <BookingButton lang="fr" workshop="porcelaine">S’inscrire</BookingButton>
             </article>
             <article className="card">
@@ -304,6 +312,38 @@ export default function Home() {
           <p style={{ textAlign: "center", marginTop: "34px", fontSize: "14.5px", color: "var(--muted)", maxWidth: "640px", marginLeft: "auto", marginRight: "auto" }}>
             Les tarifs sont affichés ici et repris au moment de la réservation. La remise membre de 10&nbsp;% s&rsquo;applique automatiquement dès que votre adhésion est active.
           </p>
+        </div>
+      </section>
+
+      <section id="cuisson">
+        <div className="wrap">
+          <SectionHead title="la cuisson" sub={<>Tarif par pièce</>} />
+          <p style={{ textAlign: "center", maxWidth: "720px", margin: "0 auto 8px", fontSize: "15px", color: "var(--muted)" }}>La cuisson est gérée par l&rsquo;équipe rūsc. Chaque pièce reçoit un émail transparent posé par nos soins. Le tarif dépend de la matière, de la taille et de l&rsquo;émail choisi.</p>
+          <p style={{ textAlign: "center", marginBottom: "22px", fontSize: "15px" }}><strong>Cuisson à partir de 6&nbsp;€ la pièce</strong> &middot; tarif réduit pour les membres.</p>
+          <details style={{ maxWidth: "720px", margin: "0 auto", border: "1px solid var(--line)", borderRadius: "10px", padding: "4px 18px" }}>
+            <summary style={{ cursor: "pointer", padding: "14px 0", fontWeight: 600, listStyle: "none" }}>Voir le détail des tarifs de cuisson</summary>
+            <div style={{ paddingBottom: "16px" }}>
+              <p style={{ fontSize: "14px", letterSpacing: ".04em", textTransform: "uppercase", color: "var(--muted)", margin: "10px 0 6px" }}>Non-membres</p>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                <li style={rateRow}><span>Enfant</span><span><strong>6&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Grès</span><span><strong>8&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Grès — engobe petit</span><span><strong>10&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Grès — engobe ou neutre grand</span><span><strong>14&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Grès — effet (petit ou grand)</span><span><strong>15&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Porcelaine</span><span><strong>12&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Porcelaine — engobe petit</span><span><strong>14&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Porcelaine — engobe ou neutre grand</span><span><strong>18&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Porcelaine — effet (petit ou grand)</span><span><strong>17&nbsp;€</strong></span></li>
+              </ul>
+              <p style={{ fontSize: "14px", letterSpacing: ".04em", textTransform: "uppercase", color: "var(--muted)", margin: "18px 0 6px" }}>Membres</p>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                <li style={rateRow}><span>Petit modèle</span><span><strong>7&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Grand modèle et assiette</span><span><strong>10&nbsp;€</strong></span></li>
+                <li style={rateRow}><span>Enfant</span><span><strong>6&nbsp;€</strong></span></li>
+              </ul>
+              <p style={{ marginTop: "14px", fontSize: "14.5px", color: "var(--muted)" }}>Émail transparent inclus dans chaque cuisson. Les cuissons sont réalisées par l&rsquo;équipe rūsc&nbsp;; aucune cuisson n&rsquo;est laissée aux élèves.</p>
+            </div>
+          </details>
         </div>
       </section>
 
