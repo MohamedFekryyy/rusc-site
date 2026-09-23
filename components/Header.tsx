@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import logo from "@/assets/logo-rusc.webp";
+import logo from "@/assets/logo-rusc-trim.webp";
 import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
 
 export type NavPage = "home" | "booking" | PageKey;
