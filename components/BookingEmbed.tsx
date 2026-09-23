@@ -12,7 +12,8 @@ import {
   type BookingView,
   type OfferKey,
 } from "@/lib/cal";
-import { PAGES, bookingHref, type Lang } from "@/lib/routes";
+import { cart } from "@/lib/cart";
+import { CART, PAGES, bookingHref, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
 const TEXT = {
@@ -22,6 +23,12 @@ const TEXT = {
     soon: (title: string) => `La réservation en ligne de « ${title} » ouvre bientôt.`,
     soonNext: "En attendant, écrivez-nous : nous réservons pour vous.",
     contact: "Nous contacter",
+    addToCart: "Ajouter au panier",
+    added: (title: string) => `« ${title} » est dans votre panier.`,
+    viewCart: "Voir le panier",
+    keepBrowsing: "Continuer",
+    slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
+    slotPaid: "Votre réservation est confirmée.",
   },
   en: {
     tabs:{ schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
@@ -29,6 +36,12 @@ const TEXT = {
     soon: (title: string) => `Online booking for “${title}” opens soon.`,
     soonNext: "In the meantime, write to us and we’ll book it for you.",
     contact: "Contact us",
+    addToCart: "Add to cart",
+    added: (title: string) => `“${title}” is in your cart.`,
+    viewCart: "View cart",
+    keepBrowsing: "Keep browsing",
+    slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
+    slotPaid: "Your booking is confirmed.",
   },
 };
 
@@ -50,6 +63,20 @@ const backLink: CSSProperties = {
   color: "var(--accent)", textDecoration: "none",
 };
 const soonBox: CSSProperties = { padding: "72px 24px", textAlign: "center", color: "var(--muted)" };
+const productBox: CSSProperties = { padding: "56px 24px", textAlign: "center" };
+const bookedBar: CSSProperties = {
+  display: "flex", gap: "14px", alignItems: "center", justifyContent: "center", flexWrap: "wrap",
+  padding: "14px 18px", background: "rgba(59,78,62,.08)", borderBottom: "1px solid var(--line)",
+  fontSize: "14px", color: "var(--accent)",
+};
+const toastBox: CSSProperties = {
+  position: "fixed", left: "50%", bottom: "24px", transform: "translateX(-50%)", zIndex: 80,
+  background: "var(--accent)", color: "var(--bg)", padding: "12px 18px", fontSize: "13px",
+  letterSpacing: ".03em", boxShadow: "0 10px 30px rgba(20,20,21,.18)", maxWidth: "calc(100vw - 32px)",
+};
+const toastLink: CSSProperties = { color: "var(--bg)", marginLeft: "10px", textDecoration: "underline" };
+
+type CalBooking = { uid?: string; startTime?: string; endTime?: string; paymentRequired?: boolean };
 
 type CalQueue = ((...args: unknown[]) => void) & {
   q: unknown[];
@@ -113,6 +140,10 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const [view, setView] = useState<BookingView>("schedule");
   const [offerKey, setOfferKey] = useState<OfferKey | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // A slot was booked in the Cal booker: added to the cart, or paid in Cal.
+  const [booked, setBooked] = useState<"cart" | "paid" | null>(null);
+  // Title of the offer just added to the cart (confirmation toast).
+  const [toast, setToast] = useState<string | null>(null);
   const offer = offerKey ? offerByKey(offerKey) : undefined;
 
   useEffect(() => {
@@ -121,6 +152,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       setView(target ? offerByKey(target)!.view : next);
       setOfferKey(target);
       setUnavailable(false);
+      setBooked(null);
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -129,6 +161,15 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
 
     function onClick(event: MouseEvent) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      // "Add to cart" buttons (cards, membership, gift vouchers).
+      const adder = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-cart]") : null;
+      const key = adder?.dataset.cart;
+      if (adder && isOfferKey(key)) {
+        event.preventDefault();
+        cart.add(key);
+        setToast(offerByKey(key)![lang].title);
+        return;
+      }
       const link =
         event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[data-booking]") : null;
       const next = link?.dataset.booking;
@@ -141,12 +182,18 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     }
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
-  }, []);
+  }, [lang]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // Mount the Cal.com booker of the chosen offer.
   useEffect(() => {
     const host = hostRef.current;
-    if (!offer || !host) return;
+    if (!offer || offer.kind !== "session" || !host) return;
     const cal = getCal();
     const ns = `rusc${++namespaces}`;
     activeNs.current = ns;
@@ -159,6 +206,19 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       action: "linkFailed",
       callback: () => {
         if (activeNs.current === ns) setUnavailable(true);
+      },
+    });
+    // A slot was booked. With no payment in Cal (the setup the cart needs),
+    // it goes to the cart and is confirmed once the cart is paid.
+    cal.ns[ns]("on", {
+      action: "bookingSuccessfulV2",
+      callback: (event: CustomEvent<{ data?: CalBooking }>) => {
+        const data = event.detail?.data;
+        if (activeNs.current !== ns || !data?.uid || !data.startTime) return;
+        if (!data.paymentRequired) {
+          cart.addBooking(offer.key, { uid: data.uid, start: data.startTime, end: data.endTime });
+        }
+        setBooked(data.paymentRequired ? "paid" : "cart");
       },
     });
     cal.ns[ns]("inline", {
@@ -190,7 +250,28 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               {t.back}
             </a>
           </div>
-          {unavailable ? (
+          {booked && (
+            <div style={bookedBar} role="status">
+              <span>{booked === "cart" ? t.slotAdded : t.slotPaid}</span>
+              {booked === "cart" && (
+                <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
+                  {t.viewCart}
+                </a>
+              )}
+            </div>
+          )}
+          {offer.kind === "product" ? (
+            <div key="product" style={productBox}>
+              <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>
+                {offer[lang].tag}
+              </p>
+              <h3 style={{ fontSize: "26px", marginBottom: "8px" }}>{offer[lang].title}</h3>
+              <p style={{ color: "var(--muted)", marginBottom: "26px" }}>{offer[lang].unit}</p>
+              <button type="button" className={`btn ${offer.tone}`} data-cart={offer.key} style={{ cursor: "pointer" }}>
+                {t.addToCart}
+              </button>
+            </div>
+          ) : unavailable ? (
             <div key="soon" style={soonBox}>
               <p style={{ marginBottom: "6px" }}>{t.soon(offer[lang].title)}</p>
               <p style={{ marginBottom: "24px" }}>{t.soonNext}</p>
@@ -208,6 +289,13 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           {offersIn(view).map((o) => (
             <OfferCard key={o.key} offer={o} lang={lang} />
           ))}
+        </div>
+      )}
+
+      {toast && (
+        <div role="status" style={toastBox}>
+          {t.added(toast)}
+          <a href={CART[lang]} style={toastLink}>{t.viewCart}</a>
         </div>
       )}
     </div>

@@ -44,7 +44,8 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
 };
 
 // One offer on the booking page, styled like the cards of the Cours and
-// Stages pages. Its button opens the offer in BookingEmbed.
+// Stages pages. Workshops open their booker; cards, membership and gift
+// vouchers go straight to the cart.
 export default function OfferCard({ offer, lang }: { offer: Offer; lang: Lang }) {
   const { image, icon: Icon } = MEDIA[offer.key];
   const t = offer[lang];
@@ -57,14 +58,21 @@ export default function OfferCard({ offer, lang }: { offer: Offer; lang: Lang })
       </p>
       <h3>{t.title}</h3>
       <p className="price">{t.unit}</p>
-      <a
-        className={`btn ${offer.tone}`}
-        href={bookingHref(lang, offer.view, offer.key)}
-        data-booking={offer.view}
-        data-workshop={offer.key}
-      >
-        {t.cta}
-      </a>
+      {offer.kind === "product" ? (
+        // Added straight to the cart (BookingEmbed handles [data-cart]).
+        <button type="button" className={`btn ${offer.tone}`} data-cart={offer.key} style={{ cursor: "pointer" }}>
+          {t.cta}
+        </button>
+      ) : (
+        <a
+          className={`btn ${offer.tone}`}
+          href={bookingHref(lang, offer.view, offer.key)}
+          data-booking={offer.view}
+          data-workshop={offer.key}
+        >
+          {t.cta}
+        </a>
+      )}
     </article>
   );
 }
