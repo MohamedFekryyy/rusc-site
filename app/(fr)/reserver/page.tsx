@@ -36,7 +36,6 @@ export default function Reserver() {
         <div className="wrap">
           <SectionHead as="h1" title="réserver" sub={<>Osez l&rsquo;expérience</>} />
           <BookingEmbed lang="fr" />
-          <p className="bk-note">Réservation sécurisée par Cal.com. Les carnets, l’adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s’applique automatiquement.</p>
           <p className="bk-note">Vous avez un carnet ou un bon cadeau acheté avant ce nouveau système&nbsp;? Il reste valable jusqu&rsquo;à sa date d&rsquo;expiration&nbsp;: <a href={PAGES.contact.fr} style={{ color: "var(--accent)" }}>écrivez-nous</a> avec votre code, nous réservons pour vous.</p>
 
           <p style={{ textAlign: "center", marginTop: "34px", fontSize: "14px", color: "var(--muted)" }}>

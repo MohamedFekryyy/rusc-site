@@ -41,7 +41,6 @@ export default function Booking() {
           </div>
 
           <BookingEmbed lang="en" />
-          <p className="bk-note">Secure booking by Cal.com. Class cards, the annual membership and gift vouchers (valid 1 year) are offered at checkout. The 10% member discount is applied automatically.</p>
           <p className="bk-note">Bought a class card or gift voucher before our new booking system? It stays valid until it expires: <a href={PAGES.contact.en} style={{ color: "var(--accent)" }}>write to us</a> with your code and we&rsquo;ll book it for you.</p>
           <p style={{ textAlign: "center", marginTop: "30px", fontSize: "14px", color: "var(--muted)" }}>
             <a href={TERMS.en} style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>Terms &amp; cancellation</a>
