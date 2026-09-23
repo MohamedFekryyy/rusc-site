@@ -1,7 +1,7 @@
 import Image from "next/image";
 import logoWhite from "@/assets/logo-rusc-white.webp";
 import { TERMS, type Lang } from "@/lib/routes";
-import { EMAIL, INSTAGRAM, PHONE, PHONE_HREF } from "@/lib/site";
+import { EMAIL, INSTAGRAM, INSTAGRAM_HANDLE, MOBILE, MOBILE_HREF } from "@/lib/site";
 
 const TEXT = {
   fr: {
@@ -32,8 +32,8 @@ export default function Footer({ lang }: { lang: Lang }) {
       <address>
         {t.address}<br />
         {t.hours}<br /><br />
-        <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · <a href={PHONE_HREF}>{PHONE}</a><br />
-        <a href={INSTAGRAM}>@studiorusc</a>
+        <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · <a href={MOBILE_HREF}>{MOBILE}</a><br />
+        <a href={INSTAGRAM}>{INSTAGRAM_HANDLE}</a>
       </address>
       <p style={{ marginTop: "10px" }}>
         {/* Plain <a>: the terms page loads its own stylesheet. */}
