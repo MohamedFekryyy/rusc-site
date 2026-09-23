@@ -1,110 +1,115 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
-  APPOINTMENT_TYPES,
-  BOOKING_VIEWS,
-  bookingUrl,
+  CAL_USERNAME,
+  VIEW_SLUGS,
+  calUrl,
   isBookingView,
-  type AppointmentSlug,
+  serviceByKey,
   type BookingView,
-} from "@/lib/acuity";
-import { bookingHref, type Lang } from "@/lib/routes";
+  type ServiceKey,
+} from "@/lib/cal";
+import type { Lang } from "@/lib/routes";
 
 const TEXT = {
   fr: {
     heading: "Réservation en ligne",
     caption: "ateliers, stages & créneaux libres",
-    tabs: { schedule: "Ateliers", catalog: "Carnets & adhésion", gifts: "Bons cadeaux" },
+    tabs: { schedule: "Ateliers", catalog: "Adhésion", gifts: "Bons cadeaux" },
     title: "Réservation rūsc",
+    loading: "Chargement du planning…",
   },
   en: {
     heading: "Online booking",
     caption: "workshops, courses & open slots",
-    tabs: { schedule: "Workshops", catalog: "Cards & membership", gifts: "Gift vouchers" },
+    tabs: { schedule: "Workshops", catalog: "Membership", gifts: "Gift vouchers" },
     title: "rūsc booking",
+    loading: "Loading the schedule…",
   },
 };
 
-function isWorkshop(value: unknown): value is AppointmentSlug {
-  return typeof value === "string" && Object.hasOwn(APPOINTMENT_TYPES, value);
+function isService(value: unknown): value is ServiceKey {
+  return typeof value === "string" && serviceByKey(value) !== undefined;
 }
 
-// The Acuity iframe of the booking page, with its view tabs. It opens on
-// what the URL asks for (?view= / ?workshop=, see bookingHref) and every
-// [data-booking] link on the page switches it in place.
+// Resolve the Cal.com URL to embed for a given view / workshop / language.
+function resolveUrl(lang: Lang, view: BookingView, workshop?: string | null): string {
+  if (workshop) {
+    const svc = serviceByKey(workshop);
+    if (svc) return calUrl(CAL_USERNAME, lang === "fr" ? svc.fr : svc.en);
+  }
+  if (view !== "schedule") {
+    const slug = VIEW_SLUGS[view][lang];
+    if (slug) return calUrl(CAL_USERNAME, slug);
+  }
+  return calUrl(CAL_USERNAME);
+}
+
+// The Cal.com booking block. Uses Cal.com's inline embed (global embed.js +
+// data-cal-link) so it works from a fully static export with no npm client.
+// It opens on ?workshop=<key> or ?view=catalog|gifts (see bookingHref) when
+// present, otherwise on the account's main page. Language is determined by the
+// -fr/-en event-slug pair: the FR page mounts the -fr type, the EN page -en.
 export default function BookingEmbed({ lang }: { lang: Lang }) {
   const t = TEXT[lang];
   const shellRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const srcRef = useRef<string | null>(null);
-  const [view, setView] = useState<BookingView>("schedule");
-  const [src, setSrc] = useState<string | null>(null);
 
-  useEffect(() => {
-    function show(next: BookingView, workshop?: string | null) {
-      setView(next);
-      const url = bookingUrl(next, isWorkshop(workshop) ? APPOINTMENT_TYPES[workshop] : undefined);
-      if (url === srcRef.current) return;
-      srcRef.current = url;
-      // embed.js pinned the height of the previous page; let it measure the new one.
-      frameRef.current?.style.removeProperty("height");
-      setSrc(url);
-    }
-
-    // Mount the iframe first, then embed.js (rendered below once src is set):
-    // the script only takes over iframes that already point at Acuity.
+  // Resolve the initial view/URL from the URL query (client-only). Lazy
+  // initializers avoid setState-in-effect cascading renders.
+  const [view] = useState<BookingView>(() => {
+    if (typeof window === "undefined") return "schedule";
     const params = new URLSearchParams(window.location.search);
     const workshop = params.get("workshop");
-    const requested = isWorkshop(workshop) ? "schedule" : params.get("view");
-    show(isBookingView(requested) ? requested : "schedule", workshop);
-
-    function onClick(event: MouseEvent) {
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const link =
-        event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[data-booking]") : null;
-      const next = link?.dataset.booking;
-      if (!link || !isBookingView(next)) return;
-      event.preventDefault();
-      show(next, link.dataset.workshop);
-      // Keep the address shareable: it names what the embed shows.
-      history.replaceState(null, "", link.href);
-      // Links outside the tabs: bring the booking block into view.
-      if (!shellRef.current?.contains(link)) shellRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, []);
+    const requested = isService(workshop) ? "schedule" : params.get("view");
+    return isBookingView(requested) ? requested : "schedule";
+  });
+  const [url] = useState<string>(() => {
+    if (typeof window === "undefined") return calUrl(CAL_USERNAME);
+    const params = new URLSearchParams(window.location.search);
+    const workshop = params.get("workshop");
+    const v = isService(workshop)
+      ? "schedule"
+      : isBookingView(params.get("view"))
+        ? (params.get("view") as BookingView)
+        : "schedule";
+    return resolveUrl(lang, v, isService(workshop) ? workshop : null);
+  });
 
   return (
     <div className="bk-shell" ref={shellRef}>
       <div className="bk-bar">
-        <span><b>{t.heading}</b> &nbsp;·&nbsp; {t.caption}</span>
+        <span>
+          <b>{t.heading}</b> &nbsp;·&nbsp; {t.caption}
+        </span>
         <nav className="bk-tabs" role="tablist">
-          {BOOKING_VIEWS.map((v) => (
-            <a key={v} href={bookingHref(lang, v)} role="tab" data-booking={v} aria-selected={view === v}>
+          {(["schedule", "catalog", "gifts"] as const).map((v) => (
+            <a
+              key={v}
+              href={resolveUrl(lang, v)}
+              role="tab"
+              aria-selected={view === v}
+            >
               {t.tabs[v]}
             </a>
           ))}
         </nav>
       </div>
       <div id="bk-bookings">
-        {src && (
-          <iframe
-            ref={frameRef}
-            className="bk-frame"
-            src={src}
-            title={t.title}
-            frameBorder="0"
-            allow="payment"
-            // Keeps the sticky nav and the tabs visible when embed.js scrolls to the frame.
-            data-offset-top="120"
-          />
-        )}
+        {/* Cal.com inline embed target: embed.js upgrades the [data-cal-link]
+            element into the booker. */}
+        <a
+          href={url}
+          data-cal-link={url}
+          data-cal-namespace="rusc"
+          className="bk-frame-cal"
+        >
+          {t.loading}
+        </a>
       </div>
-      {/* Acuity's script: auto-height and scroll handling for the iframe. */}
-      {src && <Script src="https://embed.acuityscheduling.com/js/embed.js" />}
+      {/* Cal.com embed script: turns the element above into the inline booker. */}
+      <Script src="https://cal.com/embed.js" strategy="afterInteractive" />
     </div>
   );
 }

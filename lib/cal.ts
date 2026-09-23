@@ -1,3 +1,5 @@
+import type { Lang } from "@/lib/routes";
+
 // Cal.com config. This is the target behind every booking once the migration
 // from Acuity is complete; until then it lives alongside lib/acuity.ts and
 // nothing imports it yet.
@@ -34,13 +36,21 @@ export function serviceByKey(key: string) {
   return SERVICES.find((s) => s.key === key);
 }
 
-// What the embed can show. Cal.com has no separate "catalog"/"gifts" view the
-// way Acuity did; membership and gift vouchers are their own event types or
-// handled in Cal.com, so map only the scheduler here for now.
-export const BOOKING_VIEWS = ["schedule"] as const;
+// What the embed can show. Cal.com has no separate catalog the way Acuity
+// did, so membership and gift vouchers are their own event-type slugs. Until
+// those slugs are created in the rūsc Cal.com account, `schedule` is the only
+// fully-wired view.
+export const BOOKING_VIEWS = ["schedule", "catalog", "gifts"] as const;
 
 export type BookingView = (typeof BOOKING_VIEWS)[number];
 
 export function isBookingView(value: unknown): value is BookingView {
   return BOOKING_VIEWS.includes(value as BookingView);
 }
+
+// Cal.com event-type slugs for the two extra views (created in the account).
+// Null = not yet created; the embed falls back to the account's main page.
+export const VIEW_SLUGS: Record<Exclude<BookingView, "schedule">, Record<Lang, string | null>> = {
+  catalog: { fr: null, en: null }, // membership / class cards
+  gifts: { fr: null, en: null }, // gift vouchers
+};
