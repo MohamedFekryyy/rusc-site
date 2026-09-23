@@ -17,8 +17,9 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
   - For now the embed loads from cal.com's hosted app, account `rusc-studio`.
-  - It moves to a self-hosted **Cal.diy** (the MIT fork of Cal.com) on a Hetzner server at `booking.studio-rusc.com`. Setup lives in `deploy/cal/` (step 12). The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` pointed at it.
+  - It moves to a self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (step 16). The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` (and `NEXT_PUBLIC_CAL_USERNAME`) pointed at it.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
+- **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (step 14). Until they're set, the cart says online payment opens soon.
 
 ## Commands
 
@@ -45,9 +46,10 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 - **Bookings never leave the site.** This was the owner's explicit requirement.
   - Nothing on the site links to cal.com, the Cal.com instance, Acuity or `rusc.as.me`. The booker only ever appears as the inline embed on the booking pages.
   - Buttons that name a workshop or offer are `BookingButton`s. They link to our booking page with `?workshop=<key>` or `?view=catalog|gifts` (`bookingHref` in `lib/routes.ts`).
-  - On the booking page, `BookingEmbed` mounts Cal.com's inline embed for that link. Its tabs switch it in place and update the URL.
-  - If an event type doesn't exist in Cal.com, the embed shows the account page instead of a 404 (Cal's `linkFailed` event).
-  - Each service has two event types, `-fr` and `-en` (`SERVICES` in `lib/cal.ts`), because the embed has no language parameter. Membership and gift-voucher slugs go in `VIEW_SLUGS`.
+  - On the booking page, `BookingEmbed` lists the offers of each tab as cards. A session opens Cal's inline booker in place; a product (card, membership, gift voucher) goes straight into the cart. The tabs and the chosen offer update the URL.
+  - If an event type doesn't exist yet, the booking page says it opens soon, with a contact link (Cal's `linkFailed` event).
+  - Each session has two event types, `<key>-fr` and `<key>-en` (`OFFERS` in `lib/cal.ts`, `kind: "session"`), because the embed has no language parameter. Products need none.
+  - Prices live in `OFFERS` (euro cents, TTC). The checkout route recomputes every total from them; never trust a price from the browser.
 - **Keep secrets and client data out of the repo, which is public on GitHub.**
   - Keys go in `.secrets/`, which is git-ignored (the Cal.com key is `.secrets/cal.env`).
   - Client exports go in `data/`, also git-ignored (for example the Acuity CSVs).
@@ -217,3 +219,58 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - `setup.sh` generates the secrets into `.env` on the server; `update.sh` pulls and restarts.
 - **Sign-up:** Caddy returns 404 for `/signup*` and `/api/auth/signup*`. The Dockerfile doesn't pass `NEXT_PUBLIC_DISABLE_SIGNUP` through, so a build argument would be ignored. The first admin account comes from `/auth/setup`, which Cal.diy only allows while there are zero users.
 - **Not run end to end yet.** Checked so far: the YAML parses, the shell syntax is valid, and the `.env` generation was simulated. The first setup on the server (`deploy/cal/README.md`) is the real test.
+
+### 13. Booking page, header and scrolling (2026-09-23)
+- **Booking page** (`ae42c5f`, `6746a6c`, `4182ec1`): each tab lists its offers as cards (`OfferCard`: photo, a thin lucide icon, title, price, button). Choosing a session opens its Cal booker in place, with a link back to the list.
+- **Deep links** (`cefdd23`): buttons on the content pages open their exact offer (`BookingButton workshop=…`).
+- **Old carnets and vouchers** (`a262813`): the booking pages say they stay valid, and to write to the studio with the code (see step 15).
+- **Menu** (`ea184da`, committed from GitHub Desktop): the panel and its scrim now render after `<header>`. The header's `backdrop-filter` made it the containing block of its fixed children, so the panel covered the X and the scrim only covered the header strip.
+- **Phones** (`9c91503`): at ≤560px the header is two rows (menu, logo, Réserver / FR-EN, Connexion, Panier), so nothing overlaps.
+- **Smooth scrolling** (`b83891f`): Lenis with `lerp: 0.2` (a light effect), off for `prefers-reduced-motion`. `html{scroll-behavior:smooth}` was removed from `home.css`, since the two fight. The menu panel has `data-lenis-prevent` so it scrolls on its own.
+
+### 14. Cart and Stripe (2026-09-23)
+- **Why:** the owner wants a Shopify-style cart for everything the studio sells, paid without leaving the site.
+- **Offers** (`2320feb`): each offer in `lib/cal.ts` has a `kind` (`session`: a dated booking; `product`: cards, membership, gift vouchers) and a `price` in euro cents, TTC.
+- **Checkout** (`1692fdf`):
+  - `POST /api/checkout/` builds a Checkout Session in embedded mode (`ui_mode: "embedded_page"`, `redirect_on_completion: "never"`) from offer keys and quantities. Prices come from `OFFERS` on the server.
+  - The session metadata lists the order (`items_1`, `items_2`, …: `<key>x<qty>[@<Cal booking uid>]`).
+  - `POST /api/stripe/webhook/` checks the signature and logs paid orders (session id and metadata only).
+- **Cart** (`6bb4477`): kept in `localStorage` (`rusc-cart-v1`) and synced across tabs. The header shows the item count. `/panier/` and `/en/cart/` (noindex) list the lines, then mount Stripe's checkout in place.
+- **Booking page** (`fd3f9b4`): products get an "add to cart" button. A booked session (Cal's `bookingSuccessfulV2`) joins the cart with its date, to be paid there.
+- **Trailing slash** (`6021189`): with `trailingSlash`, `/api/checkout` answered a 308 first, so the cart calls `/api/checkout/`. Register the webhook in Stripe **with** its slash, `https://<site>/api/stripe/webhook/`, because Stripe does not follow redirects.
+- **To go live:**
+  - In Vercel, set `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (webhook event: `checkout.session.completed`).
+  - In Cal, turn on "requires confirmation" for the sessions (`deploy/cal/README.md`).
+  - Until the keys are set, "Payer" says online payment opens soon and links to the contact page.
+- **Fulfilment is manual for now:** the studio sends voucher and card codes, and confirms paid Cal bookings. Member prices are not applied online; that decision is Raquel's.
+- **Checked** with `next start`:
+  - a real click adds a gift voucher, and the header count updates;
+  - the quantity buttons update the total;
+  - the "opens soon" fallback shows;
+  - both API routes answer 503 without keys.
+
+### 15. Continuity with the old system
+- **Data:** the owner provided three Acuity exports: orders, the schedule up to 2026-09-22, and the client list. They stay in `data/` (git-ignored). Nothing from them goes in the repo or in chat beyond counts.
+- **Findings:** the exports show prepaid carnets with hours or sessions left, and gift vouchers sold within the last year. But the orders export has no codes, so no carnet or voucher can be checked against it.
+- **Before the switch:**
+  - export the certificates/codes list with balances from Acuity;
+  - get the member list (there is no membership export);
+  - re-export future bookings on switch day.
+- **Until then:** the booking pages ask customers to write with their code (step 13).
+
+### 16. Booking server on Fly.io instead of Hetzner (`deploy/cal/`)
+- **Owner's decision (2026-09-23):** Fly.io, where he already has an account, instead of a new Hetzner server. It costs more: about $15/month against about €5 for a Hetzner CX22.
+- **Two apps** in the `personal` organisation, region `ams`. It is the cheapest EU region on Fly: `fra` costs about 15% more, `cdg` about 25% more.
+  - `rusc-cal` (`fly.toml`): the same Cal.diy image, shared-cpu-1x with 2 GB, always on. `cron.sh` runs in the background of the same machine.
+  - `rusc-cal-db` (`fly.db.toml`): `postgres:16-alpine`, 512 MB, a 1 GB volume with daily snapshots kept 14 days. It has no public address; Cal.diy reaches it at `rusc-cal-db.internal:5432`.
+- **No Caddy:** Fly serves HTTPS.
+  - Sign-up is closed with Cal.diy's `disable-signup` feature flag, a row in the `Feature` table. At the pinned commit, both the sign-up API and the sign-up page check it.
+  - `/auth/setup` ignores the flag: it only checks that no user exists. `setup.sh` turns the flag on as soon as the migrations have created it.
+- **Secrets:** `setup.sh` generates them with openssl and pipes them into `fly secrets import`, so they are never printed or written to disk. The Brevo SMTP login is set by the owner with `fly secrets set`.
+- **Removed:** the Hetzner-only files (`docker-compose.yml`, `Caddyfile`, `backup.sh`, `example.env`, `update.sh`). They are in `5c01a68` if needed. `deploy.sh` replaces `update.sh`.
+- **Checked:**
+  - `fly config validate --strict` passes for both configs;
+  - the scripts parse (`sh -n`);
+  - the image is public on GHCR (anonymous pull of the manifest answers 200);
+  - the image has `wget` for the cron loop.
+- **Not deployed yet.**
