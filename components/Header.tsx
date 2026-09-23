@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import logo from "@/assets/logo-rusc.webp";
 import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
-import { clientLoginUrl } from "@/lib/acuity";
+import { CAL_USERNAME, calUrl } from "@/lib/cal";
 
 export type NavPage = "home" | "booking" | PageKey;
 
@@ -100,8 +100,8 @@ export default function Header({ lang, page }: Props) {
           <a className="cta" href={cta.href}>
             {cta.label}
           </a>
-          {/* Login: Acuity client self-service (new tab — Acuity blocks framing). */}
-          <a className="auth" href={clientLoginUrl} target="_blank" rel="noopener">
+          {/* Login: Cal.com account (new tab) — lets members/manage bookings. */}
+          <a className="auth" href={calUrl(CAL_USERNAME)} target="_blank" rel="noopener">
             {AUTH_LABEL[lang]}
           </a>
           {/* Cart: no native Acuity cart — points to the catalog (class cards,
