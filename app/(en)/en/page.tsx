@@ -41,9 +41,9 @@ const jsonLd = {
 };
 
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string }[] = [
+  { href: PAGES.membres.en, img: enfant, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates." },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single or by card." },
   { href: PAGES.stages.en, img: ceramique2h, tag: "Immersion · 10am – 5pm", title: "intensives", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
-  { href: PAGES.membres.en, img: enfant, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates." },
   { href: PAGES.privatisation.en, img: residence, tag: "Tailor-made", title: "space hire", text: "Team building, hen parties, birthdays, themed dinners. Hire the studio." },
 ];
 

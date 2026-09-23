@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
 import logo from "@/assets/logo-rusc.webp";
 import { BOOKING, HOME, PAGES, type Lang, type PageKey } from "@/lib/routes";
 
@@ -49,24 +52,31 @@ const CTA = {
   en: { href: BOOKING.en, label: "Book" },
 };
 
+const MENU_LABEL = { fr: "Menu", en: "Menu" };
+
 type Props = {
   lang: Lang;
   page: NavPage;
 };
 
 export default function Header({ lang, page }: Props) {
+  const [open, setOpen] = useState(false);
   const labels = LABELS[lang];
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
   const frHref = page === "home" ? HOME.fr : page === "booking" ? BOOKING.fr : PAGES[page].fr;
   const enHref = page === "home" ? HOME.en : page === "booking" ? BOOKING.en : PAGES[page].en;
+  const close = () => setOpen(false);
+
   return (
     <header>
       <div className="wrap nav">
-        <a href={page === "home" ? "#" : HOME[lang]} className="logo">
+        <a href={page === "home" ? "#" : HOME[lang]} className="logo" onClick={close}>
           <Image src={logo} alt="rūsc" loading="eager" />
         </a>
-        <nav>
+
+        {/* Desktop navigation */}
+        <nav className="nav-desktop">
           {ORDER.map((key) => (
             <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
               {labels[key]}
@@ -81,7 +91,40 @@ export default function Header({ lang, page }: Props) {
             {cta.label}
           </a>
         </nav>
+
+        {/* Mobile: permanent booking button + burger */}
+        <div className="nav-mobile">
+          <a className="cta" href={cta.href}>
+            {cta.label}
+          </a>
+          <button
+            type="button"
+            className="burger"
+            aria-label={MENU_LABEL[lang]}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className={open ? "x" : ""}></span>
+          </button>
+        </div>
       </div>
+
+      {/* Dropdown panel (mobile) */}
+      {open && (
+        <div className="mobile-panel" onClick={close}>
+          <nav>
+            {ORDER.map((key) => (
+              <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
+                {labels[key]}
+              </a>
+            ))}
+          </nav>
+          <span className="lang">
+            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
+            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
+          </span>
+        </div>
+      )}
     </header>
   );
 }

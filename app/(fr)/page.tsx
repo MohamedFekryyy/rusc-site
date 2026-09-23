@@ -42,6 +42,13 @@ const jsonLd = {
 
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string }[] = [
   {
+    href: PAGES.membres.fr,
+    img: enfant,
+    tag: "Ateliers libres",
+    title: "espace membre",
+    text: "Un espace pro équipé, en autonomie. Adhésion 50 €/an et tarifs préférentiels.",
+  },
+  {
     href: PAGES.cours.fr,
     img: ceramique2h,
     tag: "Osez l'expérience",
@@ -54,13 +61,6 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
     tag: "Immersion · 10h – 17h",
     title: "les stages",
     text: "Céramique 1 et 2 jours, porcelaine, tapisserie d'ameublement.",
-  },
-  {
-    href: PAGES.membres.fr,
-    img: enfant,
-    tag: "Ateliers libres",
-    title: "espace membre",
-    text: "Un espace pro équipé, en autonomie. Adhésion 50 €/an et tarifs préférentiels.",
   },
   {
     href: PAGES.privatisation.fr,
