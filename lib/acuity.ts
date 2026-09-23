@@ -36,3 +36,8 @@ export function bookingUrl(view: BookingView, appointmentType?: string) {
   const page = view === "schedule" ? "schedule.php" : "catalog.php";
   return `${BASE}/${page}?${params}`;
 }
+
+// Acuity's client self-service login: existing clients enter their email to
+// see, reschedule or cancel their own appointments. Opens in a new tab because
+// Acuity blocks this page from being embedded (X-Frame-Options: SAMEORIGIN).
+export const clientLoginUrl = `${BASE}/client-login.php?owner=${ACUITY_OWNER}`;

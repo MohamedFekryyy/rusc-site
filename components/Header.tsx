@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useState } from "react";
 import logo from "@/assets/logo-rusc.webp";
-import { BOOKING, HOME, PAGES, type Lang, type PageKey } from "@/lib/routes";
+import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
+import { clientLoginUrl } from "@/lib/acuity";
 
 export type NavPage = "home" | "booking" | PageKey;
 
@@ -95,11 +96,13 @@ export default function Header({ lang, page }: Props) {
           <a className="cta" href={cta.href}>
             {cta.label}
           </a>
-          {/* Login + cart: pending Acuity API integration — rendered but non-functional for now. */}
-          <a className="auth" href="#" aria-disabled="true" title="À venir">
+          {/* Login: Acuity client self-service (new tab — Acuity blocks framing). */}
+          <a className="auth" href={clientLoginUrl} target="_blank" rel="noopener">
             {AUTH_LABEL[lang]}
           </a>
-          <a className="cart" href="#" aria-disabled="true" title="À venir">
+          {/* Cart: no native Acuity cart — points to the catalog (class cards,
+              membership, gift vouchers), which is where a purchase happens. */}
+          <a className="cart" href={bookingHref(lang, "catalog")}>
             {CART_LABEL[lang]}
           </a>
         </div>
