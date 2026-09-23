@@ -1,8 +1,7 @@
 import type { Lang } from "@/lib/routes";
 
-// Cal.com config. This is the target behind every booking once the migration
-// from Acuity is complete; until then it lives alongside lib/acuity.ts and
-// nothing imports it yet.
+// Cal.com config — the source of truth behind every booking now that the
+// Acuity -> Cal.com migration has landed.
 //
 // The plain-Cal.com embed has no ?lang= param: the booker language follows the
 // browser/account locale. To honour the site rule "FR page -> French booker,
