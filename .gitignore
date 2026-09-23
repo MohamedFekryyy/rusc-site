@@ -10,6 +10,10 @@ next-env.d.ts
 # env files
 .env*
 
+# Secrets and client data: this repo is PUBLIC on GitHub, never commit these
+.secrets/
+data/
+
 # Vercel
 .vercel
 
