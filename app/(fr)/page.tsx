@@ -89,7 +89,6 @@ export default function Home() {
       <Header lang="fr" page="home" />
 
       <section className="hero wrap">
-        <p className="eyebrow">Atelier de céramique · Chamonix</p>
         <Image className="wordmark" src={logo} alt="rūsc" priority />
         <span className="rule"></span>
         <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
