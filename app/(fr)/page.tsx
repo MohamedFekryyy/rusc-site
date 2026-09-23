@@ -19,7 +19,6 @@ import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
 import porcelaine from "@/assets/photos/porcelaine-o.jpg";
 import tapisserie from "@/assets/photos/tapisserie-o.jpg";
 import logoWhite from "@/assets/logo-rusc.webp";
-import membres from "@/assets/photos/membres-o.jpg";
 import usRaquel from "@/assets/photos/us-raquel-o.webp";
 import usChris from "@/assets/photos/us-chris-o.webp";
 import contact from "@/assets/photos/contact-o.webp";
@@ -156,7 +155,6 @@ export default function Home() {
               </div>
             </div>
             <div className="art-stack">
-              <Image src={membres} alt="L’atelier libre rūsc — espace professionnel équipé" />
               <Image className="drawing" src={drawing} alt="Dessin au trait de Sylwia — main, bouteilles, chaise" />
             </div>
           </div>
@@ -172,7 +170,7 @@ export default function Home() {
               <p className="k">Cours de 2&nbsp;h</p>
               <h3>tournage 2h</h3>
               <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
-              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€</p>
+              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
               <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
@@ -180,7 +178,7 @@ export default function Home() {
               <p className="k">Cours de 2&nbsp;h</p>
               <h3>modelage 2h</h3>
               <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
-              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€</p>
+              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
               <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
@@ -204,7 +202,7 @@ export default function Home() {
               <p className="k">Cours de 3&nbsp;h</p>
               <h3>model vivant 3h</h3>
               <p>Un cours de trois heures autour du modèle vivant&nbsp;: observer, dessiner, façonner d&rsquo;après le corps en mouvement.</p>
-              <p className="price">Sur demande · nous contacter</p>
+              <p className="price">Cours de 3h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
               <a className="btn" href="#contact">+ info</a>
             </article>
           </div>
