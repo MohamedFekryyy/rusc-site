@@ -9,7 +9,6 @@ export type NavPage = "home" | "booking" | PageKey;
 
 // Menu order (validated by Raquel): Ūs · Espace membre · Cours · Stages ·
 // Privatisation · Résidence d'artiste · Expo · Cuisson · Contact.
-// "Réserver" is not a link here — it renders as the permanent CTA button.
 const LABELS: Record<Lang, Record<PageKey, string>> = {
   fr: {
     us: "Ūs",
@@ -52,6 +51,8 @@ const CTA = {
   en: { href: BOOKING.en, label: "Book" },
 };
 
+const AUTH_LABEL = { fr: "Connexion", en: "Log in" };
+const CART_LABEL = { fr: "Panier", en: "Cart" };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
 
 type Props = {
@@ -71,32 +72,8 @@ export default function Header({ lang, page }: Props) {
   return (
     <header>
       <div className="wrap nav">
-        <a href={page === "home" ? "#" : HOME[lang]} className="logo" onClick={close}>
-          <Image src={logo} alt="rūsc" loading="eager" />
-        </a>
-
-        {/* Desktop navigation */}
-        <nav className="nav-desktop">
-          {ORDER.map((key) => (
-            <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
-              {labels[key]}
-            </a>
-          ))}
-          {/* Plain <a>: FR and EN are separate root layouts (full page load). */}
-          <span className="lang">
-            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
-            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
-          </span>
-          <a className="cta" href={cta.href}>
-            {cta.label}
-          </a>
-        </nav>
-
-        {/* Mobile: permanent booking button + burger */}
-        <div className="nav-mobile">
-          <a className="cta" href={cta.href}>
-            {cta.label}
-          </a>
+        {/* Left: burger menu */}
+        <div className="nav-left">
           <button
             type="button"
             className="burger"
@@ -107,9 +84,28 @@ export default function Header({ lang, page }: Props) {
             <span className={open ? "x" : ""}></span>
           </button>
         </div>
+
+        {/* Center: logo */}
+        <a href={page === "home" ? "#" : HOME[lang]} className="logo" onClick={close}>
+          <Image src={logo} alt="rūsc" loading="eager" />
+        </a>
+
+        {/* Right: Réserver + login + cart */}
+        <div className="nav-right">
+          <a className="cta" href={cta.href}>
+            {cta.label}
+          </a>
+          {/* Login + cart: pending Acuity API integration — rendered but non-functional for now. */}
+          <a className="auth" href="#" aria-disabled="true" title="À venir">
+            {AUTH_LABEL[lang]}
+          </a>
+          <a className="cart" href="#" aria-disabled="true" title="À venir">
+            {CART_LABEL[lang]}
+          </a>
+        </div>
       </div>
 
-      {/* Dropdown panel (mobile) */}
+      {/* Dropdown panel (mobile + desktop burger) */}
       {open && (
         <div className="mobile-panel" onClick={close}>
           <nav>
