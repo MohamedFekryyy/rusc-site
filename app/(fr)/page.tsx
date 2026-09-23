@@ -91,7 +91,8 @@ export default function Home() {
       <section className="hero wrap">
         <Image className="wordmark" src={logo} alt="rūsc" priority />
         <span className="rule"></span>
-        <p className="intro"><h1>atelier de poterie à Chamonix.</h1> Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
+        <h1 className="tagline">Atelier de poterie à Chamonix.</h1>
+        <p className="intro">Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
           <a className="btn member" href={PAGES.membres.fr}>Espace membre</a>
           <a className="btn guest" href={PAGES.cours.fr}>Choisir un cours</a>
