@@ -60,7 +60,7 @@ export default function Cours() {
           <p className="k">2-hour course</p>
           <h3>children&rsquo;s course 2h</h3>
           <p>For ages 7–12. Every Wednesday from 1.30pm to 3.30pm (outside school holidays). A playful time to discover, shape and create.</p>
-          <p className="price">Limited places · booking recommended</p>
+          <p className="price">2h course: €50 · member €45<br />5-course card: €210 · member €189<br />10-course card: €350 · member €315</p>
           <BookingButton lang="en" workshop="modelage-enfant" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
