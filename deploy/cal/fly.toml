@@ -9,6 +9,9 @@
 
 app = "rusc-cal"
 primary_region = "ams"
+# 1 GB of memory plus 1 GB of swap, at half the price of 2 GB. Check memory
+# use in Fly's metrics (fly-metrics.net) before changing it.
+swap_size_mb = 1024
 
 [env]
   # Public address of the booking system. Switch both lines to
@@ -23,12 +26,19 @@ primary_region = "ams"
   EMAIL_SERVER_HOST = "smtp-relay.brevo.com"
   EMAIL_SERVER_PORT = "587"
   CALCOM_TELEMETRY_DISABLED = "1"
+  # Node's default heap on a 1 GB machine is ~512 MB; give it a little more.
+  NODE_OPTIONS = "--max-old-space-size=640"
   NEXT_PUBLIC_LICENSE_CONSENT = "agree"
 
-# Cal.diy's own start script (migrations, app store, server), with the
-# background-task loop (cron.sh) beside it on the same machine.
+# start.sh: Cal.diy's start steps (migrations, app store, server), without
+# the yarn/turbo launchers. The background-task loop (cron.sh) runs beside
+# it on the same machine.
 [processes]
-  app = "/bin/sh -c '/bin/sh /rusc/cron.sh & exec /calcom/scripts/start.sh'"
+  app = "/bin/sh -c '/bin/sh /rusc/cron.sh & exec /bin/sh /rusc/start.sh'"
+
+[[files]]
+  guest_path = "/rusc/start.sh"
+  local_path = "start.sh"
 
 [[files]]
   guest_path = "/rusc/cron.sh"
@@ -46,4 +56,4 @@ primary_region = "ams"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "2gb"
+  memory = "1gb"

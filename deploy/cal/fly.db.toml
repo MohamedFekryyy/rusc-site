@@ -7,6 +7,7 @@
 
 app = "rusc-cal-db"
 primary_region = "ams"
+swap_size_mb = 512
 
 [build]
   image = "postgres:16-alpine"
@@ -16,6 +17,11 @@ primary_region = "ams"
   POSTGRES_DB = "cal"
   # A folder inside the volume: its root holds lost+found, which initdb refuses.
   PGDATA = "/var/lib/postgresql/data/pgdata"
+
+# Sized for the smallest machine (256 MB): Cal.diy opens only a few
+# connections, and the whole database fits in a few hundred MB.
+[processes]
+  app = "postgres -c shared_buffers=64MB -c max_connections=30"
 
 [mounts]
   source = "pgdata"
@@ -28,4 +34,4 @@ primary_region = "ams"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"
+  memory = "256mb"
