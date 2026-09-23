@@ -262,7 +262,7 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 .bk-frame-cal{display:flex;align-items:center;justify-content:center;width:100%;min-height:900px;background:#fff;color:var(--muted);font-size:14px}
 .bk-note{max-width:1000px;margin:18px auto 0;font-size:13.5px;color:var(--muted);text-align:center}
 /* ── RÉSERVATION (cartes d'ateliers) ── */
-#reservation .price-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+#reservation .price-grid{display:grid;gap:26px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 #reservation .pcard .foot{margin-top:auto;padding-top:14px}
 #reservation .pcard .unit{font-size:14px;color:var(--muted);margin-bottom:8px}
 @media (max-width:640px){

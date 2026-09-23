@@ -1,27 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   BOOKING_VIEWS,
   CAL_ORIGIN,
-  bookingCalLink,
-  calLink,
   isBookingView,
-  isServiceKey,
+  isOfferKey,
+  offerByKey,
+  offerCalLink,
+  offersIn,
   type BookingView,
+  type OfferKey,
 } from "@/lib/cal";
-import { bookingHref, type Lang } from "@/lib/routes";
+import { PAGES, bookingHref, type Lang } from "@/lib/routes";
 
 const TEXT = {
   fr: {
     heading: "Réservation en ligne",
     caption: "ateliers, stages & créneaux libres",
-    tabs: { schedule: "Ateliers", catalog: "Adhésion", gifts: "Bons cadeaux" },
+    tabs: { schedule: "Cours & stages", catalog: "Adhésion & carnets", gifts: "Bons cadeaux" },
+    back: "← Toutes les offres",
+    soon: (title: string) => `La réservation en ligne de « ${title} » ouvre bientôt.`,
+    soonNext: "En attendant, écrivez-nous : nous réservons pour vous.",
+    contact: "Nous contacter",
   },
   en: {
     heading: "Online booking",
     caption: "workshops, courses & open slots",
-    tabs: { schedule: "Workshops", catalog: "Membership", gifts: "Gift vouchers" },
+    tabs: { schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
+    back: "← All offers",
+    soon: (title: string) => `Online booking for “${title}” opens soon.`,
+    soonNext: "In the meantime, write to us and we’ll book it for you.",
+    contact: "Contact us",
   },
 };
 
@@ -32,6 +42,13 @@ const UI = {
   hideEventTypeDetails: false,
   layout: "month_view",
 };
+
+const backBar: CSSProperties = { padding: "14px 18px", borderBottom: "1px solid var(--line)" };
+const backLink: CSSProperties = {
+  fontSize: "11.5px", letterSpacing: ".14em", textTransform: "uppercase",
+  color: "var(--accent)", textDecoration: "none",
+};
+const soonBox: CSSProperties = { padding: "72px 24px", textAlign: "center", color: "var(--muted)" };
 
 type CalQueue = ((...args: unknown[]) => void) & {
   q: unknown[];
@@ -80,50 +97,34 @@ function getCal(): CalQueue {
   return cal;
 }
 
-// A Cal.com namespace holds a single embed, so each switch gets a new one.
+// A Cal.com namespace holds a single embed, so each offer gets a new one.
 let namespaces = 0;
 
-// The Cal.com booker, embedded in the booking page: visitors never leave the
-// site. It opens on ?workshop=<key> or ?view=catalog|gifts (see bookingHref),
+// The booking block: the offers of the selected tab, then the Cal.com booker
+// of the chosen offer, embedded (visitors never leave the site).
+// It opens on ?workshop=<offer key> or ?view=catalog|gifts (see bookingHref),
 // and every [data-booking] link on the page switches it in place.
 export default function BookingEmbed({ lang }: { lang: Lang }) {
   const t = TEXT[lang];
   const shellRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
+  const activeNs = useRef<string | null>(null);
   const [view, setView] = useState<BookingView>("schedule");
+  const [offerKey, setOfferKey] = useState<OfferKey | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const offer = offerKey ? offerByKey(offerKey) : undefined;
 
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const cal = getCal();
-
-    function mount(link: string, fallback?: string) {
-      const ns = `rusc${++namespaces}`;
-      const el = document.createElement("div");
-      host!.replaceChildren(el);
-      cal("init", ns, { origin: CAL_ORIGIN });
-      cal.ns[ns]("ui", UI);
-      if (fallback) {
-        // Event type not created in Cal.com yet: show the account page, not a 404.
-        cal.ns[ns]("on", { action: "linkFailed", callback: () => mount(fallback) });
-      }
-      cal.ns[ns]("inline", {
-        elementOrSelector: el,
-        calLink: link,
-        config: { layout: "month_view", theme: "light" },
-      });
-    }
-
-    function show(next: BookingView, workshop?: string | null) {
-      setView(next);
-      const link = bookingCalLink(lang, next, workshop);
-      mount(link, link === calLink() ? undefined : calLink());
+    function open(next: BookingView, key?: string | null) {
+      const target = isOfferKey(key) ? key : null;
+      setView(target ? offerByKey(target)!.view : next);
+      setOfferKey(target);
+      setUnavailable(false);
     }
 
     const params = new URLSearchParams(window.location.search);
-    const workshop = params.get("workshop");
-    const requested = isServiceKey(workshop) ? "schedule" : params.get("view");
-    show(isBookingView(requested) ? requested : "schedule", workshop);
+    const requested = params.get("view");
+    open(isBookingView(requested) ? requested : "schedule", params.get("workshop"));
 
     function onClick(event: MouseEvent) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -132,18 +133,44 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       const next = link?.dataset.booking;
       if (!link || !isBookingView(next)) return;
       event.preventDefault();
-      show(next, link.dataset.workshop);
-      // Keep the address shareable: it names what the embed shows.
+      open(next, link.dataset.workshop);
+      // Keep the address shareable: it names what the block shows.
       history.replaceState(null, "", link.href);
-      // Links outside the tabs: bring the booking block into view.
-      if (!shellRef.current?.contains(link)) shellRef.current?.scrollIntoView({ behavior: "smooth" });
+      shellRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  // Mount the Cal.com booker of the chosen offer.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!offer || !host) return;
+    const cal = getCal();
+    const ns = `rusc${++namespaces}`;
+    activeNs.current = ns;
+    const el = document.createElement("div");
+    host.appendChild(el);
+    cal("init", ns, { origin: CAL_ORIGIN });
+    cal.ns[ns]("ui", UI);
+    // Event type not created in Cal.com yet: say so, in the page's language.
+    cal.ns[ns]("on", {
+      action: "linkFailed",
+      callback: () => {
+        if (activeNs.current === ns) setUnavailable(true);
+      },
+    });
+    cal.ns[ns]("inline", {
+      elementOrSelector: el,
+      calLink: offerCalLink(offer, lang),
+      config: { layout: "month_view", theme: "light" },
+    });
     return () => {
-      document.removeEventListener("click", onClick);
-      host.replaceChildren();
+      activeNs.current = null;
+      // Only remove what this effect added: React may reuse the host's node.
+      el.remove();
     };
-  }, [lang]);
+  }, [offer, lang, unavailable]);
 
   return (
     <div className="bk-shell" ref={shellRef}>
@@ -159,8 +186,48 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           ))}
         </nav>
       </div>
-      {/* Cal.com mounts the booker here (see mount above). */}
-      <div id="bk-bookings" ref={hostRef} />
+
+      {offer ? (
+        <>
+          <div style={backBar}>
+            <a href={bookingHref(lang, offer.view)} data-booking={offer.view} style={backLink}>
+              {t.back}
+            </a>
+          </div>
+          {unavailable ? (
+            <div key="soon" style={soonBox}>
+              <p style={{ marginBottom: "6px" }}>{t.soon(offer[lang].title)}</p>
+              <p style={{ marginBottom: "24px" }}>{t.soonNext}</p>
+              <a className="btn guest" href={PAGES.contact[lang]}>
+                {t.contact}
+              </a>
+            </div>
+          ) : (
+            // Cal.com mounts the booker here (see the effect above).
+            <div key={offer.key} id="bk-bookings" ref={hostRef} />
+          )}
+        </>
+      ) : (
+        <div className="price-grid" style={{ padding: "26px 18px" }}>
+          {offersIn(view).map((o) => (
+            <article className="pcard" key={o.key}>
+              <p className="tag">{o[lang].tag}</p>
+              <h3>{o[lang].title}</h3>
+              <p className="unit">{o[lang].unit}</p>
+              <div className="foot">
+                <a
+                  className={`btn ${o.tone}`}
+                  href={bookingHref(lang, o.view, o.key)}
+                  data-booking={o.view}
+                  data-workshop={o.key}
+                >
+                  {o[lang].cta}
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
