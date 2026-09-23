@@ -13,6 +13,7 @@ import {
   type OfferKey,
 } from "@/lib/cal";
 import { PAGES, bookingHref, type Lang } from "@/lib/routes";
+import OfferCard from "./OfferCard";
 
 const TEXT = {
   fr: {
@@ -203,22 +204,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           )}
         </div>
       ) : (
-        <div className="price-grid">
+        <div className="grid">
           {offersIn(view).map((o) => (
-            <article className="pcard" key={o.key}>
-              <h3>{o[lang].title}</h3>
-              <p className="unit">{o[lang].unit}</p>
-              <div className="foot">
-                <a
-                  className={`btn ${o.tone}`}
-                  href={bookingHref(lang, o.view, o.key)}
-                  data-booking={o.view}
-                  data-workshop={o.key}
-                >
-                  {o[lang].cta}
-                </a>
-              </div>
-            </article>
+            <OfferCard key={o.key} offer={o} lang={lang} />
           ))}
         </div>
       )}
