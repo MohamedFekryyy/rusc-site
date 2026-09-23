@@ -194,17 +194,25 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
   .nav .logo img{height:22px;max-width:150px}
   .nav .logo{padding:0 4px}
 }
-@media(max-width:560px){
-  /* Connexion + Panier are secondary (also reachable via the burger menu);
-     hide them from 560px down so the centered logo + FR/EN + RÉSERVER fit
-     without overlap. */
-  .auth,.cart{display:none}
+@media(max-width:640px){
+  /* Keep FR/EN + Réserver + Panier visible on phones; "Connexion" is
+     duplicate of "Espace membre" (both lead to /membres/) so it stays in the
+     burger menu. Compact so nothing overflows. */
+  .nav-right{gap:4px}
+  .nav .logo-word{font-size:15px;letter-spacing:.02em}
+  .nav-right .lang.lang-top a{padding:3px 6px;font-size:10px}
+  .nav-right .cta{padding:6px 8px;font-size:10px;letter-spacing:.04em}
+  .nav-right .auth{display:none}
+  .nav-right .cart{font-size:10px;padding:4px 0;letter-spacing:.02em}
 }
 @media(max-width:480px){
   header .wrap.nav{padding-left:16px;padding-right:16px}
-  /* The top FR/EN switch crowds the thin header; the burger menu keeps it.
-     Hide the top pill so only burger + centered logo + RÉSERVER remain. */
-  .nav-right .lang.lang-top{display:none}
+  .nav .logo-word{font-size:13px}
+}
+@media(max-width:400px){
+  .nav-right .lang.lang-top a{padding:2px 5px;font-size:9px}
+  .nav-right .cta{padding:5px 6px;font-size:9px}
+  .nav .logo-word{font-size:12px}
 }
 @media(max-width:360px){
   .cta{padding:7px 9px;font-size:10px;letter-spacing:.06em}
