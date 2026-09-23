@@ -23,7 +23,7 @@ export default function Stages() {
           <p className="k">2 jours</p>
           <h3>céramique 2j</h3>
           <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
-          <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
+          <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€ · membre 252&nbsp;€</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
           <BookingButton lang="fr" workshop="atelier-ceramique-2j" tone="guest">S’inscrire</BookingButton>
         </article>
@@ -32,7 +32,7 @@ export default function Stages() {
           <p className="k">1 jour</p>
           <h3>céramique 1j</h3>
           <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
-          <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
+          <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€ · membre 162&nbsp;€</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
           <BookingButton lang="fr" workshop="atelier-ceramique-1j" tone="guest">S’inscrire</BookingButton>
         </article>
@@ -41,7 +41,7 @@ export default function Stages() {
           <p className="k">10h – 17h</p>
           <h3>porcelaine 1j</h3>
           <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
-          <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
+          <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€ · membre 207&nbsp;€</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
           <BookingButton lang="fr" workshop="porcelaine" tone="guest">S’inscrire</BookingButton>
         </article>
