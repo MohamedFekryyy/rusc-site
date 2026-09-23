@@ -59,7 +59,7 @@ export default function Cours() {
           <Image className="thumb" src={enfant} alt="Children's course at rūsc" />
           <p className="k">2-hour course</p>
           <h3>children&rsquo;s course 2h</h3>
-          <p>For ages 7–12. Every Wednesday (outside school holidays). A playful time to discover, shape and create.</p>
+          <p>For ages 7–12. Every Wednesday from 1.30pm to 3.30pm (outside school holidays). A playful time to discover, shape and create.</p>
           <p className="price">Limited places · booking recommended</p>
           <BookingButton lang="en" workshop="modelage-enfant">Book</BookingButton>
         </article>

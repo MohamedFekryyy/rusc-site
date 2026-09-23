@@ -59,7 +59,7 @@ export default function Cours() {
           <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>cours enfant 2h</h3>
-          <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
+          <p>Pour les 7–12 ans. Tous les mercredis de 13h30 à 15h30 (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
           <p className="price">Places limitées · réservation conseillée</p>
           <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
         </article>
