@@ -84,7 +84,7 @@ section{padding:clamp(48px,7vw,84px) 0}
 .art-stack img{width:100%;height:auto;display:block;object-fit:cover}
 .art-stack .drawing{max-width:230px;margin:0 auto;opacity:.9}
 .card .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;margin:-34px -30px 22px;width:calc(100% + 60px);max-width:none}
-.card .thumb.drawing{object-fit:contain;background:rgba(255,255,255,.42);padding:18px;width:100%;margin:-34px -30px 22px}
+.card .thumb.drawing{object-fit:contain;background:var(--accent);padding:22px;width:100%;margin:-34px -30px 22px}
 .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;max-width:720px;margin:0 auto}
 .about-ph img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
 @media(max-width:600px){.about-grid{grid-template-columns:1fr}}
@@ -180,19 +180,21 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 @media(max-width:560px){
   .nav{gap:6px}
   .nav-right{gap:4px}
-  .cta{padding:8px 10px}
+  .cta{padding:8px 12px}
   .auth,.cart{font-size:11px}
-  .nav .logo img{height:30px}
+  .nav .logo img{height:32px}
   .nav .logo{padding:0 4px}
 }
-@media(max-width:400px){
-  .cart{display:none}
-  .nav-right{gap:3px}
-  .cta{padding:7px 8px}
-  .nav a{font-size:10px}
+@media(max-width:480px){
+  /* Connexion + Panier are non-functional placeholders ("À venir"); hide them
+     on phones so the Réserver CTA + logo + burger fit without overflow. */
+  .auth,.cart{display:none}
+  .nav{grid-template-columns:42px 1fr auto}
+  .nav .logo{justify-self:center}
 }
-@media(max-width:340px){
-  .auth{display:none}
+@media(max-width:360px){
+  .cta{padding:7px 10px}
+  .burger{width:38px;height:38px}
 }
 
 /* ── EMBEDDED BOOKING (Acuity) ── */

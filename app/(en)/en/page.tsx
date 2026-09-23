@@ -12,7 +12,7 @@ import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
 import privatisation from "@/assets/photos/atelier-05.jpg";
-import membre from "@/assets/dessin-sylwia-green.webp";
+import membre from "@/assets/dessin-sylwia-light.webp";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
