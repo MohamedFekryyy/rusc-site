@@ -53,7 +53,7 @@ export default function Cours() {
               <li>Jeudi&nbsp;: 17h – 18h</li>
             </ul>
           </details>
-          <BookingButton lang="fr">Réserver</BookingButton>
+          <BookingButton lang="fr" tone="guest">Réserver</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
@@ -61,7 +61,7 @@ export default function Cours() {
           <h3>cours enfant 2h</h3>
           <p>Pour les 7–12 ans. Tous les mercredis de 13h30 à 15h30 (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
           <p className="price">Places limitées · réservation conseillée</p>
-          <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
+          <BookingButton lang="fr" workshop="modelage-enfant" tone="guest">Réserver</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={mv3h} alt="Cours de modèle vivant à rūsc" />

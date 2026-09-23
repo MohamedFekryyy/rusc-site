@@ -25,7 +25,7 @@ export default function Stages() {
           <p>Immerse yourself in the ceramicist&rsquo;s craft over two consecutive days. Open to all, this course lets you see every stage of creation: from throwing to glazing, including turning.</p>
           <p className="price">2-day stoneware throwing: €280</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
-          <BookingButton lang="en" workshop="atelier-ceramique-2j">Book</BookingButton>
+          <BookingButton lang="en" workshop="atelier-ceramique-2j" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={ceramique1j} alt="One-day stoneware throwing intensive at rūsc" />
@@ -34,7 +34,7 @@ export default function Stages() {
           <p>Whether you are a beginner or considering a career change, we will guide you through every step needed to throw a stoneware piece.</p>
           <p className="price">Stoneware throwing: €180</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
-          <BookingButton lang="en" workshop="atelier-ceramique-1j">Book</BookingButton>
+          <BookingButton lang="en" workshop="atelier-ceramique-1j" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={porcelaine} alt="Porcelain throwing intensive at rūsc" />
@@ -43,7 +43,7 @@ export default function Stages() {
           <p>Porcelain is a singular material: pure, demanding, luminous. Few studios make it accessible. Once a month, we offer our students this rare experience: taming its fragility, exploring its precise gestures and shaping their own pieces on the wheel.</p>
           <p className="price">Porcelain throwing: €230</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
-          <BookingButton lang="en" workshop="porcelaine">Book</BookingButton>
+          <BookingButton lang="en" workshop="porcelaine" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={tapisserie} alt="Traditional upholstery intensive at rūsc" />

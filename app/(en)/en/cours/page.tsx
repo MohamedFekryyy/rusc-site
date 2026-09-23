@@ -26,7 +26,7 @@ export default function Cours() {
           <p>Ceramics throwing courses with an experienced teacher who will guide you through your first steps. At your own pace, over 2-hour courses you will learn every step needed to make your own pots.</p>
           <p className="price">2h course: €50 · member €45 · 5-course card: €210 · member €189 · 10-course card: €350 · member €315</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
-          <BookingButton lang="en" workshop="atelier-ceramique-2h">Book</BookingButton>
+          <BookingButton lang="en" workshop="atelier-ceramique-2h" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={modelage2h} alt="Hand-building course at rūsc" />
@@ -35,7 +35,7 @@ export default function Cours() {
           <p>Whether you are a beginner or experienced, come and try your hand at hand-building and conceptualise your own creations.</p>
           <p className="price">2h course: €50 · member €45 · 5-course card: €210 · member €189 · 10-course card: €350 · member €315</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
-          <BookingButton lang="en" workshop="atelier-modelage-2h">Book</BookingButton>
+          <BookingButton lang="en" workshop="atelier-modelage-2h" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={logoWhite} alt="Raw-glaze decoration — rūsc" />
@@ -53,7 +53,7 @@ export default function Cours() {
               <li>Thursday: 5pm – 6pm</li>
             </ul>
           </details>
-          <BookingButton lang="en">Book</BookingButton>
+          <BookingButton lang="en" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={enfant} alt="Children's course at rūsc" />
@@ -61,7 +61,7 @@ export default function Cours() {
           <h3>children&rsquo;s course 2h</h3>
           <p>For ages 7–12. Every Wednesday from 1.30pm to 3.30pm (outside school holidays). A playful time to discover, shape and create.</p>
           <p className="price">Limited places · booking recommended</p>
-          <BookingButton lang="en" workshop="modelage-enfant">Book</BookingButton>
+          <BookingButton lang="en" workshop="modelage-enfant" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={mv3h} alt="Life-drawing course at rūsc" />

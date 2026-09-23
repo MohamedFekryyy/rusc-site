@@ -40,8 +40,8 @@ export default function Membres() {
             <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Members get <strong>–10%</strong> on the 2-hour course (throwing or hand-building), hourly raw-glaze decoration, and the 5- and 10-course cards. Strictly personal benefit: for the member, non-transferable. Open studio is for members only.</p>
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
-            <BookingButton lang="en" view="catalog">Join</BookingButton>
-            <a className="btn ghost" href="/en/booking/">Book a slot</a>
+            <BookingButton lang="en" view="catalog" tone="member">Join</BookingButton>
+            <a className="btn guest" href="/en/booking/">Book a slot</a>
           </div>
         </div>
         <div className="art-stack">
