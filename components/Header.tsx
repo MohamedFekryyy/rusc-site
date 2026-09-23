@@ -1,47 +1,65 @@
 import Image from "next/image";
 import logo from "@/assets/logo-rusc.webp";
-import { BOOKING, HOME, type Lang } from "@/lib/routes";
+import { BOOKING, HOME, PAGES, type Lang, type PageKey } from "@/lib/routes";
 
-// Section links point at the home page, so the same nav works on every page.
-const NAV = {
+export type NavPage = "home" | "booking" | PageKey;
+
+// Menu order (validated by Raquel): Ūs · Espace membre · Cours · Stages ·
+// Privatisation · Résidence d'artiste · Expo · Cuisson · Contact.
+// "Réserver" is not a link here — it renders as the permanent CTA button.
+const LABELS: Record<Lang, Record<PageKey, string>> = {
   fr: {
-    links: [
-      { href: "/#cours", label: "Workshop" },
-      { href: "/#stages", label: "Stages" },
-      { href: "/#cuisson", label: "Cuisson" },
-      { href: "/#membres", label: "Devenir membre" },
-      { href: "/#tarifs", label: "Tarifs" },
-      { href: "/#reservation", label: "Réservation" },
-      { href: "/#us", label: "Ūs" },
-      { href: "/#contact", label: "Contact" },
-    ],
-    // The home page lists everything bookable; each item opens /reserver/.
-    cta: { href: "/#reservation", label: "Réserver" },
+    us: "Ūs",
+    membres: "Espace membre",
+    cours: "Cours",
+    stages: "Stages",
+    privatisation: "Privatisation",
+    residence: "Résidence d'artiste",
+    expo: "Expo",
+    cuisson: "Cuisson",
+    contact: "Contact",
   },
   en: {
-    links: [
-      { href: "/en/#members", label: "Member area" },
-      { href: "/en/#courses", label: "Courses" },
-      { href: "/en/#intensives", label: "Intensives" },
-      { href: "/en/#firing", label: "Firing" },
-      { href: "/en/#pricing", label: "Prices" },
-      { href: BOOKING.en, label: "Booking" },
-      { href: "/en/#about", label: "Ūs" },
-      { href: "/en/#contact", label: "Contact" },
-    ],
-    cta: { href: BOOKING.en, label: "Book" },
+    us: "Ūs",
+    membres: "Member area",
+    cours: "Courses",
+    stages: "Intensives",
+    privatisation: "Space hire",
+    residence: "Artist residency",
+    expo: "Exhibitions",
+    cuisson: "Firing",
+    contact: "Contact",
   },
+};
+
+const ORDER: PageKey[] = [
+  "us",
+  "membres",
+  "cours",
+  "stages",
+  "privatisation",
+  "residence",
+  "expo",
+  "cuisson",
+  "contact",
+];
+
+const CTA = {
+  fr: { href: BOOKING.fr, label: "Réserver" },
+  en: { href: BOOKING.en, label: "Book" },
 };
 
 type Props = {
   lang: Lang;
-  page: "home" | "booking";
+  page: NavPage;
 };
 
 export default function Header({ lang, page }: Props) {
-  const { links, cta } = NAV[lang];
-  // The FR / EN switch keeps you on the same page.
-  const versions = page === "home" ? HOME : BOOKING;
+  const labels = LABELS[lang];
+  const cta = CTA[lang];
+  // FR/EN switch keeps you on the same page when possible.
+  const frHref = page === "home" ? HOME.fr : page === "booking" ? BOOKING.fr : PAGES[page].fr;
+  const enHref = page === "home" ? HOME.en : page === "booking" ? BOOKING.en : PAGES[page].en;
   return (
     <header>
       <div className="wrap nav">
@@ -49,15 +67,15 @@ export default function Header({ lang, page }: Props) {
           <Image src={logo} alt="rūsc" loading="eager" />
         </a>
         <nav>
-          {links.map((link) => (
-            <a key={link.href} href={link.href}>
-              {link.label}
+          {ORDER.map((key) => (
+            <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
+              {labels[key]}
             </a>
           ))}
           {/* Plain <a>: FR and EN are separate root layouts (full page load). */}
           <span className="lang">
-            <a href={versions.fr} className={lang === "fr" ? "on" : undefined}>FR</a>
-            <a href={versions.en} className={lang === "en" ? "on" : undefined}>EN</a>
+            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
+            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
           </span>
           <a className="cta" href={cta.href}>
             {cta.label}

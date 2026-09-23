@@ -18,14 +18,14 @@ const nextConfig: NextConfig = {
       { source: "/en/reservation", destination: "/en/booking/", permanent: true },
 
       // Old Squarespace pages, once studio-rusc.com points at this site
-      { source: "/about", destination: "/#us", permanent: true },
-      { source: "/contact", destination: "/#contact", permanent: true },
-      { source: "/workshop", destination: "/#ateliers", permanent: true },
+      { source: "/about", destination: "/us/", permanent: true },
+      { source: "/contact", destination: "/contact/", permanent: true },
+      { source: "/workshop", destination: "/cours/", permanent: true },
       { source: "/atelier-cramique-2h", destination: "/reserver/?workshop=atelier-ceramique-2h", permanent: true },
       { source: "/appointments-1-2", destination: "/reserver/", permanent: true },
       { source: "/rserver", destination: "/reserver/", permanent: true },
-      { source: "/membre", destination: "/#membres", permanent: true },
-      { source: "/member-site", destination: "/#membres", permanent: true },
+      { source: "/membre", destination: "/membres/", permanent: true },
+      { source: "/member-site", destination: "/membres/", permanent: true },
       { source: "/cart", destination: "/reserver/", permanent: true },
     ];
   },

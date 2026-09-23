@@ -1,0 +1,14 @@
+# Cloudflare Pages redirects (format: /from /to STATUS)
+# Old Squarespace URLs → new pages on the rūsc site.
+/about /us/ 301
+/contact /contact/ 301
+/workshop /cours/ 301
+/atelier-cramique-2h /reserver/?workshop=atelier-ceramique-2h 301
+/appointments-1-2 /reserver/ 301
+/rserver /reserver/ 301
+/membre /membres/ 301
+/member-site /membres/ 301
+/cart /reserver/ 301
+
+# Old legacy in-page anchors → dedicated pages
+/en/ /en/ 200
