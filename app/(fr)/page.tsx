@@ -135,7 +135,7 @@ export default function Home() {
 
       <section id="cta">
         <div className="wrap" style={{ textAlign: "center", paddingBottom: "60px" }}>
-          <BookingButton lang="fr" view="catalog" tone="member">Devenir membre</BookingButton>
+          <BookingButton lang="fr" workshop="adhesion" tone="member">Devenir membre</BookingButton>
           <span style={{ display: "inline-block", width: "12px" }}></span>
           <BookingButton lang="fr" view="gifts" tone="guest">&nbsp;Bon cadeau</BookingButton>
         </div>

@@ -53,7 +53,7 @@ export default function Cours() {
               <li>Thursday: 5pm – 6pm</li>
             </ul>
           </details>
-          <BookingButton lang="en" tone="guest">Book</BookingButton>
+          <BookingButton lang="en" workshop="decor-a-cru-1h" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
           <Image className="thumb" src={enfant} alt="Children's course at rūsc" />
