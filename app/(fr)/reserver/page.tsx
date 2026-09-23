@@ -3,7 +3,7 @@ import BookingEmbed from "@/components/BookingEmbed";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import SectionHead from "@/components/SectionHead";
-import { TERMS } from "@/lib/routes";
+import { PAGES, TERMS } from "@/lib/routes";
 import logo from "@/assets/logo-rusc.webp";
 import "@/styles/home.css";
 
@@ -37,6 +37,7 @@ export default function Reserver() {
           <SectionHead as="h1" title="réserver" sub={<>Osez l&rsquo;expérience</>} />
           <BookingEmbed lang="fr" />
           <p className="bk-note">Réservation sécurisée par Cal.com. Les carnets, l’adhésion annuelle et les bons cadeaux (valables 1 an) sont proposés au moment de la réservation. La remise membre de 10&nbsp;% s’applique automatiquement.</p>
+          <p className="bk-note">Vous avez un carnet ou un bon cadeau acheté avant ce nouveau système&nbsp;? Il reste valable jusqu&rsquo;à sa date d&rsquo;expiration&nbsp;: <a href={PAGES.contact.fr} style={{ color: "var(--accent)" }}>écrivez-nous</a> avec votre code, nous réservons pour vous.</p>
 
           <p style={{ textAlign: "center", marginTop: "34px", fontSize: "14px", color: "var(--muted)" }}>
             <a href={TERMS.fr} style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>Conditions générales &amp; annulation</a>
