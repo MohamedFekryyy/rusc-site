@@ -84,8 +84,8 @@ export default function Home() {
         <span className="rule"></span>
         <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
-          <a className="btn" href={PAGES.membres.fr}>Espace membre</a>
-          <a className="btn ghost" href={PAGES.cours.fr}>Voir les cours</a>
+          <a className="btn member" href={PAGES.membres.fr}>Espace membre</a>
+          <a className="btn guest" href={PAGES.cours.fr}>Voir les cours</a>
         </div>
       </section>
 
@@ -120,9 +120,9 @@ export default function Home() {
 
       <section id="cta">
         <div className="wrap" style={{ textAlign: "center", paddingBottom: "60px" }}>
-          <BookingButton lang="fr" view="catalog">Devenir membre</BookingButton>
+          <BookingButton lang="fr" view="catalog" tone="member">Devenir membre</BookingButton>
           <span style={{ display: "inline-block", width: "12px" }}></span>
-          <BookingButton lang="fr" view="gifts">&nbsp;Bon cadeau</BookingButton>
+          <BookingButton lang="fr" view="gifts" tone="guest">&nbsp;Bon cadeau</BookingButton>
         </div>
       </section>
 

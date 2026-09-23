@@ -54,6 +54,11 @@ header{position:sticky;top:0;z-index:50;background:rgba(227,229,215,.93);backdro
 .btn:hover{background:transparent;color:var(--ink)}
 .btn.ghost{background:transparent;color:var(--ink)}
 .btn.ghost:hover{background:var(--ink);color:var(--bg)}
+/* couleur de rôle : membre = vert foncé, non-membre = vert clair */
+.btn.member{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn.member:hover{background:transparent;color:var(--accent)}
+.btn.guest{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--ink)}
+.btn.guest:hover{background:transparent;color:var(--accent);border-color:var(--accent)}
 
 /* SECTION */
 section{padding:clamp(48px,7vw,84px) 0}

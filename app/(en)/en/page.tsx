@@ -59,8 +59,8 @@ export default function Home() {
         <span className="rule"></span>
         <p>At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">
-          <a className="btn" href={PAGES.membres.en}>Member area</a>
-          <a className="btn ghost" href={PAGES.cours.en}>See the courses</a>
+          <a className="btn member" href={PAGES.membres.en}>Member area</a>
+          <a className="btn guest" href={PAGES.cours.en}>See the courses</a>
         </div>
       </section>
 
@@ -95,9 +95,9 @@ export default function Home() {
 
       <section id="cta">
         <div className="wrap" style={{ textAlign: "center", paddingBottom: "60px" }}>
-          <BookingButton lang="en" view="catalog">Become a member</BookingButton>
+          <BookingButton lang="en" view="catalog" tone="member">Become a member</BookingButton>
           <span style={{ display: "inline-block", width: "12px" }}></span>
-          <BookingButton lang="en" view="gifts">&nbsp;Gift voucher</BookingButton>
+          <BookingButton lang="en" view="gifts" tone="guest">&nbsp;Gift voucher</BookingButton>
         </div>
       </section>
 
