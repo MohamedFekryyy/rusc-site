@@ -10,9 +10,9 @@ import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
-import enfant from "@/assets/photos/enfant2-o.jpg";
 import residence from "@/assets/photos/residence-o.jpg";
 import privatisation from "@/assets/photos/atelier-05.jpg";
+import membre from "@/assets/dessin-sylwia-green.webp";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -41,13 +41,14 @@ const jsonLd = {
   inLanguage: "fr",
 };
 
-const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string }[] = [
+const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
   {
     href: PAGES.membres.fr,
-    img: enfant,
+    img: membre,
     tag: "Ateliers libres",
     title: "espace membre",
     text: "Un espace pro équipé, en autonomie. Adhésion 50 €/an et tarifs préférentiels.",
+    drawing: true,
   },
   {
     href: PAGES.cours.fr,
@@ -107,7 +108,7 @@ export default function Home() {
           <div className="grid">
             {CARDS.map((c) => (
               <article className="card" key={c.href}>
-                <Image className="thumb" src={c.img} alt={c.title} />
+                <Image className={c.drawing ? "thumb drawing" : "thumb"} src={c.img} alt={c.title} />
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>
                 <p>{c.text}</p>

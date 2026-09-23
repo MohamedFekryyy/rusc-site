@@ -10,9 +10,9 @@ import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
-import enfant from "@/assets/photos/enfant2-o.jpg";
 import residence from "@/assets/photos/residence-o.jpg";
 import privatisation from "@/assets/photos/atelier-05.jpg";
+import membre from "@/assets/dessin-sylwia-green.webp";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -41,8 +41,8 @@ const jsonLd = {
   inLanguage: "en",
 };
 
-const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string }[] = [
-  { href: PAGES.membres.en, img: enfant, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates." },
+const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
+  { href: PAGES.membres.en, img: membre, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates.", drawing: true },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single or by card." },
   { href: PAGES.stages.en, img: ceramique2h, tag: "Immersion · 10am – 5pm", title: "intensives", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
   { href: PAGES.privatisation.en, img: privatisation, tag: "Tailor-made", title: "space hire", text: "Team building, hen parties, birthdays, themed dinners. Hire the studio." },
@@ -76,7 +76,7 @@ export default function Home() {
           <div className="grid">
             {CARDS.map((c) => (
               <article className="card" key={c.href}>
-                <Image className="thumb" src={c.img} alt={c.title} />
+                <Image className={c.drawing ? "thumb drawing" : "thumb"} src={c.img} alt={c.title} />
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>
                 <p>{c.text}</p>
