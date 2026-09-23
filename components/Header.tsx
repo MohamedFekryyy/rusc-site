@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
+import logoImg from "@/assets/logo-rusc-trim.webp";
 import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
 
 export type NavPage = "home" | "booking" | PageKey;
@@ -87,8 +89,11 @@ export default function Header({ lang, page }: Props) {
           </button>
         </div>
 
-        {/* Left brand block: tagline + subline */}
+        {/* Left brand block: wordmark + tagline + subline */}
         <a href={page === "home" ? "#" : HOME[lang]} className="logo logo-word" onClick={close}>
+          <span className="logo-mark">
+            <Image src={logoImg} alt="rūsc" width={719} height={118} />
+          </span>
           <span className="logo-line">{SLOGAN[lang]}</span>
           <span className="logo-sub">{SUBLINE[lang]}</span>
         </a>

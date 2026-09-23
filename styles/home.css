@@ -47,6 +47,7 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .hero h1{font-size:clamp(40px,8.5vw,88px);letter-spacing:.01em;text-align:center}
 .hero .wordmark{display:block;width:auto;height:auto;max-width:min(400px,74vw);margin:0 auto}
 .nav .logo-word{font-family:var(--display);font-size:20px;letter-spacing:.06em;text-transform:lowercase;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
+.nav .logo-mark img{height:20px;width:auto;display:block}
 .nav .logo-line{white-space:nowrap}
 .nav .logo-sub{display:block;font-family:var(--sans,var(--font-sans),system-ui,sans-serif);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);white-space:normal;line-height:1.25;margin-top:2px;max-width:44vw}
 .hero .rule{width:52px;height:1px;background:var(--ink);opacity:.35;margin:28px auto}
