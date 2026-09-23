@@ -259,10 +259,10 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Until then:** the booking pages ask customers to write with their code (step 13).
 
 ### 16. Booking server on Fly.io instead of Hetzner (`deploy/cal/`)
-- **Owner's decision (2026-09-23):** Fly.io, where the owner already has an account, instead of a new Hetzner server. It costs more: about $15/month against about €5 for a Hetzner CX22.
+- **Owner's decision (2026-09-23):** Fly.io, where the owner already has an account, instead of a new Hetzner server. After downsizing (below) it costs about $8/month, against about €5 for a Hetzner CX22. The site itself stays on Vercel (owner: "keep front end on vercel, backend on fly").
 - **Two apps** in the `personal` organisation, region `ams`. It is the cheapest EU region on Fly: `fra` costs about 15% more, `cdg` about 25% more.
-  - `rusc-cal` (`fly.toml`): the same Cal.diy image, shared-cpu-1x with 2 GB, always on. `cron.sh` runs in the background of the same machine.
-  - `rusc-cal-db` (`fly.db.toml`): `postgres:16-alpine`, 512 MB, a 1 GB volume with daily snapshots kept 14 days. It has no public address; Cal.diy reaches it at `rusc-cal-db.internal:5432`.
+  - `rusc-cal` (`fly.toml`): the same Cal.diy image, shared-cpu-1x with 1 GB plus 1 GB of swap, always on. `cron.sh` runs in the background of the same machine.
+  - `rusc-cal-db` (`fly.db.toml`): `postgres:16-alpine`, 256 MB plus 512 MB of swap (`shared_buffers=64MB`, `max_connections=30`), a 1 GB volume with daily snapshots kept 14 days. It has no public address; Cal.diy reaches it at `rusc-cal-db.internal:5432`.
 - **No Caddy:** Fly serves HTTPS.
   - Sign-up is closed with Cal.diy's `disable-signup` feature flag, a row in the `Feature` table. At the pinned commit, both the sign-up API and the sign-up page check it.
   - `/auth/setup` ignores the flag: it only checks that no user exists. `setup.sh` turns the flag on as soon as the migrations have created it.
@@ -273,4 +273,20 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - the scripts parse (`sh -n`);
   - the image is public on GHCR (anonymous pull of the manifest answers 200);
   - the image has `wget` for the cron loop.
-- **Not deployed yet.**
+- **Deployed 2026-09-23** with `setup.sh`: https://rusc-cal.fly.dev. The first boot ran at 2 GB/512 MB; then both were downsized at the owner's request (about $15 → $8/month).
+- **Memory:** Cal.diy's own `yarn start` goes through yarn → turbo → yarn → `next start`, and those launchers used about 330 MB of the 1 GB. `deploy/cal/start.sh` repeats the image's start steps and runs `next start` directly. Result: about 525 MB used, 435 MB available, swap unused. When updating Cal.diy, compare `start.sh` with the image's `scripts/start.sh`.
+- **Background tasks, checked at the pinned commit:**
+  - `/api/cron/credentials` and `/api/cron/queuedFormResponseCleanup` are listed in `vercel.json` but answer 404, so they're left out.
+  - `/api/tasks/*` only accept `authorization: Bearer <CRON_SECRET>`.
+  - `/api/cron/bookingReminder` (POST, every 15 minutes, raw `CRON_API_KEY` header) reminds the studio of bookings still waiting for confirmation. It was added, since the sessions use "requires confirmation".
+- **Checked live:**
+  - `/signup` redirects to "Signup is disabled in this instance";
+  - `/auth/setup` is open (no user yet);
+  - `/embed/embed.js` answers 200;
+  - the `disable-signup` row is `true`;
+  - the cron loop runs every minute.
+- **Left for the owner:**
+  - create the admin account at `/auth/setup`, then the event types;
+  - Brevo SMTP (`fly secrets set`);
+  - the `booking.studio-rusc.com` certificate and DNS;
+  - the site's `NEXT_PUBLIC_CAL_ORIGIN` and `NEXT_PUBLIC_CAL_USERNAME` in Vercel.
