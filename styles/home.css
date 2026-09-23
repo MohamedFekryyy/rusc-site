@@ -290,3 +290,20 @@ html[lang="en"] .feature .txt li strong{color:inherit}
 #booking .pcard .foot{margin-top:auto;padding-top:14px}
 #booking .pcard .unit{font-size:14px;color:var(--muted);margin-bottom:8px}
 @media (max-width:640px){#booking .price-grid{grid-template-columns:1fr}}
+
+/* Mobile header (≤560px): two rows so nothing overlaps, everything stays visible.
+   Row 1: menu · logo · Réserver. Row 2: FR/EN · Connexion · Panier.
+   Overrides the per-width tweaks above; .nav-right's children join the grid. */
+@media(max-width:560px){
+  header .wrap.nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"menu logo cta" "lang auth cart";align-items:center;column-gap:10px;row-gap:6px;padding:8px 16px 7px}
+  .nav-left{grid-area:menu}
+  .nav .logo{grid-area:logo;margin:0;padding:0;min-width:0}
+  .nav .logo img{height:22px;width:auto;max-width:100%}
+  .nav-right{display:contents}
+  .nav-right .cta{grid-area:cta;padding:7px 12px;font-size:10.5px;letter-spacing:.08em}
+  .nav-right .lang.lang-top{grid-area:lang;justify-self:start}
+  .nav-right .lang.lang-top a{padding:3px 8px;font-size:10px}
+  .nav-right .auth{grid-area:auth;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
+  .nav-right .cart{grid-area:cart;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
+  .mobile-panel{padding-top:112px}
+}
