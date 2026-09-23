@@ -91,8 +91,12 @@ export default function Header({ lang, page }: Props) {
           <Image src={logo} alt="rūsc" loading="eager" />
         </a>
 
-        {/* Right: Réserver + login + cart */}
+        {/* Right: lang switch + Réserver + login + cart */}
         <div className="nav-right">
+          <span className="lang lang-top">
+            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
+            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
+          </span>
           <a className="cta" href={cta.href}>
             {cta.label}
           </a>
