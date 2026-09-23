@@ -108,7 +108,13 @@ export default function Home() {
           <div className="grid">
             {CARDS.map((c) => (
               <article className={c.drawing ? "card member" : "card"} key={c.href}>
-                <Image className={c.drawing ? "thumb drawing" : "thumb"} src={c.img} alt={c.title} />
+                {c.drawing ? (
+                  <div className="thumb drawing">
+                    <Image src={c.img} alt={c.title} style={{ width: "auto", height: "auto", maxHeight: "220px" }} />
+                  </div>
+                ) : (
+                  <Image className="thumb" src={c.img} alt={c.title} />
+                )}
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>
                 <p>{c.text}</p>
