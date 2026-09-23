@@ -1,0 +1,89 @@
+# rūsc booking server: Cal.diy (the self-hosted, MIT fork of Cal.com) on
+# Hetzner, at https://booking.studio-rusc.com. The site on Vercel embeds it.
+# Setup, updates and restores: README.md in this folder.
+#
+# Only Caddy is reachable from outside (ports 80/443). Cal.diy and the
+# database stay on the internal Docker network.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 10
+
+  # Built from calcom/cal.diy at the commit in CAL_DIY_REF by
+  # .github/workflows/cal-image.yml. On start it applies database migrations.
+  cal:
+    image: ghcr.io/mohamedfekryyy/rusc-cal:${CAL_IMAGE_TAG}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_HOST: db:5432
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      NEXT_PUBLIC_WEBAPP_URL: https://${CAL_DOMAIN}
+      NEXTAUTH_URL: https://${CAL_DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # HTTPS with automatic Let's Encrypt certificates.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CAL_DOMAIN: ${CAL_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - cal
+
+  # Cal.diy's background tasks (emails queue, calendar sync, cleanups).
+  cron:
+    image: alpine:3.20
+    restart: unless-stopped
+    environment:
+      CRON_API_KEY: ${CRON_API_KEY}
+      CRON_SECRET: ${CRON_SECRET}
+    volumes:
+      - ./cron.sh:/cron.sh:ro
+    command: ["/bin/sh", "/cron.sh"]
+    depends_on:
+      - cal
+
+  # Nightly database dump into ./backups (kept 14 days).
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

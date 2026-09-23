@@ -17,7 +17,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
   - For now the embed loads from cal.com's hosted app, account `rusc-studio`.
-  - The owner wants to self-host it as **Cal.diy**, the MIT-licensed community fork of Cal.com. The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` pointed at that instance (step 11).
+  - It moves to a self-hosted **Cal.diy** (the MIT fork of Cal.com) on a Hetzner server at `booking.studio-rusc.com`. Setup lives in `deploy/cal/` (step 12). The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` pointed at it.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 
 ## Commands
@@ -205,3 +205,15 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - the event types and prices;
   - whether the member discount is manual or automatic. The booking pages currently say it "s'applique automatiquement" / "is applied automatically", which Cal.com doesn't do;
   - Brevo for the client list.
+
+### 12. Booking server on Hetzner (`deploy/cal/`)
+- **Owner's decisions (2026-09-23):** a new Hetzner server (not Lena's), at `booking.studio-rusc.com`, with Brevo sending the emails. The site stays on Vercel. Vercel would have needed the Pro plan: Cal.diy has too many functions for Hobby, and its crons run every minute.
+- **Image:** Cal.diy publishes no Docker image (the last tag, v6.2.0, predates the fork and still contains enterprise code), and its build needs about 6 GB of memory.
+  - `.github/workflows/cal-image.yml` builds `ghcr.io/mohamedfekryyy/rusc-cal:<12-char sha>` from the `calcom/cal.diy` commit pinned in `deploy/cal/CAL_DIY_REF`.
+  - It uses the same build arguments as Cal.diy's own release workflow, with placeholder secrets only.
+  - It runs when `CAL_DIY_REF` changes, or by hand.
+- **Server stack** (`deploy/cal/docker-compose.yml`): Cal.diy, Postgres 16, Caddy (HTTPS), a cron loop and nightly `pg_dump` backups. Only Caddy is published.
+  - The cron loop hits `/api/tasks/cron` every minute, plus the calendar and cleanup endpoints, on Cal's Vercel schedule.
+  - `setup.sh` generates the secrets into `.env` on the server; `update.sh` pulls and restarts.
+- **Sign-up:** Caddy returns 404 for `/signup*` and `/api/auth/signup*`. The Dockerfile doesn't pass `NEXT_PUBLIC_DISABLE_SIGNUP` through, so a build argument would be ignored. The first admin account comes from `/auth/setup`, which Cal.diy only allows while there are zero users.
+- **Not run end to end yet.** Checked so far: the YAML parses, the shell syntax is valid, and the `.env` generation was simulated. The first setup on the server (`deploy/cal/README.md`) is the real test.
