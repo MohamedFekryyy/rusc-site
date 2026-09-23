@@ -8,7 +8,7 @@
 // -fr / -en) and the FR pages link the -fr slug, the EN pages the -en slug.
 // Fill CAL_USERNAME once the rūsc Cal.com account exists.
 
-export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "";
+export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "rusc-studio";
 
 // Public Cal.com URL for one username + optional event-type slug.
 // e.g. https://cal.com/rusc/atelier-ceramique-2h-fr
