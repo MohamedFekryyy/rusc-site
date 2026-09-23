@@ -197,14 +197,13 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
   .nav .logo{padding:0 4px}
 }
 @media(max-width:640px){
-  /* Keep FR/EN + Réserver + Panier visible on phones; "Connexion" is
-     duplicate of "Espace membre" (both lead to /membres/) so it stays in the
-     burger menu. Compact so nothing overflows. */
+  /* Keep FR/EN + Réserver + Connexion + Panier all visible; compact so
+     nothing overflows. */
   .nav-right{gap:4px}
   .nav .logo-word{font-size:15px;letter-spacing:.02em}
   .nav-right .lang.lang-top a{padding:3px 6px;font-size:10px}
   .nav-right .cta{padding:6px 8px;font-size:10px;letter-spacing:.04em}
-  .nav-right .auth{display:none}
+  .nav-right .auth{font-size:10px;padding:4px 0;letter-spacing:.02em}
   .nav-right .cart{font-size:10px;padding:4px 0;letter-spacing:.02em}
 }
 @media(max-width:480px){
