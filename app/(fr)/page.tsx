@@ -191,7 +191,16 @@ export default function Home() {
               <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
               <p className="price">Cours d&rsquo;1h&nbsp;: 20&nbsp;€ · membre 18&nbsp;€</p>
               <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
-              <a className="btn" href="#contact">+ info</a>
+              <details style={{ marginTop: "10px", fontSize: "14.5px" }}>
+                <summary style={{ cursor: "pointer", color: "var(--muted)" }}>Horaires des créneaux</summary>
+                <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", color: "var(--muted)" }}>
+                  <li>Lundi&nbsp;: 16h – 17h</li>
+                  <li>Mardi&nbsp;: 18h30 – 19h30</li>
+                  <li>Mercredi&nbsp;: 18h – 19h</li>
+                  <li>Jeudi&nbsp;: 17h – 18h</li>
+                </ul>
+              </details>
+              <BookingButton lang="fr">Réserver</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
