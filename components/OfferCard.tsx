@@ -3,7 +3,6 @@ import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, type Lu
 import type { Offer, OfferKey } from "@/lib/cal";
 import { bookingHref, type Lang } from "@/lib/routes";
 import atelier01 from "@/assets/photos/atelier-01.jpg";
-import atelier02 from "@/assets/photos/atelier-02.jpg";
 import atelier03 from "@/assets/photos/atelier-03.jpg";
 import atelier04 from "@/assets/photos/atelier-04.jpg";
 import atelier07 from "@/assets/photos/atelier-07.jpg";
@@ -18,6 +17,7 @@ import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
 import porcelaine from "@/assets/photos/porcelaine-o.jpg";
 import stages from "@/assets/photos/stages-o.jpg";
 import us01 from "@/assets/photos/us-01.jpg";
+import us02 from "@/assets/photos/us-02.jpg";
 import us04 from "@/assets/photos/us-04.jpg";
 
 // Photo and icon of each offer on the booking page. Workshops use the same
@@ -34,7 +34,7 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
   "carnet-5-cours": { image: atelier01, icon: Ticket },
   "carnet-10-cours": { image: atelier10, icon: Ticket },
   "atelier-libre-1h": { image: location, icon: Hourglass },
-  "atelier-libre-10h": { image: atelier02, icon: Ticket },
+  "atelier-libre-10h": { image: us02, icon: Ticket },
   "atelier-libre-20h": { image: us04, icon: Ticket },
   "bon-cadeau-cours-2h": { image: bonCadeau, icon: Gift },
   "bon-cadeau-carnet-5": { image: membres, icon: Gift },
