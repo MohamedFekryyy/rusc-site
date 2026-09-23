@@ -6,7 +6,8 @@ import { BOOKING, HOME, type Lang } from "@/lib/routes";
 const NAV = {
   fr: {
     links: [
-      { href: "/#ateliers", label: "Workshop" },
+      { href: "/#cours", label: "Workshop" },
+      { href: "/#stages", label: "Stages" },
       { href: "/#membres", label: "Devenir membre" },
       { href: "/#tarifs", label: "Tarifs" },
       { href: "/#reservation", label: "Réservation" },

@@ -18,6 +18,7 @@ import ceramique1j from "@/assets/photos/ceramique-1j-o.jpg";
 import ceramique2j from "@/assets/photos/ceramique-2j-o.jpg";
 import porcelaine from "@/assets/photos/porcelaine-o.jpg";
 import tapisserie from "@/assets/photos/tapisserie-o.jpg";
+import logoWhite from "@/assets/logo-rusc.webp";
 import membres from "@/assets/photos/membres-o.jpg";
 import usRaquel from "@/assets/photos/us-raquel-o.webp";
 import usChris from "@/assets/photos/us-chris-o.webp";
@@ -114,80 +115,13 @@ export default function Home() {
         <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d’un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
           <a className="btn" href="#reservation">Réserver un atelier</a>
-          <a className="btn ghost" href="#ateliers">Voir la programmation</a>
+          <a className="btn ghost" href="#cours">Voir la programmation</a>
         </div>
       </section>
 
       <figure className="hero-photo">
         <Image src={hero} alt="Mains façonnant la terre à l’atelier rūsc, Chamonix" loading="eager" fetchPriority="high" />
       </figure>
-
-      <section id="ateliers">
-        <div className="wrap">
-          <SectionHead title="nos ateliers" sub={<>Osez l&rsquo;expérience</>} />
-          <div className="grid">
-            <article className="card">
-              <Image className="thumb" src={ceramique2h} alt="Atelier de tournage en céramique à rūsc" />
-              <p className="k">Cours de 2&nbsp;h</p>
-              <h3>atelier céramique 2h</h3>
-              <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
-              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
-              <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={modelage2h} alt="Atelier de modelage de l’argile à rūsc" />
-              <p className="k">Cours de 2&nbsp;h</p>
-              <h3>atelier modelage 2h</h3>
-              <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
-              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
-              <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={enfant} alt="Atelier enfants 7–12 ans à rūsc" />
-              <p className="k">Chaque mercredi</p>
-              <h3>atelier enfant 2h30</h3>
-              <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
-              <p className="price">Places limitées · réservation conseillée</p>
-              <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={ceramique1j} alt="Atelier de tournage en grès — une journée à rūsc" />
-              <p className="k">10h – 17h</p>
-              <h3>atelier céramique 1j</h3>
-              <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
-              <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
-              <BookingButton lang="fr" workshop="atelier-ceramique-1j">S’inscrire</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={ceramique2j} alt="Atelier de tournage en grès sur deux jours à rūsc" />
-              <p className="k">10h – 17h</p>
-              <h3>atelier céramique 2 jours</h3>
-              <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
-              <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
-              <BookingButton lang="fr" workshop="atelier-ceramique-2j">S’inscrire</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={porcelaine} alt="Atelier de tournage en porcelaine à rūsc" />
-              <p className="k">10h – 17h</p>
-              <h3>atelier porcelaine 1j</h3>
-              <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
-              <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
-              <BookingButton lang="fr" workshop="porcelaine">S’inscrire</BookingButton>
-            </article>
-            <article className="card">
-              <Image className="thumb" src={tapisserie} alt="Atelier de tapisserie d’ameublement traditionnelle à rūsc" />
-              <p className="k">2 jours</p>
-              <h3>tapisserie traditionnelle d&rsquo;ameublement 2j</h3>
-              <p>Pour les débutants ou confirmés, venez apprendre toutes les étapes de la tapisserie d&rsquo;ameublement traditionnelle. Vous pouvez apporter votre projet personnel ou une chaise d&rsquo;école vous sera fournie pour pratiquer.</p>
-              <p className="price">Sur demande · nous contacter</p>
-              <a className="btn" href="#contact">+ info</a>
-            </article>
-          </div>
-          <div className="head" style={{ marginTop: "52px" }}>
-            <p className="sub" style={{ letterSpacing: ".1em", textTransform: "none", fontSize: "15px", color: "var(--muted)" }}>Vous souhaitez offrir l&rsquo;expérience rūsc&nbsp;? Nos bons cadeaux sont valables sur l&rsquo;ensemble des ateliers.</p>
-          </div>
-        </div>
-      </section>
 
       <section id="membres">
         <div className="wrap">
@@ -225,6 +159,97 @@ export default function Home() {
               <Image src={membres} alt="L’atelier libre rūsc — espace professionnel équipé" />
               <Image className="drawing" src={drawing} alt="Dessin au trait de Sylwia — main, bouteilles, chaise" />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="cours">
+        <div className="wrap">
+          <SectionHead title="les cours" sub={<>Osez l&rsquo;expérience</>} />
+          <div className="grid">
+            <article className="card">
+              <Image className="thumb" src={ceramique2h} alt="Cours de tournage en céramique à rūsc" />
+              <p className="k">Cours de 2&nbsp;h</p>
+              <h3>tournage 2h</h3>
+              <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
+              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€</p>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={modelage2h} alt="Cours de modelage de l’argile à rūsc" />
+              <p className="k">Cours de 2&nbsp;h</p>
+              <h3>modelage 2h</h3>
+              <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
+              <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours&nbsp;: 210&nbsp;€ · Carnet de 10 cours&nbsp;: 350&nbsp;€</p>
+              <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={logoWhite} alt="Décor à cru — rūsc" />
+              <p className="k">Cours d&rsquo;1&nbsp;h</p>
+              <h3>décor à cru 1h</h3>
+              <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
+              <p className="price">Cours d&rsquo;1h&nbsp;: 20&nbsp;€ · membre 18&nbsp;€</p>
+              <a className="btn" href="#contact">+ info</a>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
+              <p className="k">Cours de 2&nbsp;h</p>
+              <h3>cours enfant 2h</h3>
+              <p>Pour les 7–12 ans. Tous les mercredis (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
+              <p className="price">Places limitées · réservation conseillée</p>
+              <BookingButton lang="fr" workshop="modelage-enfant">Réserver</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={logoWhite} alt="Model vivant — rūsc" />
+              <p className="k">Cours de 3&nbsp;h</p>
+              <h3>model vivant 3h</h3>
+              <p>Un cours de trois heures autour du modèle vivant&nbsp;: observer, dessiner, façonner d&rsquo;après le corps en mouvement.</p>
+              <p className="price">Sur demande · nous contacter</p>
+              <a className="btn" href="#contact">+ info</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="stages">
+        <div className="wrap">
+          <SectionHead title="stages" sub={<>Immersion · 10h – 17h</>} />
+          <div className="grid">
+            <article className="card">
+              <Image className="thumb" src={ceramique2j} alt="Stage de tournage en grès sur deux jours à rūsc" />
+              <p className="k">2 jours</p>
+              <h3>céramique 2j</h3>
+              <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
+              <p className="price">Atelier tournage grès 2 jours&nbsp;: 280&nbsp;€</p>
+              <BookingButton lang="fr" workshop="atelier-ceramique-2j">S’inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={ceramique1j} alt="Stage de tournage en grès — une journée à rūsc" />
+              <p className="k">1 jour</p>
+              <h3>céramique 1j</h3>
+              <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
+              <p className="price">Atelier tournage grès&nbsp;: 180&nbsp;€</p>
+              <BookingButton lang="fr" workshop="atelier-ceramique-1j">S’inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={porcelaine} alt="Stage de tournage en porcelaine à rūsc" />
+              <p className="k">10h – 17h</p>
+              <h3>porcelaine 1j</h3>
+              <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
+              <p className="price">Atelier tournage porcelaine&nbsp;: 230&nbsp;€</p>
+              <BookingButton lang="fr" workshop="porcelaine">S’inscrire</BookingButton>
+            </article>
+            <article className="card">
+              <Image className="thumb" src={tapisserie} alt="Stage de tapisserie d’ameublement traditionnelle à rūsc" />
+              <p className="k">2 jours</p>
+              <h3>tapisserie 2j</h3>
+              <p>Pour les débutants ou confirmés, venez apprendre toutes les étapes de la tapisserie d&rsquo;ameublement traditionnelle. Vous pouvez apporter votre projet personnel ou une chaise d&rsquo;école vous sera fournie pour pratiquer.</p>
+              <p className="price">Sur demande · nous contacter</p>
+              <a className="btn" href="#contact">+ info</a>
+            </article>
+          </div>
+          <div className="head" style={{ marginTop: "52px" }}>
+            <p className="sub" style={{ letterSpacing: ".1em", textTransform: "none", fontSize: "15px", color: "var(--muted)" }}>Vous souhaitez offrir l&rsquo;expérience rūsc&nbsp;? Nos bons cadeaux sont valables sur l&rsquo;ensemble des ateliers.</p>
           </div>
         </div>
       </section>
