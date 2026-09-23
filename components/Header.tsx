@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { useState } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
-import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
+import { cartCount, useCart } from "@/lib/cart";
+import { BOOKING, CART, HOME, PAGES, type Lang, type PageKey } from "@/lib/routes";
 
-export type NavPage = "home" | "booking" | PageKey;
+export type NavPage = "home" | "booking" | "cart" | PageKey;
 
 // Menu order (validated by Raquel): Ūs · Espace membre · Cours · Stages ·
 // Privatisation · Résidence d'artiste · Expo · Cuisson · Contact.
@@ -67,8 +68,10 @@ export default function Header({ lang, page }: Props) {
   const labels = LABELS[lang];
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
-  const frHref = page === "home" ? HOME.fr : page === "booking" ? BOOKING.fr : PAGES[page].fr;
-  const enHref = page === "home" ? HOME.en : page === "booking" ? BOOKING.en : PAGES[page].en;
+  const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : PAGES[page];
+  const frHref = same.fr;
+  const enHref = same.en;
+  const count = cartCount(useCart());
   const close = () => setOpen(false);
 
   return (
@@ -110,10 +113,10 @@ export default function Header({ lang, page }: Props) {
           <a className="auth" href={PAGES.membres[lang]}>
             {AUTH_LABEL[lang]}
           </a>
-          {/* Cart: points to the catalog (class cards, membership, gift
-              vouchers) in the booking embed, where a purchase happens. */}
-          <a className="cart" href={bookingHref(lang, "catalog")}>
+          {/* Cart (lib/cart.ts): its item count, live across the site. */}
+          <a className="cart" href={CART[lang]}>
             {CART_LABEL[lang]}
+            {count > 0 && ` (${count})`}
           </a>
         </div>
       </div>
