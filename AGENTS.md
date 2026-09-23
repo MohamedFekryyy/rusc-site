@@ -259,7 +259,7 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Until then:** the booking pages ask customers to write with their code (step 13).
 
 ### 16. Booking server on Fly.io instead of Hetzner (`deploy/cal/`)
-- **Owner's decision (2026-09-23):** Fly.io, where he already has an account, instead of a new Hetzner server. It costs more: about $15/month against about €5 for a Hetzner CX22.
+- **Owner's decision (2026-09-23):** Fly.io, where the owner already has an account, instead of a new Hetzner server. It costs more: about $15/month against about €5 for a Hetzner CX22.
 - **Two apps** in the `personal` organisation, region `ams`. It is the cheapest EU region on Fly: `fra` costs about 15% more, `cdg` about 25% more.
   - `rusc-cal` (`fly.toml`): the same Cal.diy image, shared-cpu-1x with 2 GB, always on. `cron.sh` runs in the background of the same machine.
   - `rusc-cal-db` (`fly.db.toml`): `postgres:16-alpine`, 512 MB, a 1 GB volume with daily snapshots kept 14 days. It has no public address; Cal.diy reaches it at `rusc-cal-db.internal:5432`.
