@@ -28,7 +28,6 @@ export default function Us() {
           <Bio name="raquel calleja">Raquel discovered ceramics on returning to France after years abroad — a discipline that became far more than a hobby. With a rich, eclectic career in marketing and luxury management, she found her true fulfilment in the art of ceramics. Fascinated by the balance between technical rigour and freedom of expression, every gesture, every firing, every glaze is a quest for learning and perfection. At rūsc she shares this passion with contagious energy.</Bio>
           <Bio name="christopher kerr">Originally from Scotland, Chris has lived in Chamonix for over 15 years. After a career in real estate and business management, he discovered ceramics and threw himself into it, becoming Raquel&rsquo;s very first student. Today an essential partner at rūsc, he runs the Wednesday evening sessions with enthusiasm and warmth, and develops his own creations.</Bio>
           <Bio name="anaïs lejeune">Trained in traditional upholstery for over 10 years and passionate about decoration, Anaïs combines both skills to bring unique creations to life. Working with her hands, among the smells of jute and horsehair, is more than a job — it&rsquo;s a true passion. At rūsc she runs the upholstery courses to pass on her craft.</Bio>
-          <Bio name="élodie lecont">Élodie discovered craftwork early and was won over by the magic of clay — a tactile, living material. She joins the rūsc team to share her love of gesture and creation.</Bio>
         </div>
       </div>
     </SitePage>
