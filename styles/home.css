@@ -8,7 +8,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(227,229,215,.93);backdro
 .nav{display:flex;align-items:center;gap:12px;padding:12px 0;position:relative}
 .nav-left{display:flex;justify-content:flex-start;flex:0 0 auto;position:relative;z-index:1}
 .nav-right{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex:0 0 auto;margin-left:auto;position:relative;z-index:1}
-.nav .logo{position:absolute;left:50%;transform:translateX(-50%);display:flex;justify-content:center;text-align:center;padding:0 8px;min-width:0}
+.nav .logo{display:flex;align-items:center;text-align:left;padding:0 8px;min-width:0;margin-right:auto}
 .nav .logo img{height:28px;width:auto;max-width:240px;object-fit:contain;display:block}
 .nav a{color:var(--ink);text-decoration:none;font-size:12px;letter-spacing:.09em;text-transform:uppercase;transition:color .2s;white-space:nowrap}
 .nav a:hover{color:var(--accent)}
