@@ -24,7 +24,7 @@ export default function Cours() {
           <p className="k">2-hour course</p>
           <h3>wheel throwing 2h</h3>
           <p>Ceramics throwing courses with an experienced teacher who will guide you through your first steps. At your own pace, over 2-hour courses you will learn every step needed to make your own pots.</p>
-          <p className="price">2h course: €50 · member €45 · 5-course card: €210 · member €189 · 10-course card: €350 · member €315</p>
+          <p className="price">2h course: €50 · member €45<br />5-course card: €210 · member €189<br />10-course card: €350 · member €315</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
           <BookingButton lang="en" workshop="atelier-ceramique-2h" tone="guest">Book</BookingButton>
         </article>
@@ -33,7 +33,7 @@ export default function Cours() {
           <p className="k">2-hour course</p>
           <h3>hand-building 2h</h3>
           <p>Whether you are a beginner or experienced, come and try your hand at hand-building and conceptualise your own creations.</p>
-          <p className="price">2h course: €50 · member €45 · 5-course card: €210 · member €189 · 10-course card: €350 · member €315</p>
+          <p className="price">2h course: €50 · member €45<br />5-course card: €210 · member €189<br />10-course card: €350 · member €315</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
           <BookingButton lang="en" workshop="atelier-modelage-2h" tone="guest">Book</BookingButton>
         </article>
@@ -68,7 +68,7 @@ export default function Cours() {
           <p className="k">3-hour course</p>
           <h3>life drawing 3h</h3>
           <p>A three-hour course around the life model: observe, draw, shape from the moving body.</p>
-          <p className="price">3h course: €50 · member €45 · 5-course card: €210 · member €189 · 10-course card: €350 · member €315</p>
+          <p className="price">3h course: €50 · member €45<br />5-course card: €210 · member €189<br />10-course card: €350 · member €315</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
           <a className="btn" href="/en/contact/">+ info</a>
         </article>

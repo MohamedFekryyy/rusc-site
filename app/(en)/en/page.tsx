@@ -95,7 +95,6 @@ export default function Home() {
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
             <a className="btn ghost" href={PAGES.expo.en}>Exhibitions</a>
-            <a className="btn ghost" href={PAGES.cuisson.en}>Firing</a>
             <a className="btn ghost" href={PAGES.us.en}>Ūs</a>
           </div>
         </div>

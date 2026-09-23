@@ -127,7 +127,6 @@ export default function Home() {
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
             <a className="btn ghost" href={PAGES.expo.fr}>Expo</a>
-            <a className="btn ghost" href={PAGES.cuisson.fr}>Cuisson</a>
             <a className="btn ghost" href={PAGES.us.fr}>Ūs</a>
           </div>
         </div>
