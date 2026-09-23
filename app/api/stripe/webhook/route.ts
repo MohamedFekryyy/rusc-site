@@ -2,7 +2,9 @@ import { getStripe } from "@/lib/stripe";
 
 // Stripe calls this when an order is paid (endpoint to register in the Stripe
 // dashboard, event checkout.session.completed; its signing secret goes in
-// STRIPE_WEBHOOK_SECRET).
+// STRIPE_WEBHOOK_SECRET). Register the URL WITH its trailing slash,
+// https://<site>/api/stripe/webhook/: the site adds the slash with a 308
+// redirect, and Stripe does not follow redirects.
 //
 // For now the studio fulfils paid orders by hand from the Stripe dashboard:
 // it sends gift-voucher and card codes, and confirms dated bookings in Cal.

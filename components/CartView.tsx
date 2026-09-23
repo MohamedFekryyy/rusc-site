@@ -78,7 +78,8 @@ export default function CartView({ lang }: { lang: Lang }) {
         if (!stripe || cancelled) return;
         embedded = await stripe.createEmbeddedCheckoutPage({
           fetchClientSecret: async () => {
-            const res = await fetch("/api/checkout", {
+            // Trailing slash: without it, trailingSlash redirects first (308).
+            const res = await fetch("/api/checkout/", {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ lang, items: cart.items() }),
@@ -158,7 +159,10 @@ export default function CartView({ lang }: { lang: Lang }) {
                     <button type="button" style={stepper} aria-label={t.plus} onClick={() => cart.setQty(item.id, item.qty + 1)}>+</button>
                   </span>
                 )}
-                <span className="val">{formatPrice(offer.price * item.qty, lang)}</span>
+                {/* Fixed width keeps the steppers lined up from row to row. */}
+                <span className="val" style={{ minWidth: "4.6em", textAlign: "right" }}>
+                  {formatPrice(offer.price * item.qty, lang)}
+                </span>
               </span>
             </div>
           );
