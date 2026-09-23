@@ -71,7 +71,8 @@ section{padding:clamp(48px,7vw,84px) 0}
 .head .rule{width:52px;height:1px;background:var(--ink);opacity:.3;margin:20px auto 0}
 
 /* CARDS */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:34px}
+.grid{display:flex;flex-wrap:wrap;justify-content:center;gap:34px}
+.grid .card{width:calc((100% - 68px) / 3)}
 .card{background:rgba(255,255,255,.42);border:1px solid var(--line);padding:34px 30px;display:flex;flex-direction:column;text-align:left}
 .card h3{font-size:24px;margin-bottom:10px}
 .card .k{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);margin-bottom:12px}
@@ -103,7 +104,9 @@ section{padding:clamp(48px,7vw,84px) 0}
 .card.member .btn:hover{background:transparent;border-color:var(--bg);color:var(--bg)}
 .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;max-width:720px;margin:0 auto}
 .about-ph img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
-@media(max-width:600px){.about-grid{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .about-grid{grid-template-columns:1fr}
+}
 .art img{width:100%;height:auto;display:block}
 
 /* INFO */
@@ -177,12 +180,16 @@ footer a:hover{opacity:1}
 footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;opacity:.6}
 
 @media(max-width:820px){
+  .grid .card{width:calc((100% - 34px) / 2)}
   .nav a{font-size:10.5px;letter-spacing:.05em}
   .lang a{padding:4px 9px;font-size:10px}
   .feature{grid-template-columns:1fr}
   .feature.rev .txt{order:0}
   .hero{padding-top:38px}
   .hero p{font-size:17px}
+}
+@media(max-width:600px){
+  .grid .card{width:100%}
 }
 
 /* Nav responsiveness: keep the right cluster from overflowing on small screens. */
