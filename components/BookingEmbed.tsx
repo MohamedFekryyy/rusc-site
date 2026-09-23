@@ -16,18 +16,14 @@ import { PAGES, bookingHref, type Lang } from "@/lib/routes";
 
 const TEXT = {
   fr: {
-    heading: "Réservation en ligne",
-    caption: "ateliers, stages & créneaux libres",
-    tabs: { schedule: "Cours & stages", catalog: "Adhésion & carnets", gifts: "Bons cadeaux" },
+    tabs:{ schedule: "Cours & stages", catalog: "Adhésion & carnets", gifts: "Bons cadeaux" },
     back: "← Toutes les offres",
     soon: (title: string) => `La réservation en ligne de « ${title} » ouvre bientôt.`,
     soonNext: "En attendant, écrivez-nous : nous réservons pour vous.",
     contact: "Nous contacter",
   },
   en: {
-    heading: "Online booking",
-    caption: "workshops, courses & open slots",
-    tabs: { schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
+    tabs:{ schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
     back: "← All offers",
     soon: (title: string) => `Online booking for “${title}” opens soon.`,
     soonNext: "In the meantime, write to us and we’ll book it for you.",
@@ -43,6 +39,10 @@ const UI = {
   layout: "month_view",
 };
 
+const tabsBar: CSSProperties = {
+  justifyContent: "center", fontSize: "12px", letterSpacing: ".14em",
+  textTransform: "uppercase", marginBottom: "30px",
+};
 const backBar: CSSProperties = { padding: "14px 18px", borderBottom: "1px solid var(--line)" };
 const backLink: CSSProperties = {
   fontSize: "11.5px", letterSpacing: ".14em", textTransform: "uppercase",
@@ -173,22 +173,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   }, [offer, lang, unavailable]);
 
   return (
-    <div className="bk-shell" ref={shellRef}>
-      <div className="bk-bar">
-        <span>
-          <b>{t.heading}</b> &nbsp;·&nbsp; {t.caption}
-        </span>
-        <nav className="bk-tabs" role="tablist">
-          {BOOKING_VIEWS.map((v) => (
-            <a key={v} href={bookingHref(lang, v)} role="tab" data-booking={v} aria-selected={view === v}>
-              {t.tabs[v]}
-            </a>
-          ))}
-        </nav>
-      </div>
+    <div ref={shellRef} style={{ scrollMarginTop: "70px" }}>
+      <nav className="bk-tabs" role="tablist" style={tabsBar}>
+        {BOOKING_VIEWS.map((v) => (
+          <a key={v} href={bookingHref(lang, v)} role="tab" data-booking={v} aria-selected={view === v}>
+            {t.tabs[v]}
+          </a>
+        ))}
+      </nav>
 
       {offer ? (
-        <>
+        <div className="bk-shell">
           <div style={backBar}>
             <a href={bookingHref(lang, offer.view)} data-booking={offer.view} style={backLink}>
               {t.back}
@@ -206,12 +201,11 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
             // Cal.com mounts the booker here (see the effect above).
             <div key={offer.key} id="bk-bookings" ref={hostRef} />
           )}
-        </>
+        </div>
       ) : (
-        <div className="price-grid" style={{ padding: "26px 18px" }}>
+        <div className="price-grid">
           {offersIn(view).map((o) => (
             <article className="pcard" key={o.key}>
-              <p className="tag">{o[lang].tag}</p>
               <h3>{o[lang].title}</h3>
               <p className="unit">{o[lang].unit}</p>
               <div className="foot">
