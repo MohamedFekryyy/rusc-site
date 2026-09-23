@@ -128,15 +128,15 @@ export default function Home() {
           <div className="grid">
             <article className="card">
               <Image className="thumb" src={ceramique2h} alt="Atelier de tournage en céramique à rūsc" />
-              <p className="k">Séances de 2&nbsp;h</p>
+              <p className="k">Cours de 2&nbsp;h</p>
               <h3>atelier céramique 2h</h3>
-              <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des séances de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
+              <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
               <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </article>
             <article className="card">
               <Image className="thumb" src={modelage2h} alt="Atelier de modelage de l’argile à rūsc" />
-              <p className="k">Séances de 2&nbsp;h</p>
+              <p className="k">Cours de 2&nbsp;h</p>
               <h3>atelier modelage 2h</h3>
               <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
               <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · Carnet de 5 cours de 2h&nbsp;: 210&nbsp;€ · Carnet de 10 cours de 2h&nbsp;: 350&nbsp;€</p>
@@ -210,11 +210,11 @@ export default function Home() {
               <div className="pricing" style={{ marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "18px" }}>
                 <p className="price" style={{ marginBottom: "12px" }}><strong>Adhésion membre&nbsp;: 50&nbsp;€ / an</strong> — tarifs préférentiels et accès aux ateliers libres.</p>
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                  <li style={rateRow}><span>Atelier libre — séance à l&rsquo;unité</span><span><strong>22,50&nbsp;€</strong> / heure</span></li>
+                  <li style={rateRow}><span>Atelier libre — cours à l&rsquo;unité</span><span><strong>22,50&nbsp;€</strong> / heure</span></li>
                   <li style={rateRow}><span>Atelier libre — carnet 10&nbsp;h</span><span><strong>15&nbsp;€</strong> / heure · valable 6 mois</span></li>
                   <li style={rateRow}><span>Atelier libre — carnet 20&nbsp;h</span><span><strong>12&nbsp;€</strong> / heure · valable 1 an</span></li>
                 </ul>
-                <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Les membres bénéficient de <strong>–10&nbsp;%</strong> sur la séance de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 séances et le carnet 10 séances. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
+                <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Les membres bénéficient de <strong>–10&nbsp;%</strong> sur le cours de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 cours et le carnet 10 cours. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
               </div>
               <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
                 <BookingButton lang="fr" view="catalog">Adhérer</BookingButton>
@@ -242,9 +242,9 @@ export default function Home() {
               <h3>ateliers 2h — céramique &amp; modelage</h3>
               <p className="unit">Tournage ou modelage avec un professeur · 2&nbsp;heures</p>
               <div className="rows">
-                <PriceRow label={<>Séance 2&nbsp;h</>} value={<>50&nbsp;€</>} valueNote={<>membre 45&nbsp;€</>} />
-                <PriceRow label="Carnet 5 séances" note="valable 6 mois" value={<>210&nbsp;€</>} valueNote={<>membre 189&nbsp;€</>} />
-                <PriceRow label="Carnet 10 séances" note="valable 1 an" value={<>350&nbsp;€</>} valueNote={<>membre 315&nbsp;€</>} />
+                <PriceRow label={<>Cours 2&nbsp;h</>} value={<>50&nbsp;€</>} valueNote={<>membre 45&nbsp;€</>} />
+                <PriceRow label="Carnet 5 cours" note="valable 6 mois" value={<>210&nbsp;€</>} valueNote={<>membre 189&nbsp;€</>} />
+                <PriceRow label="Carnet 10 cours" note="valable 1 an" value={<>350&nbsp;€</>} valueNote={<>membre 315&nbsp;€</>} />
                 <PriceRow label="Décor à cru" note={<>à l&rsquo;heure</>} value={<>20&nbsp;€</>} valueNote={<>membre 18&nbsp;€</>} />
               </div>
               <div className="foot"><a className="btn" href="#reservation">Réserver</a></div>
@@ -256,7 +256,7 @@ export default function Home() {
               <h3>atelier libre</h3>
               <p className="unit">En autonomie, à l&rsquo;heure</p>
               <div className="rows">
-                <PriceRow label={<>Séance à l&rsquo;unité</>} value={<>22,50&nbsp;€</>} valueNote="/ heure" />
+                <PriceRow label={<>Cours à l&rsquo;unité</>} value={<>22,50&nbsp;€</>} valueNote="/ heure" />
                 <PriceRow label={<>Carnet 10&nbsp;heures</>} note="valable 6 mois" value={<>15&nbsp;€</>} valueNote="/ heure" />
                 <PriceRow label={<>Carnet 20&nbsp;heures</>} note="valable 1 an" value={<>12&nbsp;€</>} valueNote="/ heure" />
                 <PriceRow label="Cuisson" note="par pièce" value={<>6&nbsp;€</>} />
@@ -289,10 +289,10 @@ export default function Home() {
           <SectionHead title={<>l&rsquo;adhésion rūsc</>} sub={<>50&nbsp;€ par an</>} />
           <div className="ad-wrap">
             <div>
-              <p>L&rsquo;adhésion vous ouvre l&rsquo;atelier libre — un espace professionnel en autonomie, réservé aux membres — et vous fait profiter de <strong>–10&nbsp;%</strong> sur toutes les séances et tous les carnets.</p>
+              <p>L&rsquo;adhésion vous ouvre l&rsquo;atelier libre — un espace professionnel en autonomie, réservé aux membres — et vous fait profiter de <strong>–10&nbsp;%</strong> sur tous les cours et tous les carnets.</p>
               <ul className="ad-list">
                 <li>Accès aux ateliers libres (7 tours, outils, matériaux)</li>
-                <li><strong>–10&nbsp;%</strong> sur la séance 2&nbsp;h, le décor à cru et les carnets 5 et 10 séances</li>
+                <li><strong>–10&nbsp;%</strong> sur le cours 2&nbsp;h, le décor à cru et les carnets 5 et 10 cours</li>
                 <li>Tarif horaire dégressif jusqu&rsquo;à 12&nbsp;€/h en carnet 20&nbsp;h</li>
                 <li>Valable 12 mois, à date anniversaire</li>
               </ul>
@@ -317,10 +317,10 @@ export default function Home() {
           <SectionHead title="réserver" sub={<>Osez l&rsquo;expérience</>} />
           {/* Each card opens the booking page (/reserver/) on that workshop or offer. */}
           <div className="price-grid">
-            <LinkCard tag={<>Tournage · séances de 2&nbsp;h</>} title="atelier céramique 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
+            <LinkCard tag={<>Tournage · cours de 2&nbsp;h</>} title="atelier céramique 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
               <BookingButton lang="fr" workshop="atelier-ceramique-2h">S&rsquo;inscrire</BookingButton>
             </LinkCard>
-            <LinkCard tag={<>Modelage · séances de 2&nbsp;h</>} title="atelier modelage 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
+            <LinkCard tag={<>Modelage · cours de 2&nbsp;h</>} title="atelier modelage 2h" unit={<>Cours 50&nbsp;€ · Carnet 5&nbsp;: 210&nbsp;€ · Carnet 10&nbsp;: 350&nbsp;€</>}>
               <BookingButton lang="fr" workshop="atelier-modelage-2h">S&rsquo;inscrire</BookingButton>
             </LinkCard>
             <LinkCard tag="7–12 ans · chaque mercredi" title="atelier enfant 2h30" unit="Un temps ludique pour découvrir, façonner et créer">
