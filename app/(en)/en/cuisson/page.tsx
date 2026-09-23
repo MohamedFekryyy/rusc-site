@@ -24,6 +24,9 @@ export default function Cuisson() {
           <li><strong>The clay moves too:</strong> a piece shrinks as it dries and fires — about 10% for stoneware, up to 20% for porcelain. What you take home won&rsquo;t be quite the size of what you shaped.</li>
         </ul>
 
+        <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>studio clay only</h3>
+        <p style={{ fontSize: "15.5px" }}>We fire <strong>only pieces made with clay purchased at the studio</strong>. Every clay has its own <strong>firing curve</strong>: its composition (clays, silica, fluxes) determines the exact firing range, the point at which the glaze forms, and the vitrification temperature. Clay of unknown origin can melt, swell, burst — or contaminate the whole kiln load, our glazes and our shelves. Firing a clay we don&rsquo;t know risks damaging your piece, everyone else&rsquo;s, and the kiln itself. That is why we guarantee the success of your firings by working exclusively with our own clays.</p>
+
         <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>a few notes</h3>
         <div style={{ display: "grid", gap: "14px" }}>
           <div style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "14px 18px" }}>

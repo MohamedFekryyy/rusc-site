@@ -25,6 +25,9 @@ export default function Cuisson() {
           <li><strong>La terre travaille&nbsp;:</strong> la pièce rétrécit au séchage et à la cuisson — environ 10&nbsp;% pour le grès, jusqu&rsquo;à 20&nbsp;% pour la porcelaine. Ce que vous emportez n&rsquo;aura donc pas tout à fait la taille de ce que vous avez façonné.</li>
         </ul>
 
+        <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>les terres façonnées à l&rsquo;atelier uniquement</h3>
+        <p style={{ fontSize: "15.5px" }}>Nous ne cuisons <strong>que les pièces façonnées avec des terres achetées à l&rsquo;atelier</strong>. Chaque terre possède sa propre <strong>courbe de température</strong>&nbsp;: sa composition (argiles, silice, fondants) détermine la plage exacte de cuisson, le moment où l&rsquo;émail se forme et la température de vitrification. Une terre d&rsquo;origine inconnue peut fondre, gonfler, éclater — ou contaminer la fournée entière, nos émaux et nos étagères. En cuisant une terre que nous ne connaissons pas, nous risquerions d&rsquo;abîmer à la fois votre pièce, celles des autres, et le four. C&rsquo;est pourquoi nous garantissons la réussite de vos cuissons en travaillant exclusivement avec nos terres.</p>
+
         <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>quelques repères</h3>
         <div style={{ display: "grid", gap: "14px" }}>
           <div style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "14px 18px" }}>
