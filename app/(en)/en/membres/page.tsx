@@ -29,7 +29,6 @@ export default function Membres() {
             <li>Materials included: stoneware, slips and clear glaze to finish your pieces</li>
           </ul>
           <p><strong>Access conditions:</strong> these sessions are reserved for members who have taken at least one 2-hour initiation with one of our teachers. An active membership is required to access the space.</p>
-          <p><strong>Firing:</strong> firings and use of the high-temperature kilns (up to 1280&nbsp;°C) are handled exclusively by the rūsc team. See the full rates on the <a href="/en/cuisson/">Firing</a> page.</p>
           <div className="pricing" style={{ marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "18px" }}>
             <p className="price" style={{ marginBottom: "12px" }}><strong>Membership: €50 / year</strong> — preferential rates and open studio access.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

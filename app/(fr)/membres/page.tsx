@@ -29,7 +29,6 @@ export default function Membres() {
             <li>Les matériaux inclus&nbsp;: grès, engobes, et émail transparent pour finaliser vos créations</li>
           </ul>
           <p><strong>Conditions d&rsquo;accès&nbsp;:</strong> ces ateliers sont exclusivement réservés aux membres ayant suivi au moins une initiation de 2&nbsp;heures avec l&rsquo;un de nos enseignants. Une adhésion active est requise pour accéder à cet espace.</p>
-          <p><strong>Cuissons et fours&nbsp;:</strong> les cuissons des pièces et l&rsquo;utilisation des fours haute température (jusqu&rsquo;à 1280&nbsp;°C) sont exclusivement gérées par l&rsquo;équipe de rūsc. Retrouvez le détail des tarifs sur la page <a href="/cuisson/">Cuisson</a>.</p>
           <div className="pricing" style={{ marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "18px" }}>
             <p className="price" style={{ marginBottom: "12px" }}><strong>Adhésion membre&nbsp;: 50&nbsp;€ / an</strong> — tarifs préférentiels et accès aux ateliers libres.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
