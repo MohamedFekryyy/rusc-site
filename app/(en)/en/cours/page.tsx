@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import BookingButton from "@/components/BookingButton";
-import logoWhite from "@/assets/logo-rusc.webp";
+import decorACru from "@/assets/photos/decor-a-cru-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
 import enfant from "@/assets/photos/enfant2-o.jpg";
@@ -38,7 +38,7 @@ export default function Cours() {
           <BookingButton lang="en" workshop="atelier-modelage-2h" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" src={logoWhite} alt="Raw-glaze decoration — rūsc" />
+          <Image className="thumb" src={decorACru} alt="Raw-glaze decoration — rūsc" />
           <p className="k">1-hour course</p>
           <h3>raw-glaze decoration 1h</h3>
           <p>A one-hour course dedicated to raw-glaze decoration, to personalise your pieces before firing.</p>

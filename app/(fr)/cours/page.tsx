@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import BookingButton from "@/components/BookingButton";
-import logoWhite from "@/assets/logo-rusc.webp";
+import decorACru from "@/assets/photos/decor-a-cru-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
 import enfant from "@/assets/photos/enfant2-o.jpg";
@@ -38,7 +38,7 @@ export default function Cours() {
           <BookingButton lang="fr" workshop="atelier-modelage-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" src={logoWhite} alt="Décor à cru — rūsc" />
+          <Image className="thumb" src={decorACru} alt="Décor à cru — rūsc" />
           <p className="k">Cours d&rsquo;1&nbsp;h</p>
           <h3>décor à cru 1h</h3>
           <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
