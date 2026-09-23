@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
-import { BOOKING, PAGES } from "@/lib/routes";
+import { PAGES } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import hero from "@/assets/photos/hero-o.jpg";
@@ -84,7 +84,7 @@ export default function Home() {
         <span className="rule"></span>
         <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
-          <a className="btn" href={BOOKING.fr}>Réserver un atelier</a>
+          <a className="btn" href={PAGES.membres.fr}>Espace membre</a>
           <a className="btn ghost" href={PAGES.cours.fr}>Voir les cours</a>
         </div>
       </section>

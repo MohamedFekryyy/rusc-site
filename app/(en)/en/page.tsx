@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
-import { BOOKING, PAGES } from "@/lib/routes";
+import { PAGES } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc.webp";
 import hero from "@/assets/photos/hero-o.jpg";
@@ -59,7 +59,7 @@ export default function Home() {
         <span className="rule"></span>
         <p>At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">
-          <a className="btn" href={BOOKING.en}>Book a course</a>
+          <a className="btn" href={PAGES.membres.en}>Member area</a>
           <a className="btn ghost" href={PAGES.cours.en}>See the courses</a>
         </div>
       </section>
