@@ -22,14 +22,18 @@ header{position:sticky;top:0;z-index:50;background:rgba(227,229,215,.93);backdro
 
 /* Burger (always visible; opens the panel) */
 .burger{width:42px;height:42px;border:1px solid var(--line);background:transparent;border-radius:8px;position:relative;cursor:pointer}
-.burger span,.burger span::before,.burger span::after{position:absolute;left:50%;transform:translateX(-50%);width:18px;height:1.5px;background:var(--ink);content:""}
+.burger span,.burger span::before,.burger span::after{position:absolute;left:50%;transform:translateX(-50%);width:18px;height:1.5px;background:var(--ink);content:"";transition:transform .28s cubic-bezier(.6,.05,.28,.91),top .28s cubic-bezier(.6,.05,.28,.91),background .2s}
 .burger span{top:50%;margin-top:-.75px}
 .burger span::before{top:-6px}
 .burger span::after{top:6px}
+.burger:hover span,.burger:hover span::before,.burger:hover span::after{background:#000}
 .burger span.x{background:transparent}
+.burger span.x,.burger span.x::before,.burger span.x::after{background:#000}
 .burger span.x::before{top:0;transform:translateX(-50%) rotate(45deg)}
 .burger span.x::after{top:0;transform:translateX(-50%) rotate(-45deg)}
-.mobile-panel{position:fixed;top:0;left:0;height:100vh;height:100dvh;width:min(82vw,340px);background:var(--bg);border-right:1px solid var(--line);padding:84px 26px 30px;z-index:60;overflow-y:auto;box-shadow:12px 0 40px rgba(0,0,0,.08);display:block}
+.mobile-panel{position:fixed;top:0;left:0;height:100vh;height:100dvh;width:min(82vw,340px);background:var(--bg);border-right:1px solid var(--line);padding:84px 26px 30px;z-index:60;overflow-y:auto;box-shadow:12px 0 40px rgba(0,0,0,.08);transform:translateX(-100%);opacity:0;visibility:hidden;transition:transform .32s cubic-bezier(.6,.05,.28,.91),opacity .32s,visibility 0s linear .32s}
+.mobile-panel.open{transform:translateX(0);opacity:1;visibility:visible;transition:transform .32s cubic-bezier(.6,.05,.28,.91),opacity .32s,visibility 0s}
+.panel-scrim{position:fixed;inset:0;background:rgba(20,20,21,.32);z-index:59;border:0;cursor:pointer}
 .mobile-panel nav{display:flex;flex-direction:column;gap:2px}
 .mobile-panel nav a{color:var(--ink);text-decoration:none;font-size:15px;letter-spacing:.1em;text-transform:uppercase;padding:13px 0;border-bottom:1px solid var(--line)}
 .mobile-panel nav a.on{color:var(--accent)}

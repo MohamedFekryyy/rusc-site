@@ -115,22 +115,27 @@ export default function Header({ lang, page }: Props) {
         </div>
       </div>
 
-      {/* Dropdown panel (mobile + desktop burger) */}
-      {open && (
-        <div className="mobile-panel" onClick={close}>
-          <nav>
-            {ORDER.map((key) => (
-              <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
-                {labels[key]}
-              </a>
-            ))}
-          </nav>
-          <span className="lang">
-            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
-            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
-          </span>
-        </div>
-      )}
+      {/* Dropdown panel (mobile + desktop burger). Kept mounted so it can
+          animate both in and out; `open` class drives the transition and a
+          scrim closes it on click. */}
+      <div
+        className={"mobile-panel" + (open ? " open" : "")}
+        aria-hidden={!open}
+        onClick={close}
+      >
+        <nav>
+          {ORDER.map((key) => (
+            <a key={key} href={PAGES[key][lang]} className={page === key ? "on" : undefined}>
+              {labels[key]}
+            </a>
+          ))}
+        </nav>
+        <span className="lang">
+          <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
+          <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
+        </span>
+      </div>
+      {open && <div className="panel-scrim" onClick={close} />}
     </header>
   );
 }
