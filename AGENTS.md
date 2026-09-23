@@ -242,6 +242,10 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - In Vercel, set `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (webhook event: `checkout.session.completed`).
   - In Cal, turn on "requires confirmation" for the sessions (`deploy/cal/README.md`).
   - Until the keys are set, "Payer" says online payment opens soon and links to the contact page.
+- **Stripe account and webhook (2026-09-23):** the studio's Stripe account is "Studio-rusc" (live mode).
+  - The owner logged the Stripe CLI in (live access only), and the live webhook endpoint `we_1UIvjEBwkJn18YegcHTOBfMr` was created from it: `checkout.session.completed` → `https://rusc-preview.vercel.app/api/stripe/webhook/`.
+  - When the site moves to studio-rusc.com, update its URL: `stripe webhook_endpoints update we_1UIvjEBwkJn18YegcHTOBfMr --live -d url=https://studio-rusc.com/api/stripe/webhook/`.
+  - The owner pastes the keys and the endpoint's signing secret into Vercel; agents never handle them.
 - **Fulfilment is manual for now:** the studio sends voucher and card codes, and confirms paid Cal bookings. Member prices are not applied online; that decision is Raquel's.
 - **Checked** with `next start`:
   - a real click adds a gift voucher, and the header count updates;
