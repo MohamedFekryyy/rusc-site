@@ -11,8 +11,9 @@ import logo from "@/assets/logo-rusc.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
-import privatisation from "@/assets/photos/atelier-05.jpg";
+import privateisation from "@/assets/photos/atelier-05.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
+import stages from "@/assets/photos/stages-o.jpg";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -59,7 +60,7 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
   },
   {
     href: PAGES.stages.fr,
-    img: ceramique2h,
+    img: stages,
     tag: "Immersion · 10h – 17h",
     title: "les stages",
     text: "Céramique 1 et 2 jours, porcelaine, tapisserie d'ameublement.",
