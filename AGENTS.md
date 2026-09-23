@@ -8,14 +8,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # rūsc site: notes for agents
 
-Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language has three pages: home (`/`, `/en/`), booking (`/reserver/`, `/en/booking/`) and terms (`/conditions/`, `/en/terms/`).
+Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language has a home page (`/`, `/en/`), a booking page (`/reserver/`, `/en/booking/`), a terms page (`/conditions/`, `/en/terms/`) and nine content pages (`PAGES` in `lib/routes.ts`).
 
 - **Stack:** Next.js 16 (App Router, TypeScript), hosted on Vercel. Every page is prerendered at build time.
 - **Hosting:** Vercel only.
   - The Vercel project `rusc-preview` is connected to this GitHub repo. Every push to `main` deploys to https://rusc-preview.vercel.app; other branches get preview deploys behind Vercel login.
   - The target domain, studio-rusc.com, isn't attached to Vercel yet. Squarespace Domains stays the registrar.
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
-- **Bookings:** Acuity Scheduling, owner ID `19154889`, embedded in the booking pages. The Acuity dashboard (services, hours, prices, payments) stays in Acuity.
+- **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
+  - For now the embed loads from cal.com's hosted app, account `rusc-studio`.
+  - The owner wants to self-host it as **Cal.diy**, the MIT-licensed community fork of Cal.com. The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` pointed at that instance (step 11).
+  - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 
 ## Commands
 
@@ -39,11 +42,17 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 - **Keep the UI as it is.** The CSS was ported verbatim from the old static pages. Don't restyle anything unless asked.
 - **FR and EN are separate pages, and they differ.** EN has no pricing section, membership band or booking cards, and its section IDs differ (`#workshops`, `#members`, `#about` versus `#ateliers`, `#membres`, `#us`). When content should stay in sync, edit both pages.
 - **Link between the home and terms pages with plain `<a>`, not `next/link`.** The two page types style bare elements (`p`, `li`, `header`, `footer`) differently. Next.js does not unload global CSS on client-side navigation, so a `<Link>` would carry the home styles over into the terms page.
-- **Bookings never leave the site.**
-  - The FR home page lists everything bookable in `#reservation`. EN has no list.
-  - Buttons that name a workshop or offer are `BookingButton`s. They link to the booking page with `?workshop=<slug>` or `?view=catalog|gifts` (see `bookingHref` in `lib/routes.ts`).
-  - On the booking page, `BookingEmbed` opens the Acuity page that the URL names. Its tabs switch the view in place and update the URL.
-  - Do not link to `rusc.as.me` or `app.acuityscheduling.com` directly.
+- **Bookings never leave the site.** This was the owner's explicit requirement.
+  - Nothing on the site links to cal.com, the Cal.com instance, Acuity or `rusc.as.me`. The booker only ever appears as the inline embed on the booking pages.
+  - Buttons that name a workshop or offer are `BookingButton`s. They link to our booking page with `?workshop=<key>` or `?view=catalog|gifts` (`bookingHref` in `lib/routes.ts`).
+  - On the booking page, `BookingEmbed` mounts Cal.com's inline embed for that link. Its tabs switch it in place and update the URL.
+  - If an event type doesn't exist in Cal.com, the embed shows the account page instead of a 404 (Cal's `linkFailed` event).
+  - Each service has two event types, `-fr` and `-en` (`SERVICES` in `lib/cal.ts`), because the embed has no language parameter. Membership and gift-voucher slugs go in `VIEW_SLUGS`.
+- **Keep secrets and client data out of the repo, which is public on GitHub.**
+  - Keys go in `.secrets/`, which is git-ignored (the Cal.com key is `.secrets/cal.env`).
+  - Client exports go in `data/`, also git-ignored (for example the Acuity CSVs).
+  - Anything the site needs at runtime goes in Vercel's environment variables.
+- **Hosting is Vercel (the owner's decision).** Ignore older instructions about Cloudflare Pages, a static export or `public/_redirects`, including in the Cal.com brief.
 - **Redirects live in `next.config.ts`** (`redirects()`), and Vercel runs them. Old paths without an extension take two hops: the trailing slash is added first, then the redirect applies.
 
 ## Migration log: static HTML → Next.js (2026-09-22)
@@ -163,3 +172,36 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - `dynamic = "force-static"` is dropped from the robots and sitemap routes (only the static export needed it).
   - A `npm run start` script is added.
   - `.claude/launch.json` now has `dev` and `prod` (next start on :3001).
+
+### 10. Acuity → Cal.com (other agent, 2026-09-23)
+- **Why:** the studio is replacing Acuity. The brief from the studio's other agent lists three reasons: Acuity blocks API use, bilingual booking is clumsy, and the studio doesn't own its client list.
+- **The plan:**
+  - Cal.com takes bookings and payments (Stripe), with bilingual `-fr`/`-en` event-type pairs.
+  - Brevo is proposed for the client list: about 688 unique clients from the Acuity export.
+  - The 10% member discount is deferred.
+- **Code:** commits `ea5697b` … `37f4fc6` added `lib/cal.ts` (`CAL_USERNAME`, the `SERVICES` slug pairs, `VIEW_SLUGS`) and re-pointed `BookingButton`/`bookingHref` at Cal.com. They also removed `lib/acuity.ts`.
+
+### 11. Embed-only booking and self-hosting readiness (`dd61517`, `792f3fb`)
+- **Secrets guard:** `.secrets/` and `data/` were not git-ignored, so one "commit all" would have published the Cal.com key and client exports. Both are now ignored.
+- **Real inline embed:** the step 10 embed rendered a plain link to cal.com, and its tabs linked to cal.com too. `BookingEmbed` now:
+  - loads Cal.com's embed script through a small loader, written against Cal's `window.Cal` queue contract (Cal's embed npm packages are under a commercial license, so they aren't bundled);
+  - mounts the inline booker with one Cal namespace per view, since one namespace holds one iframe;
+  - styles it with the site's accent colour.
+- **Username:** `rusc-studio`. The account was created as `fekry-aiad-qijijq` and later renamed. Commit `7a0fae0` pointed the site back at the old name, which now answers 404, so it was reverted. Checked 2026-09-23: `cal.com/rusc-studio` answers 200 and `cal.com/fekry-aiad-qijijq` 404. Load the page before changing the username.
+- **Header:** "Connexion" used to open cal.com in a new tab. It now leads to the member area, because Cal.com has no client login.
+- **Checked** with `next start`, in the browser:
+  - `?workshop=porcelaine` falls back to the account page, because that event type doesn't exist yet.
+  - Choosing an event opens the calendar inside the page, and the address stays on the site.
+  - The tabs switch in place.
+  - `/en/booking/` works; there's no sideways scroll at 375px; no console errors.
+- **Self-hosting (Cal.diy):**
+  - The `calcom/cal.com` repo is now `calcom/cal.diy`: an MIT community fork with the enterprise features removed (Teams, Organizations, Insights, SSO/SAML, and **Workflows, so no automated reminder emails**).
+  - It still includes the Stripe payment app, the embed and API v2.
+  - Recommended deploy: the Docker image `calcom/cal.diy`, with PostgreSQL 13+ and Node 18+. On Vercel it needs the Pro plan (serverless function limits).
+  - Required env: `DATABASE_URL`, `NEXTAUTH_SECRET`, `CALENDSO_ENCRYPTION_KEY`, `NEXT_PUBLIC_WEBAPP_URL`, plus SMTP for emails and Stripe keys for payments.
+  - Once it runs, set `NEXT_PUBLIC_CAL_ORIGIN` (and `NEXT_PUBLIC_CAL_USERNAME`) in Vercel and redeploy.
+- **Still open** (decisions for Raquel and Fekry):
+  - where to host Cal.diy;
+  - the event types and prices;
+  - whether the member discount is manual or automatic. The booking pages currently say it "s'applique automatiquement" / "is applied automatically", which Cal.com doesn't do;
+  - Brevo for the client list.
