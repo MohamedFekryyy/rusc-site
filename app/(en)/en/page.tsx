@@ -7,7 +7,7 @@ import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
 import { PAGES } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
-import logo from "@/assets/logo-rusc.webp";
+import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
@@ -58,7 +58,7 @@ export default function Home() {
 
       <section className="hero wrap">
         <p className="eyebrow">Ceramics studio · Chamonix</p>
-        <h1>dare art</h1>
+        <Image className="wordmark" src={logo} alt="rūsc" priority />
         <span className="rule"></span>
         <p>At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">

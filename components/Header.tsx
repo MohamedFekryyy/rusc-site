@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
-import logo from "@/assets/logo-rusc-trim.webp";
 import { BOOKING, HOME, PAGES, bookingHref, type Lang, type PageKey } from "@/lib/routes";
 
 export type NavPage = "home" | "booking" | PageKey;
@@ -54,6 +52,8 @@ const CTA = {
 const AUTH_LABEL = { fr: "Connexion", en: "Log in" };
 const CART_LABEL = { fr: "Panier", en: "Cart" };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
+// Tagline shown as the center brand mark in the header (in place of the logo).
+const SLOGAN = { fr: "oser l'art", en: "dare art" };
 
 type Props = {
   lang: Lang;
@@ -85,9 +85,9 @@ export default function Header({ lang, page }: Props) {
           </button>
         </div>
 
-        {/* Center: logo */}
-        <a href={page === "home" ? "#" : HOME[lang]} className="logo" onClick={close}>
-          <Image src={logo} alt="rūsc" loading="eager" />
+        {/* Center: tagline (brand mark) */}
+        <a href={page === "home" ? "#" : HOME[lang]} className="logo logo-word" onClick={close}>
+          {SLOGAN[lang]}
         </a>
 
         {/* Right: lang switch + Réserver + login + cart */}

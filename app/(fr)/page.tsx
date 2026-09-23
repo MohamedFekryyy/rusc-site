@@ -7,7 +7,7 @@ import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
 import { PAGES } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
-import logo from "@/assets/logo-rusc.webp";
+import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
@@ -90,7 +90,7 @@ export default function Home() {
 
       <section className="hero wrap">
         <p className="eyebrow">Atelier de céramique · Chamonix</p>
-        <h1>oser l&rsquo;art</h1>
+        <Image className="wordmark" src={logo} alt="rūsc" priority />
         <span className="rule"></span>
         <p>Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
