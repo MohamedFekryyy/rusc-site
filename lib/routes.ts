@@ -1,4 +1,4 @@
-import type { AppointmentSlug, BookingView } from "./acuity";
+import type { BookingView, ServiceKey } from "./cal";
 
 export type Lang = "fr" | "en";
 
@@ -22,8 +22,8 @@ export const PAGES: Record<PageKey, { fr: string; en: string }> = {
 export type PageKey = "us" | "membres" | "cours" | "stages" | "privatisation" | "residence" | "expo" | "cuisson" | "contact";
 
 // Booking page URL for one view of the embed (?view=catalog|gifts) or one
-// workshop (?workshop=<slug>). BookingEmbed reads these on load.
-export function bookingHref(lang: Lang, view: BookingView = "schedule", workshop?: AppointmentSlug) {
+// workshop (?workshop=<key>). BookingEmbed reads these on load.
+export function bookingHref(lang: Lang, view: BookingView = "schedule", workshop?: ServiceKey) {
   const params = new URLSearchParams();
   if (workshop) params.set("workshop", workshop);
   else if (view !== "schedule") params.set("view", view);

@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import type { AppointmentSlug, BookingView } from "@/lib/acuity";
+import type { BookingView, ServiceKey } from "@/lib/cal";
 import { bookingHref, type Lang } from "@/lib/routes";
 
 type Props = {
   lang: Lang;
   view?: BookingView;
   // Open the scheduler straight on one workshop.
-  workshop?: AppointmentSlug;
+  workshop?: ServiceKey;
   // Colour role: member = deep green, guest = light green.
   tone?: "member" | "guest";
   children: ReactNode;
