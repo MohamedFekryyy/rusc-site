@@ -57,7 +57,6 @@ export default function Home() {
       <Header lang="en" page="home" />
 
       <section className="hero wrap">
-        <p className="eyebrow">Ceramics studio · Chamonix</p>
         <Image className="wordmark" src={logo} alt="rūsc" priority />
         <span className="rule"></span>
         <p>At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
