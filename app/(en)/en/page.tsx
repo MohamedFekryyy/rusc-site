@@ -60,7 +60,7 @@ export default function Home() {
         <p>At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">
           <a className="btn member" href={PAGES.membres.en}>Member area</a>
-          <a className="btn guest" href={PAGES.cours.en}>See the courses</a>
+          <a className="btn guest" href={PAGES.cours.en}>Choose a course</a>
         </div>
       </section>
 
