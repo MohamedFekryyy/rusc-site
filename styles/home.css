@@ -198,3 +198,10 @@ html[lang="en"] .feature .txt li strong{color:inherit}
 .head h1{font-size:clamp(30px,4.4vw,44px)}
 /* Scrolling to the booking block stops where embed.js puts it (iframe data-offset-top 120). */
 #reservation .bk-shell{scroll-margin-top:70px}
+
+/* EN page uses its own section ids — mirror the FR grid/card styling. */
+#pricing .price-grid,#booking .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;align-items:start}
+#booking .price-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+#booking .pcard .foot{margin-top:auto;padding-top:14px}
+#booking .pcard .unit{font-size:14px;color:var(--muted);margin-bottom:8px}
+@media (max-width:640px){#booking .price-grid{grid-template-columns:1fr}}

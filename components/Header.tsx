@@ -20,8 +20,11 @@ const NAV = {
   },
   en: {
     links: [
-      { href: "/en/#workshops", label: "Workshop" },
-      { href: "/en/#members", label: "Become a member" },
+      { href: "/en/#members", label: "Member area" },
+      { href: "/en/#courses", label: "Courses" },
+      { href: "/en/#intensives", label: "Intensives" },
+      { href: "/en/#firing", label: "Firing" },
+      { href: "/en/#pricing", label: "Prices" },
       { href: BOOKING.en, label: "Booking" },
       { href: "/en/#about", label: "Ūs" },
       { href: "/en/#contact", label: "Contact" },
