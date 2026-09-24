@@ -16,11 +16,12 @@ export const PAGES: Record<PageKey, { fr: string; en: string }> = {
   stages: { fr: "/stages/", en: "/en/stages/" },
   privatisation: { fr: "/privatisation/", en: "/en/privatisation/" },
   residence: { fr: "/residence/", en: "/en/residence/" },
+  event: { fr: "/event/", en: "/en/event/" },
   cuisson: { fr: "/cuisson/", en: "/en/cuisson/" },
   contact: { fr: "/contact/", en: "/en/contact/" },
 };
 
-export type PageKey = "us" | "membres" | "cours" | "stages" | "privatisation" | "residence" | "cuisson" | "contact";
+export type PageKey = "us" | "membres" | "cours" | "stages" | "privatisation" | "residence" | "event" | "cuisson" | "contact";
 
 // Booking page URL for one tab (?view=catalog|gifts) or one offer
 // (?workshop=<offer key>, see OFFERS in lib/cal.ts). BookingEmbed reads these on load.
