@@ -104,6 +104,21 @@ ON CONFLICT (lower(email)) WHERE email IS NOT NULL DO UPDATE SET
   phone = coalesce(rusc.clients.phone, EXCLUDED.phone),
   notes = coalesce(EXCLUDED.notes, rusc.clients.notes);
 
+-- Several people under one e-mail (a parent booking for their children…):
+-- the first stays the client, the others are kept with it, so no name is lost.
+CREATE TEMP TABLE listed ON COMMIT DROP AS
+SELECT lower(pg_temp.clean(c->>'email')) AS email, pg_temp.clean(c->>'firstName') AS first_name, pg_temp.clean(c->>'lastName') AS last_name,
+       pg_temp.clean(c->>'phone') AS phone, pg_temp.clean(c->>'notes') AS notes
+  FROM imp, jsonb_array_elements(imp.payload->'clients') c
+ WHERE c->>'email' ~ '@';
+UPDATE rusc.clients k SET others = coalesce((
+  SELECT jsonb_agg(DISTINCT jsonb_strip_nulls(jsonb_build_object('first_name', l.first_name, 'last_name', l.last_name, 'phone', l.phone, 'notes', l.notes)))
+    FROM listed l
+   WHERE l.email = lower(k.email)
+     AND (lower(coalesce(l.first_name, '')), lower(coalesce(l.last_name, ''))) <> (lower(coalesce(k.first_name, '')), lower(coalesce(k.last_name, '')))
+), '[]'::jsonb)
+ WHERE k.email IS NOT NULL AND EXISTS (SELECT 1 FROM listed l WHERE l.email = lower(k.email));
+
 -- Clients without an e-mail: kept once each.
 INSERT INTO rusc.clients (first_name, last_name, phone, notes, source)
 SELECT DISTINCT pg_temp.clean(c->>'firstName'), pg_temp.clean(c->>'lastName'), pg_temp.clean(c->>'phone'), pg_temp.clean(c->>'notes'), 'acuity'
@@ -128,7 +143,8 @@ UNION ALL SELECT 'orders in the import', jsonb_array_length(payload->'orders')::
 UNION ALL SELECT 'orders kept (rusc.acuity_orders)', count(*)::text FROM rusc.acuity_orders
 UNION ALL SELECT 'clients in the import', jsonb_array_length(payload->'clients')::text FROM imp
 UNION ALL SELECT 'clients now (rusc.clients)', count(*)::text FROM rusc.clients
-UNION ALL SELECT '  with a note from Acuity', count(*)::text FROM rusc.clients WHERE notes IS NOT NULL;
+UNION ALL SELECT '  with a note from Acuity', count(*)::text FROM rusc.clients WHERE notes IS NOT NULL
+UNION ALL SELECT '  other people kept under a shared e-mail', coalesce(sum(jsonb_array_length(others)), 0)::text FROM rusc.clients;
 -- Acuity types with no class of ours (names only, no client data).
 SELECT type AS acuity_type_without_offer, count(*) AS appointments FROM rusc.history WHERE offer IS NULL GROUP BY type ORDER BY 2 DESC;
 COMMIT;

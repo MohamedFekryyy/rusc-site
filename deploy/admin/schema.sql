@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS rusc.clients (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS clients_email ON rusc.clients (lower(email)) WHERE email IS NOT NULL;
+-- Other people Acuity listed under the same e-mail (a parent booking for
+-- their children…): [{first_name, last_name, phone, notes}], kept so no name is lost.
+ALTER TABLE rusc.clients ADD COLUMN IF NOT EXISTS others jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 -- Acuity's appointments, as exported. Upcoming ones at the switch are also
 -- Cal places (rusc.acuity_seats); the admin shows these for past days only.

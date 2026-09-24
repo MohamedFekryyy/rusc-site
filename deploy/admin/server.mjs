@@ -1192,7 +1192,7 @@ async function clientsPage(url) {
                      (SELECT max(b."startTime" AT TIME ZONE 'UTC') FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId"
                        WHERE lower(a.email) = lower(c.email) AND b.status IN ('accepted', 'pending') AND b."startTime" < now() AT TIME ZONE 'UTC')) AS last_visit
        FROM rusc.clients c LEFT JOIN rusc.members m ON lower(m.email) = lower(c.email)
-      WHERE $1 = '' OR lower(concat_ws(' ', c.first_name, c.last_name, c.email, c.phone)) LIKE $2
+      WHERE $1 = '' OR lower(concat_ws(' ', c.first_name, c.last_name, c.email, c.phone, c.others::text)) LIKE $2
       ORDER BY last_visit DESC NULLS LAST, c.id DESC LIMIT 400`,
     [q, `%${q.toLowerCase()}%`],
   );
@@ -1201,7 +1201,8 @@ async function clientsPage(url) {
   const list = rows
     .map((c) => {
       const member = c.member_until && isoDate(c.member_until) >= today ? ` <span class="pill">${tr("membre", "member")}</span>` : "";
-      return `<tr><td><a href="/admin/clients/${c.id}"><b>${esc(clientName(c))}</b></a>${member}<br><span class="muted">${esc(c.email ?? "")}</span></td>
+      const others = Array.isArray(c.others) && c.others.length ? ` <span class="muted small">+ ${c.others.map((o) => esc([o.first_name, o.last_name].filter(Boolean).join(" "))).join(", ")}</span>` : "";
+      return `<tr><td><a href="/admin/clients/${c.id}"><b>${esc(clientName(c))}</b></a>${others}${member}<br><span class="muted">${esc(c.email ?? "")}</span></td>
         <td>${esc(c.phone ?? "")}</td><td>${num(c.visits)}</td><td>${c.last_visit ? esc(fmtDate(c.last_visit)) : "—"}</td><td class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))}</td></tr>`;
     })
     .join("");
@@ -1262,11 +1263,13 @@ async function clientPage(id, flash) {
     ...history.rows.map((h) => ({
       at: new Date(h.starts_at),
       what: h.offer ? offerLabel(h.offer) : h.type,
+      who: [h.first_name, h.last_name].filter(Boolean).join(" "),
+      notes: h.notes,
       how: h.canceled ? `<span class="muted">${tr("annulé sur Acuity", "cancelled on Acuity")}</span>` : payment({ ...h, history: true }),
     })),
   ].sort((x, y) => y.at - x.at);
   const visitRows = visits
-    .map((v) => `<tr><td>${esc(fmtDateTime(v.at))}${v.at > new Date() ? ` <span class="pill">${tr("à venir", "coming")}</span>` : ""}</td><td>${esc(v.what)}</td><td>${v.how}</td></tr>`)
+    .map((v) => `<tr><td>${esc(fmtDateTime(v.at))}${v.at > new Date() ? ` <span class="pill">${tr("à venir", "coming")}</span>` : ""}</td><td>${esc(v.what)}${v.who && v.who.toLowerCase() !== clientName(c).toLowerCase() ? `<br><span class="muted small">${esc(v.who)}</span>` : ""}${v.notes ? `<br><span class="muted small" style="white-space:pre-wrap">${esc(v.notes)}</span>` : ""}</td><td>${v.how}</td></tr>`)
     .join("");
   const codeRows = codes.rows
     .map((k) => `<tr><td><a href="/admin/codes/${esc(k.key)}"><b>${esc(k.display)}</b></a><br><span class="muted">${esc(k.label)}</span></td>
@@ -1294,6 +1297,7 @@ async function clientPage(id, flash) {
        <label style="display:flex;gap:8px;align-items:center">${tr("Membre jusqu’au", "Member until")}<input name="until" type="date" value="${m ? esc(isoDate(m.until)) : ""}"></label>
        <button class="plain small" type="submit">${tr("Enregistrer", "Save")}</button><span class="muted small">${tr("vide = pas membre", "empty = not a member")}</span></form>
      ${c.notes ? `<h2>${tr("Notes (Acuity)", "Notes (Acuity)")}</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
+     ${Array.isArray(c.others) && c.others.length ? `<h2>${tr("Aussi à cet e-mail", "Also under this e-mail")}</h2><ul>${c.others.map((o) => `<li>${esc([o.first_name, o.last_name].filter(Boolean).join(" ") || "—")}${o.phone ? ` · <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>` : ""}${o.notes ? `<br><span class="muted" style="white-space:pre-wrap">${esc(o.notes)}</span>` : ""}</li>`).join("")}</ul>` : ""}
      <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
      <h2>${tr("Codes", "Codes")}</h2>
      ${codeRows ? `<table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th></tr></thead><tbody>${codeRows}</tbody></table>` : `<p class="muted">${tr("Aucun code à son nom.", "No codes in their name.")}</p>`}
