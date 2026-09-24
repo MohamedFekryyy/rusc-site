@@ -1,8 +1,8 @@
 {
-  "name": "rusc-codes",
+  "name": "rusc-admin",
   "private": true,
   "type": "module",
-  "description": "rūsc codes: carnets, gift vouchers and studio-issued codes (deploy/codes/README.md)",
+  "description": "rūsc admin: the studio's back office and codes API (deploy/admin/README.md)",
   "scripts": {
     "start": "node server.mjs"
   },

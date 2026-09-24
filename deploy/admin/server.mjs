@@ -1,23 +1,22 @@
-// rūsc codes: prepaid carnets, gift vouchers and codes the studio issues
-// itself (a carnet paid in cash or by card at the studio, a voucher, a
-// member's hours), and their use when a class is booked on the site.
-// Runs on Fly as rusc-codes (deploy/codes/README.md).
+// rūsc admin: the studio's one back office, and the codes behind it.
+// Runs on Fly as rusc-admin (deploy/admin/README.md).
 //
+// Studio pages (sign in at /login with CODES_ADMIN_PASSWORD):
+//   /admin/cours   the coming classes: who's coming, places left, how each paid
+//   /admin/codes   carnets, gift vouchers and codes the studio issues itself (a
+//                  carnet paid in cash at the studio…): create, adjust, pause
 // Public API, called by the booking page (components/BookingEmbed.tsx):
 //   POST /api/check   {code, offer}    what's left, and whether it covers that class
 //   POST /api/redeem  {code, seatUid}  takes the class just booked in Cal off the code
-// Studio admin, HTTP Basic (user "rusc", password CODES_ADMIN_PASSWORD):
-//   /admin            every code with its balance and uses; create, adjust, pause
 //
 // Data: schema "rusc" of the Cal.diy database (schema.sql). Cal's own tables
 // are only read (bookings, seats, event types, attendees), never written.
 
 import http from "node:http";
-import { randomInt, timingSafeEqual } from "node:crypto";
+import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import pg from "pg";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const ADMIN_USER = "rusc";
 const ADMIN_PASSWORD = process.env.CODES_ADMIN_PASSWORD ?? "";
 const ORIGINS = new Set((process.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean));
 const db = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
@@ -259,14 +258,26 @@ async function apiRedeem(input) {
 
 // ---------------------------------------------------------------- studio admin
 
-function authorized(req) {
-  const header = req.headers.authorization ?? "";
-  if (!ADMIN_PASSWORD || !header.startsWith("Basic ")) return false;
-  const given = Buffer.from(header.slice(6), "base64").toString("utf8");
-  const expected = `${ADMIN_USER}:${ADMIN_PASSWORD}`;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+// Studio sign-in: one password (the Fly secret CODES_ADMIN_PASSWORD), then a
+// signed cookie for 30 days. Changing the password signs everyone out.
+const SESSION_MS = 30 * 24 * 3600_000;
+const sessionKey = () => createHmac("sha256", ADMIN_PASSWORD).update("rusc-admin-session").digest();
+const sign = (value) => createHmac("sha256", sessionKey()).update(value).digest("base64url");
+const sameText = (a, b) => {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+function sessionCookie() {
+  const expires = String(Date.now() + SESSION_MS);
+  return `rusc_admin=${expires}.${sign(expires)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MS / 1000}`;
+}
+function signedIn(req) {
+  if (!ADMIN_PASSWORD) return false;
+  const cookie = (req.headers.cookie ?? "").split(/;\s*/).find((c) => c.startsWith("rusc_admin="));
+  const [expires, signature] = (cookie?.slice("rusc_admin=".length) ?? "").split(".");
+  if (!expires || !signature || Number(expires) < Date.now()) return false;
+  return sameText(signature, sign(expires));
 }
 
 const STYLE = `
@@ -282,9 +293,130 @@ const STYLE = `
   .code{font:600 26px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;background:#fff;border:1px solid var(--line);padding:14px 18px;display:inline-block}
   .off{color:var(--warn)}.pill{font-size:12px;border:1px solid var(--line);padding:1px 8px;border-radius:99px;white-space:nowrap}
   .search{display:flex;gap:8px;margin:0 0 12px}.search input{flex:1}
+  header.top{display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding:0 0 18px;margin:0 0 22px;border-bottom:1px solid var(--line)}
+  header.top nav{display:flex;gap:16px;flex:1;flex-wrap:wrap}header.top nav a{text-decoration:none}header.top nav a[aria-current]{font-weight:600;text-decoration:underline}
+  .soon{color:var(--muted);opacity:.6}.login{max-width:360px;margin:12vh auto 0}.login form.box{grid-template-columns:1fr}
+  .session{background:#fff;border:1px solid var(--line);padding:12px 14px;margin:0 0 12px}.session .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
+  .session table td{font-size:14px}.ok{color:var(--accent)}.day{margin:28px 0 10px}.day::first-letter{text-transform:uppercase}
 `;
 const page = (title, body) =>
-  `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · codes rūsc</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
+  `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
+
+// Every studio page: the same header and menu. "Bientôt" items are next.
+const MENU = [["cours", "Cours"], ["codes", "Codes"], ["commandes", "Commandes"], ["horaires", "Horaires"]];
+const SOON = new Set(["commandes", "horaires"]);
+function shell(active, title, body) {
+  const menu = MENU.map(([key, label]) =>
+    SOON.has(key)
+      ? `<span class="soon" title="Bientôt">${label}</span>`
+      : `<a href="/admin/${key}"${key === active ? ' aria-current="page"' : ""}>${label}</a>`,
+  ).join("");
+  return page(title, `<header class="top"><b>rūsc · admin</b><nav>${menu}</nav><a class="muted" href="/logout">Déconnexion</a></header>${body}`);
+}
+
+const loginPage = (error, next) =>
+  page(
+    "Connexion",
+    `<div class="login"><h1>rūsc · admin</h1><p class="muted">L’espace de l’atelier : cours, codes, commandes.</p>
+     ${error ? `<p class="off"><b>${esc(error)}</b></p>` : ""}
+     <form class="box" method="post" action="/login"><input type="hidden" name="next" value="${esc(next)}">
+       <label>Mot de passe<input type="password" name="password" required autofocus autocomplete="current-password"></label>
+       <div><button type="submit">Entrer</button></div></form></div>`,
+  );
+
+// ---------------------------------------------------------------- Cours
+
+const WEEKDAY = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" });
+const parisParts = (date) => {
+  const f = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  const [day, time] = f.format(date).split(" ");
+  return { day, time: time.slice(0, 5) };
+};
+
+// The coming days: each class that takes place (from its Cal schedule, or
+// from its bookings), who's coming, and how each person paid.
+async function coursPage(url) {
+  const days = Math.min(Math.max(Number(url.searchParams.get("jours")) || 14, 1), 60);
+  const bookings = await db.query(
+    `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
+            a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit
+       FROM public."Booking" b
+       JOIN public."EventType" e ON e.id = b."eventTypeId"
+       JOIN public."Attendee" a ON a."bookingId" = b.id
+       LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
+       LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
+       LEFT JOIN rusc.codes c ON c.key = u.key
+      WHERE b.status IN ('accepted', 'pending')
+        AND b."startTime" AT TIME ZONE 'UTC' >= date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris'
+        AND b."startTime" AT TIME ZONE 'UTC' < (date_trunc('day', now() AT TIME ZONE 'Europe/Paris') + $1::int * interval '1 day') AT TIME ZONE 'Europe/Paris'
+      ORDER BY 1, e.slug, a.name`,
+    [days],
+  );
+  // The timetable, so classes with nobody booked yet show too (not open-studio hours).
+  const schedule = await db.query(
+    `SELECT e.slug, e.title, e."seatsPerTimeSlot" AS seats, v.days, v.date::text AS date, v."startTime"::text AS start
+       FROM public."EventType" e JOIN public."Availability" v ON v."scheduleId" = e."scheduleId"
+      WHERE e."seatsPerTimeSlot" IS NOT NULL AND e.slug <> 'atelier-libre-1h'`,
+  );
+
+  const sessions = new Map(); // "YYYY-MM-DD HH:MM|slug" → session
+  const at = (day, time, slug, title, seats) => {
+    const key = `${day} ${time}|${slug}`;
+    if (!sessions.has(key)) sessions.set(key, { day, time, slug, title, seats, people: [] });
+    return sessions.get(key);
+  };
+  const today = parisToday();
+  for (let i = 0; i < days; i++) {
+    const date = new Date(`${today}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + i);
+    const day = date.toISOString().slice(0, 10);
+    const weekday = date.getUTCDay();
+    for (const row of schedule.rows) {
+      const matches = row.date ? row.date === day : row.days.includes(weekday);
+      if (matches) at(day, row.start.slice(0, 5), row.slug, row.title, row.seats);
+    }
+  }
+  const now = parisParts(new Date());
+  for (const row of bookings.rows) {
+    const { day, time } = parisParts(new Date(row.starts));
+    at(day, time, row.slug, row.title, row.seats).people.push(row);
+  }
+
+  const byDay = new Map();
+  for (const session of [...sessions.values()].sort((a, b) => `${a.day} ${a.time}`.localeCompare(`${b.day} ${b.time}`) || a.title.localeCompare(b.title))) {
+    if (session.day === now.day && session.time < now.time && !session.people.length) continue;
+    if (!byDay.has(session.day)) byDay.set(session.day, []);
+    byDay.get(session.day).push(session);
+  }
+
+  const people = (list) =>
+    list.length
+      ? `<table><tbody>${list
+          .map((p) => {
+            const paid = p.code
+              ? `<span class="ok">Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span>`
+              : `<span class="muted">à vérifier (panier ou sur place)</span>`;
+            const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : "", p.phone ? esc(p.phone) : ""].filter(Boolean).join(" · ");
+            return `<tr><td><b>${esc(p.name)}</b><br><span class="muted">${contact}</span></td><td>${paid}</td></tr>`;
+          })
+          .join("")}</tbody></table>`
+      : `<p class="muted" style="margin:0">Personne pour l’instant.</p>`;
+
+  const body = [...byDay.entries()]
+    .map(([day, list]) => `<h2 class="day">${esc(WEEKDAY.format(new Date(`${day}T12:00:00Z`)))}</h2>${list
+      .map((s) => `<div class="session"><div class="head"><b>${esc(s.time)} · ${esc(s.title)}</b>
+          <span class="pill">${s.people.length} / ${s.seats ?? "?"} places</span></div>${people(s.people)}</div>`)
+      .join("")}`)
+    .join("");
+  return shell(
+    "cours",
+    "Cours",
+    `<h1>Cours</h1><p class="muted">Les ${days} prochains jours, d’après les réservations et les horaires de Cal.
+       ${days < 30 ? `<a href="?jours=30">Voir 30 jours</a>` : `<a href="?jours=14">Voir 14 jours</a>`}</p>
+     ${body || `<p class="muted">Aucun cours sur cette période.</p>`}`,
+  );
+}
 
 function offerBoxes(selected) {
   return `<fieldset><legend>Valable pour</legend>${Object.entries(OFFERS)
@@ -335,12 +467,13 @@ async function adminHome(url) {
         <td>${esc(fmtDate(c.expires_on))}</td><td>${esc(c.holder ?? "")}</td><td>${num(c.bookings)}</td><td class="muted">${esc(c.source)}</td></tr>`;
     })
     .join("");
-  return page(
+  return shell(
+    "codes",
     "Codes",
-    `<h1>Codes rūsc</h1><p class="muted">Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.</p>
+    `<h1>Codes</h1><p class="muted">Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.</p>
      <h2>Nouveau code</h2>${newCodeForm(url.searchParams.get("preset"))}
      <h2>Tous les codes</h2>
-     <form class="search" method="get" action="/admin"><input name="q" value="${esc(q)}" placeholder="Chercher un code, un client, un type"><button class="plain">Chercher</button></form>
+     <form class="search" method="get" action="/admin/codes"><input name="q" value="${esc(q)}" placeholder="Chercher un code, un client, un type"><button class="plain">Chercher</button></form>
      <table><thead><tr><th>Code</th><th>Reste</th><th>Valable jusqu’au</th><th>Client</th><th>Réservations</th><th>Origine</th></tr></thead><tbody>${list || `<tr><td colspan="6" class="muted">Aucun code.</td></tr>`}</tbody></table>`,
   );
 }
@@ -359,9 +492,10 @@ async function adminCode(key, flash) {
       return `<tr><td>${esc(fmtDateTime(u.at))}</td><td>${what}</td><td>${esc(amount)}${u.cancelled_at ? ` <span class="pill">annulée, rendue</span>` : ""}</td></tr>`;
     })
     .join("");
-  return page(
+  return shell(
+    "codes",
     c.display,
-    `<p><a href="/admin">← Tous les codes</a></p>
+    `<p><a href="/admin/codes">← Tous les codes</a></p>
      ${flash ? `<p style="color:var(--accent)"><b>${esc(flash)}</b></p>` : ""}
      <div class="code">${esc(c.display)}</div>
      <h1 style="margin-top:14px">${esc(c.label)}</h1>
@@ -446,9 +580,24 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, { ok: false }, headers);
     }
 
+    if (url.pathname === "/login") {
+      if (!ADMIN_PASSWORD) return send(res, 503, page("Connexion", "<h1>rūsc · admin</h1><p>Pas encore de mot de passe : <code>fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD=…</code></p>"));
+      const next = url.searchParams.get("next") ?? "/admin/cours";
+      if (req.method !== "POST") return send(res, 200, loginPage("", next));
+      if (limited(req, 10)) return send(res, 429, loginPage("Trop d’essais : réessayez dans quelques minutes.", next));
+      const form = new URLSearchParams(await readBody(req));
+      const target = String(form.get("next") ?? "");
+      const safeNext = /^\/admin(\/[\w/-]*)?$/.test(target) ? target : "/admin/cours";
+      if (!sameText(form.get("password") ?? "", ADMIN_PASSWORD)) return send(res, 401, loginPage("Mot de passe incorrect.", safeNext));
+      return send(res, 303, "", { location: safeNext, "set-cookie": sessionCookie() });
+    }
+    if (url.pathname === "/logout") {
+      return send(res, 303, "", { location: "/login", "set-cookie": "rusc_admin=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" });
+    }
+    if (url.pathname === "/" ) return send(res, 303, "", { location: "/admin/cours" });
+
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      if (!ADMIN_PASSWORD) return send(res, 503, page("Codes", "<h1>Codes rūsc</h1><p>Pas encore de mot de passe : <code>fly secrets set -a rusc-codes CODES_ADMIN_PASSWORD=…</code></p>"));
-      if (!authorized(req)) return send(res, 401, page("Connexion", "<p>Connexion requise.</p>"), { "www-authenticate": 'Basic realm="codes rusc", charset="UTF-8"' });
+      if (!signedIn(req)) return send(res, 303, "", { location: `/login?next=${encodeURIComponent(url.pathname)}` });
       await reconcile();
       if (req.method === "POST") {
         // Forms only come from these pages.
@@ -470,14 +619,16 @@ const server = http.createServer(async (req, res) => {
         }
         return send(res, 404, page("Introuvable", "<p>Introuvable.</p>"));
       }
-      if (url.pathname === "/admin") return send(res, 200, await adminHome(url));
+      if (url.pathname === "/admin" || url.pathname === "/admin/") return send(res, 303, "", { location: "/admin/cours" });
+      if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
+      if (url.pathname === "/admin/codes") return send(res, 200, await adminHome(url));
       const code = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)$/);
       if (code) {
         const flash = url.searchParams.has("created") ? "Code créé : donnez-le au client." : url.searchParams.has("saved") ? "Enregistré." : "";
         const html = await adminCode(code[1], flash);
         return html ? send(res, 200, html) : send(res, 404, page("Introuvable", "<p>Code introuvable.</p>"));
       }
-      return send(res, 404, page("Introuvable", "<p>Introuvable.</p>"));
+      return send(res, 404, shell("", "Introuvable", "<p>Introuvable.</p>"));
     }
 
     send(res, 404, { ok: false });

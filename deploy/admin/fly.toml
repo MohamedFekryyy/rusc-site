@@ -1,8 +1,8 @@
-# rūsc codes: carnets, gift vouchers and studio-issued codes, used when
-# booking on the site. See README.md. Secrets: DATABASE_URL (setup.sh) and
-# CODES_ADMIN_PASSWORD (set by the studio).
+# rūsc admin: the studio's back office (classes, codes…) and the codes API
+# the booking page uses. See README.md. Secrets: DATABASE_URL (setup.sh) and
+# CODES_ADMIN_PASSWORD (chosen by the studio).
 
-app = "rusc-codes"
+app = "rusc-admin"
 primary_region = "ams"
 
 [build]

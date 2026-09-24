@@ -1,21 +1,31 @@
-# rūsc codes: carnets, gift vouchers and studio codes
+# rūsc admin: the studio's back office
+
+One web app for everything the studio manages, at https://rusc-admin.fly.dev (later `admin.studio-rusc.com`). Sign in at `/login` with the studio's password. The menu has:
+- **Cours:** the coming classes, from Cal's bookings and timetable. For each one: who's coming (name, email, phone), places left, and how each person paid.
+- **Codes:** carnets, gift vouchers and codes the studio issues (below).
+- **Commandes** (next): online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and classes paid by card show as paid.
+- **Horaires** (next): add a stage date, block a holiday, move a class, without opening Cal.
+
+Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
+
+## Codes
 
 Customers pay for a class in two ways:
 - **by card, in the site's cart** (Stripe);
 - **with a code**: a carnet, a gift voucher, a member's hours, or any code the studio creates itself, for example for a carnet paid in cash or by card at the studio.
 
-This small service keeps every code and its balance. On the booking page (`components/BookingEmbed.tsx`), a customer types their code above the calendar and sees what's left. The class they book is then taken off the code instead of going to the cart.
+rūsc admin keeps every code and its balance. On the booking page (`components/BookingEmbed.tsx`), a customer types their code above the calendar and sees what's left. The class they book is then taken off the code instead of going to the cart.
 
 | | |
 |---|---|
-| Fly app | `rusc-codes`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
-| Address | https://rusc-codes.fly.dev |
+| Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
+| Address | https://rusc-admin.fly.dev |
 | Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It can only *read* Cal's bookings, seats, event types and attendees. |
 | Code | `server.mjs` (Node, one dependency: `pg`) |
 
-## For the studio: `/admin`
+## For the studio: `/admin/codes`
 
-https://rusc-codes.fly.dev/admin, user `rusc`, password chosen by the studio (see setup).
+Sign in at https://rusc-admin.fly.dev/login with the password the studio chose (see setup).
 
 - **New code:** pick a type (carnet 5 or 10 cours, atelier libre 10 h or 20 h, gift vouchers, an amount in €) and adjust it if needed:
   - quantity and unit (sessions, hours or €);
@@ -37,10 +47,10 @@ https://rusc-codes.fly.dev/admin, user `rusc`, password chosen by the studio (se
 
 Visitors are rate-limited (40 requests per 10 minutes each), so codes can't be guessed by trying.
 
-## Setup (done 2026-09-24)
+## Setup (done 2026-09-24; first deployed as `rusc-codes`, renamed `rusc-admin` the same day)
 
 ```bash
-cd deploy/codes && sh setup.sh
+cd deploy/admin && sh setup.sh
 ```
 
 The script:
@@ -52,12 +62,12 @@ The script:
 It's safe to run again. Last step, **for the studio**, choosing the admin password:
 
 ```bash
-fly secrets set -a rusc-codes CODES_ADMIN_PASSWORD='…'
+fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD='…'
 ```
 
 ## Updating
 
-Edit `server.mjs`, then `cd deploy/codes && fly deploy`. Fly builds the image from the `Dockerfile`. Schema changes go in `schema.sql`, applied with `sh ../cal/db-run.sh schema.sql`.
+Edit `server.mjs`, then `cd deploy/admin && fly deploy`. Fly builds the image from the `Dockerfile`. Schema changes go in `schema.sql`, applied with `sh ../cal/db-run.sh schema.sql`.
 
 The list of classes (`OFFERS` in `server.mjs`) must match the sessions in `lib/cal.ts`. Prices matter for codes worth an amount.
 

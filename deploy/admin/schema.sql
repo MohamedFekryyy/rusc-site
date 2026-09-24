@@ -1,4 +1,4 @@
--- Tables of the codes service (rusc-codes), in their own schema "rusc" of
+-- Tables of rūsc admin (rusc-admin), in their own schema "rusc" of
 -- the Cal.diy database, owned by the role rusc_codes (created by setup.sh).
 -- Run as the database owner: sh ../cal/db-run.sh schema.sql. Safe to run again.
 
@@ -7,7 +7,7 @@ CREATE SCHEMA IF NOT EXISTS rusc AUTHORIZATION rusc_codes;
 
 -- Cal's tables it reads to check a booking; it never writes them.
 GRANT USAGE ON SCHEMA public TO rusc_codes;
-GRANT SELECT ON public."Booking", public."BookingSeat", public."EventType", public."Attendee" TO rusc_codes;
+GRANT SELECT ON public."Booking", public."BookingSeat", public."EventType", public."Attendee", public."Availability" TO rusc_codes;
 
 SET ROLE rusc_codes;
 
