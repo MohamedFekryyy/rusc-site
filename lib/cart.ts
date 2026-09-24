@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { offerByKey, type OfferKey } from "@/lib/cal";
+import { amountBounds, offerByKey, validAmount, type OfferKey } from "@/lib/cal";
+
+export { amountBounds, validAmount };
 
 // The visitor's cart, kept in this browser (localStorage) and shared across
 // its tabs. Prices shown from it are for display only: the checkout API
@@ -12,19 +14,6 @@ export type CartBooking = { uid: string; seat?: string; start: string; end?: str
 
 // amount: what the buyer chose for a gift voucher of any amount (euro cents).
 export type CartItem = { id: string; key: OfferKey; qty: number; amount?: number; booking?: CartBooking };
-
-// Bounds of a gift voucher of any amount, if the offer is one.
-export function amountBounds(key: string): { min: number; max: number } | undefined {
-  return (offerByKey(key) as { amount?: { min: number; max: number } } | undefined)?.amount;
-}
-
-// A chosen amount (euro cents), if valid for this offer: whole euros, within bounds.
-export function validAmount(key: string, cents: unknown): number | null {
-  const bounds = amountBounds(key);
-  const n = Number(cents);
-  if (!bounds || !Number.isInteger(n) || n % 100 !== 0 || n < bounds.min || n > bounds.max) return null;
-  return n;
-}
 
 // A line's unit price in euro cents.
 export function linePrice(item: CartItem) {

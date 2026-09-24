@@ -1,6 +1,5 @@
 import type Stripe from "stripe";
-import { offerByKey } from "@/lib/cal";
-import { amountBounds, validAmount } from "@/lib/cart";
+import { amountBounds, offerByKey, validAmount } from "@/lib/cal";
 import { formatSlot } from "@/lib/format";
 import type { Lang } from "@/lib/routes";
 import { getStripe } from "@/lib/stripe";
