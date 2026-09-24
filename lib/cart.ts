@@ -6,7 +6,9 @@ import { offerByKey, type OfferKey } from "@/lib/cal";
 // recomputes every price from OFFERS.
 
 // A dated booking made in the Cal booker, waiting to be paid in the cart.
-export type CartBooking = { uid: string; start: string; end?: string };
+// uid is Cal's booking, shared by everyone in the same class; seat is this
+// person's place in it (Cal's seat reference), which the payment is for.
+export type CartBooking = { uid: string; seat?: string; start: string; end?: string };
 
 export type CartItem = { id: string; key: OfferKey; qty: number; booking?: CartBooking };
 
@@ -82,11 +84,13 @@ export const cart = {
         : [...items, { id: `${key}-${Date.now()}`, key, qty: 1 }],
     );
   },
-  // A dated booking: one line per booked slot.
+  // A dated booking: one line per place booked (two people in the same class
+  // are two seats of the same Cal booking).
   addBooking(key: OfferKey, booking: CartBooking) {
     load();
-    if (items.some((i) => i.booking?.uid === booking.uid)) return;
-    write([...items, { id: booking.uid, key, qty: 1, booking }]);
+    const id = booking.seat ?? booking.uid;
+    if (items.some((i) => i.id === id)) return;
+    write([...items, { id, key, qty: 1, booking }]);
   },
   setQty(id: string, qty: number) {
     load();

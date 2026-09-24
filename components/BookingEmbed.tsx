@@ -199,9 +199,10 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const [code, setCode] = useState<CodeResult | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [codeBusy, setCodeBusy] = useState(false);
-  // The code as the Cal callbacks see it, and the booking it was used for.
+  // The code as the Cal callbacks see it, and the booking the first success
+  // event already handled (Cal then sends a second one for the same booking).
   const codeRef = useRef<string | null>(null);
-  const codeBookingRef = useRef<string | null>(null);
+  const handledRef = useRef<string | null>(null);
   // Title of the offer just added to the cart (confirmation toast).
   const [toast, setToast] = useState<string | null>(null);
   const offer = offerKey ? offerByKey(offerKey) : undefined;
@@ -271,35 +272,47 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         if (activeNs.current === ns) setUnavailable(true);
       },
     });
-    // A slot was booked with a code: take it off the code (this event comes
-    // first and carries the attendee's seat). If that fails, fall back to the cart.
+    // A place was booked. This event comes first and carries the whole
+    // booking, with this person's seat: the place is taken off the code in use,
+    // or goes to the cart (paid there) with its seat. If the code can't be
+    // used, it goes to the cart too.
     cal.ns[ns]("on", {
       action: "bookingSuccessful",
       callback: (event: CustomEvent<{ data?: CalBookingV1 }>) => {
         const booking = event.detail?.data?.booking;
+        if (activeNs.current !== ns || !booking?.uid || !booking.startTime) return;
+        handledRef.current = booking.uid;
+        const seat = booking.seatReferenceUid ?? undefined;
+        const toCart = () => cart.addBooking(offer.key, { uid: booking.uid!, seat, start: booking.startTime!, end: booking.endTime });
         const usedCode = codeRef.current;
-        if (activeNs.current !== ns || !usedCode || !booking?.uid || !booking.seatReferenceUid) return;
-        codeBookingRef.current = booking.uid;
-        redeemCode(usedCode, booking.seatReferenceUid).then((result) => {
+        if (!usedCode || !seat) {
+          toCart();
+          setBooked({ kind: "cart" });
+          return;
+        }
+        redeemCode(usedCode, seat).then((result) => {
           if (activeNs.current !== ns) return;
           if (result.ok) {
             setBooked({ kind: "code", left: formatBalance(result, lang) });
             setCode(result);
-          } else if (booking.startTime) {
-            cart.addBooking(offer.key, { uid: booking.uid!, start: booking.startTime, end: booking.endTime });
+          } else {
+            toCart();
             setBooked({ kind: "codeFailed" });
           }
         });
       },
     });
-    // A slot was booked. With no payment in Cal (the setup the cart needs),
-    // it goes to the cart and is confirmed once the cart is paid.
+    // The same booking again, without the seat: only used if the first event
+    // didn't come (older Cal versions).
     cal.ns[ns]("on", {
       action: "bookingSuccessfulV2",
       callback: (event: CustomEvent<{ data?: CalBooking }>) => {
         const data = event.detail?.data;
         if (activeNs.current !== ns || !data?.uid || !data.startTime) return;
-        if (codeBookingRef.current === data.uid) return; // handled with the code
+        if (handledRef.current === data.uid) {
+          handledRef.current = null;
+          return;
+        }
         if (!data.paymentRequired) {
           cart.addBooking(offer.key, { uid: data.uid, start: data.startTime, end: data.endTime });
         }

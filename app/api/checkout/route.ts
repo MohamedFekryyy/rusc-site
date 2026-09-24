@@ -8,7 +8,7 @@ import { getStripe } from "@/lib/stripe";
 // embedded in the cart page (nothing leaves the site). Every price comes
 // from OFFERS; the browser only says which offers and how many.
 
-type IncomingItem = { key?: unknown; qty?: unknown; booking?: { uid?: unknown; start?: unknown } };
+type IncomingItem = { key?: unknown; qty?: unknown; booking?: { uid?: unknown; seat?: unknown; start?: unknown } };
 
 const MAX_LINES = 20;
 
@@ -53,7 +53,10 @@ export async function POST(request: Request) {
         return bad("session_without_booking");
       }
       name += ` — ${formatSlot(start, lang)}`;
-      bookingUid = uid.slice(0, 64);
+      // The person's seat in the class if known (what rūsc admin marks paid),
+      // else the Cal booking.
+      const seat = item.booking?.seat;
+      bookingUid = (typeof seat === "string" && seat ? seat : uid).slice(0, 64);
     } else {
       qty = Math.max(1, Math.min(20, Math.floor(Number(item.qty)) || 1));
     }
