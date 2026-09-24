@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
 import SectionHead from "@/components/SectionHead";
-import { PAGES } from "@/lib/routes";
+import { PAGES, bookingHref } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
@@ -13,6 +13,8 @@ import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
 import stages from "@/assets/photos/stages-o.jpg";
+import boncadeau from "@/assets/photos/bon-cadeau-o.jpg";
+import event from "@/assets/photos/event-o.jpg";
 import "@/styles/home.css";
 
 export const metadata: Metadata = {
@@ -41,6 +43,8 @@ const jsonLd = {
   inLanguage: "fr",
 };
 
+const bookGifts = (lang: "fr" | "en") => bookingHref(lang, "gifts");
+
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
   {
     href: PAGES.membres.fr,
@@ -49,6 +53,13 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
     title: "espace membre",
     text: "Un espace pro équipé, en autonomie. Adhésion 50 €/an et tarifs préférentiels.",
     drawing: true,
+  },
+  {
+    href: PAGES.event.fr,
+    img: event,
+    tag: "Passé · présent · futur",
+    title: "rūsc event",
+    text: "Vide dressing, pot & wine, expositions : les événements qui font vivre l'atelier.",
   },
   {
     href: PAGES.cours.fr,
@@ -70,6 +81,13 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
     tag: "Sur mesure",
     title: "résidence & privatisation",
     text: "Résidence d'artiste, team building, EVJF, événements. Une formule adaptée à votre projet — devis sur demande.",
+  },
+  {
+    href: bookGifts("fr"),
+    img: boncadeau,
+    tag: "Offrir",
+    title: "bon cadeau",
+    text: "Envie de faire plaisir ? Offrez un bon cadeau du montant de votre choix, valable 1 an.",
   },
 ];
 
