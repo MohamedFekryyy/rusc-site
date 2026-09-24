@@ -1,0 +1,13 @@
+--- a/packages/features/busyTimes/services/getBusyTimes.ts
++++ b/packages/features/busyTimes/services/getBusyTimes.ts
+@@ -131,6 +131,10 @@
+     const bookingSeatCountMap: { [x: string]: number } = {};
+     const busyTimes = bookings.reduce((aggregate: EventBusyDetails[], booking) => {
+       const { id, startTime, endTime, eventType, title, ...rest } = booking;
++
++      // rūsc: classes run side by side, each with its own seats, so a booking
++      // of another event type never blocks this one.
++      if (eventTypeId && eventType?.id !== eventTypeId) return aggregate;
+ 
+       const minutesToBlockBeforeEvent = (eventType?.beforeEventBuffer || 0) + (afterEventBuffer || 0);
+       const minutesToBlockAfterEvent = (eventType?.afterEventBuffer || 0) + (beforeEventBuffer || 0);
