@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import ContactForm from "@/components/ContactForm";
-import { EMAIL, INSTAGRAM, INSTAGRAM_HANDLE, MOBILE, MOBILE_HREF } from "@/lib/site";
+import { EMAIL, INSTAGRAM, INSTAGRAM_HANDLE, PHONE, PHONE_HREF } from "@/lib/site";
 import contact from "@/assets/photos/contact-o.webp";
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export default function Contact() {
       <div className="info">
         <div><h3>The studio</h3><p>99 Promenade Marie Paradis<br />74400 Chamonix-Mont-Blanc<br />France</p></div>
         <div><h3>Open to the public</h3><p>Monday to Friday<br />2pm – 6pm</p></div>
-        <div><h3>Get in touch</h3><p className="contact-links"><a href={`mailto:${EMAIL}`}>{EMAIL}</a><a href={MOBILE_HREF}>{MOBILE}</a><a href={INSTAGRAM} target="_blank" rel="noopener">{INSTAGRAM_HANDLE}</a></p></div>
+        <div><h3>Get in touch</h3><p className="contact-links"><a href={`mailto:${EMAIL}`}>{EMAIL}</a><a href={PHONE_HREF}>{PHONE}</a><a href={INSTAGRAM} target="_blank" rel="noopener">{INSTAGRAM_HANDLE}</a></p></div>
       </div>
       <ContactForm
         placeholders={{ firstName: "First name", lastName: "Last name", email: "Email", phone: "Phone", message: "Your message" }}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import ContactForm from "@/components/ContactForm";
-import { EMAIL, INSTAGRAM, INSTAGRAM_HANDLE, MOBILE, MOBILE_HREF, PHONE, PHONE_HREF } from "@/lib/site";
+import { EMAIL, INSTAGRAM, INSTAGRAM_HANDLE, PHONE, PHONE_HREF } from "@/lib/site";
 import contact from "@/assets/photos/contact-o.webp";
 
 export const metadata: Metadata = {
@@ -23,7 +23,7 @@ export default function Contact() {
           <h3>Nous joindre</h3>
           <p className="contact-links">
             <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
-            <a href={MOBILE_HREF}>{MOBILE}</a>
+            <a href={PHONE_HREF}>{PHONE}</a>
             <a href={INSTAGRAM} target="_blank" rel="noopener">{INSTAGRAM_HANDLE}</a>
           </p>
         </div>
