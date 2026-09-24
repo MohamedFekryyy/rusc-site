@@ -46,4 +46,38 @@ CREATE TABLE IF NOT EXISTS rusc.uses (
 );
 CREATE INDEX IF NOT EXISTS uses_key ON rusc.uses (key);
 
+-- Online orders (the site's cart, paid with Stripe), recorded from Stripe's
+-- checkout.session.completed event. items is the site's order summary:
+-- "<offer key>x<qty>[@<Cal seat or booking>] …".
+CREATE TABLE IF NOT EXISTS rusc.orders (
+  id text PRIMARY KEY,                -- Stripe Checkout Session (cs_…)
+  created_at timestamptz NOT NULL DEFAULT now(),
+  email text,
+  name text,
+  amount numeric NOT NULL,            -- euros TTC
+  lang text,
+  items text NOT NULL,
+  livemode boolean
+);
+
+-- Places in a class paid by card (one per person: Cal's seat reference).
+CREATE TABLE IF NOT EXISTS rusc.paid_seats (
+  seat_uid text PRIMARY KEY,
+  order_id text NOT NULL REFERENCES rusc.orders (id),
+  offer text
+);
+
+-- Members: from memberships bought online (and added by hand later).
+CREATE TABLE IF NOT EXISTS rusc.members (
+  email text PRIMARY KEY,
+  name text,
+  since date NOT NULL DEFAULT current_date,
+  until date NOT NULL,
+  order_id text REFERENCES rusc.orders (id),
+  note text
+);
+
+-- The order a code was bought with (carnets and vouchers bought online).
+ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.orders (id);
+
 RESET ROLE;

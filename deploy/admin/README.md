@@ -3,7 +3,7 @@
 One web app for everything the studio manages, at https://rusc-admin.fly.dev (later `admin.studio-rusc.com`). Sign in at `/login` with the studio's password. The menu has:
 - **Cours:** the coming classes, from Cal's bookings and timetable. For each one: who's coming (name, email, phone), places left, and how each person paid.
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).
-- **Commandes** (next): online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and classes paid by card show as paid.
+- **Commandes:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically; the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
 - **Horaires** (next): add a stage date, block a holiday, move a class, without opening Cal.
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.

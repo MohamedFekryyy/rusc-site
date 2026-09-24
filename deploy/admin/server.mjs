@@ -5,9 +5,13 @@
 //   /admin/cours   the coming classes: who's coming, places left, how each paid
 //   /admin/codes   carnets, gift vouchers and codes the studio issues itself (a
 //                  carnet paid in cash at the studio…): create, adjust, pause
+//   /admin/commandes  online orders; carnets and vouchers bought get their code
+// Stripe calls POST /stripe/webhook (checkout.session.completed), checked with
+// the endpoint's signing secret STRIPE_WEBHOOK_SECRET.
 // Public API, called by the booking page (components/BookingEmbed.tsx):
 //   POST /api/check   {code, offer}    what's left, and whether it covers that class
 //   POST /api/redeem  {code, seatUid}  takes the class just booked in Cal off the code
+//   GET  /api/order?id=cs_…            the codes an online order created (thank-you screen)
 //
 // Data: schema "rusc" of the Cal.diy database (schema.sql). Cal's own tables
 // are only read (bookings, seats, event types, attendees), never written.
@@ -50,6 +54,20 @@ const PRESETS = [
   { id: "cadeau2j", label: "Bon cadeau · stage 2 jours", unit: "sessions", amount: 1, offers: ["atelier-ceramique-2j"], months: 6 },
   { id: "montant", label: "Bon cadeau · montant", unit: "euros", amount: 50, offers: Object.keys(OFFERS), months: 6 },
 ];
+// The cart's products (lib/cal.ts, kind "product") and what an online
+// purchase of each creates: a code from a preset above, or a membership.
+const PRODUCTS = {
+  adhesion: { label: "adhésion annuelle" },
+  "carnet-5-cours": { label: "carnet 5 cours", preset: "carnet5" },
+  "carnet-10-cours": { label: "carnet 10 cours", preset: "carnet10" },
+  "atelier-libre-10h": { label: "carnet atelier libre 10 h", preset: "libre10" },
+  "atelier-libre-20h": { label: "carnet atelier libre 20 h", preset: "libre20" },
+  "bon-cadeau-cours-2h": { label: "bon cadeau · un cours de 2h", preset: "cadeau2h" },
+  "bon-cadeau-carnet-5": { label: "bon cadeau · carnet 5 cours", preset: "carnet5", codeLabel: "Bon cadeau · carnet 5 cours 2h" },
+  "bon-cadeau-carnet-10": { label: "bon cadeau · carnet 10 cours", preset: "carnet10", codeLabel: "Bon cadeau · carnet 10 cours 2h" },
+  "bon-cadeau-stage-1j": { label: "bon cadeau · stage 1 jour", preset: "cadeau1j" },
+  "bon-cadeau-stage-2j": { label: "bon cadeau · stage 2 jours", preset: "cadeau2j" },
+};
 const UNIT = {
   sessions: { one: "séance", many: "séances" },
   hours: { one: "heure", many: "heures" },
@@ -175,7 +193,7 @@ async function reconcile() {
 function cors(req) {
   const origin = req.headers.origin;
   return origin && ORIGINS.has(origin)
-    ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type", "access-control-allow-methods": "POST, OPTIONS", vary: "origin" }
+    ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS", vary: "origin" }
     : {};
 }
 
@@ -256,6 +274,101 @@ async function apiRedeem(input) {
   }
 }
 
+// ---------------------------------------------------------------- online orders
+
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+
+// Stripe's signature: header "t=<time>,v1=<hex>…", HMAC-SHA256 of "<t>.<body>".
+function stripeEvent(body, header) {
+  if (!WEBHOOK_SECRET || !header) return null;
+  const time = header.match(/(?:^|,)t=(\d+)/)?.[1];
+  const signatures = [...header.matchAll(/(?:^|,)v1=([0-9a-f]+)/g)].map((m) => m[1]);
+  if (!time || !signatures.length || Math.abs(Date.now() / 1000 - Number(time)) > 300) return null;
+  const expected = createHmac("sha256", WEBHOOK_SECRET).update(`${time}.${body}`).digest("hex");
+  return signatures.some((signature) => sameText(signature, expected)) ? JSON.parse(body) : null;
+}
+
+const addMonths = (months) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + months);
+  return isoDate(d);
+};
+
+// A paid cart: record it once (Stripe may send the event more than once),
+// mark the places it paid, create the codes for carnets and vouchers, and
+// the membership.
+async function recordOrder(session) {
+  if (!["paid", "no_payment_required"].includes(session.payment_status)) return;
+  const metadata = session.metadata ?? {};
+  const items = Object.keys(metadata)
+    .filter((k) => /^items_\d+$/.test(k))
+    .sort((a, b) => Number(a.slice(6)) - Number(b.slice(6)))
+    .map((k) => metadata[k])
+    .join("");
+  const email = session.customer_details?.email ?? null;
+  const name = session.customer_details?.name ?? null;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO rusc.orders (id, email, name, amount, lang, items, livemode) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (id) DO NOTHING RETURNING id`,
+      [session.id, email, name, (session.amount_total ?? 0) / 100, metadata.lang ?? null, items, Boolean(session.livemode)],
+    );
+    if (!inserted.rowCount) {
+      await client.query("ROLLBACK");
+      return;
+    }
+    const holder = [name, email].filter(Boolean).join(" · ") || null;
+    const note = `Commande en ligne du ${fmtDate(parisToday())}`;
+    for (const token of items.split(/\s+/).filter(Boolean)) {
+      const match = token.match(/^([a-z0-9-]+)x(\d+)(?:@(.+))?$/);
+      if (!match) continue;
+      const [, key, qtyText, ref] = match;
+      const qty = Math.min(Number(qtyText) || 1, 20);
+      if (OFFERS[key]) {
+        if (ref) await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [ref, session.id, key]);
+        continue;
+      }
+      if (key === "adhesion" && email) {
+        await client.query(
+          `INSERT INTO rusc.members (email, name, until, order_id, note) VALUES (lower($1), $2, (current_date + interval '1 year')::date, $3, $4)
+           ON CONFLICT (email) DO UPDATE SET name = coalesce(EXCLUDED.name, rusc.members.name),
+             until = greatest(rusc.members.until, current_date) + interval '1 year', order_id = EXCLUDED.order_id`,
+          [email, name, session.id, note],
+        );
+        continue;
+      }
+      const product = PRODUCTS[key];
+      const preset = product?.preset && PRESETS.find((x) => x.id === product.preset);
+      if (!preset) continue;
+      for (let i = 0; i < qty; i++) {
+        const { key: codeKey, display } = newCode();
+        await client.query(
+          `INSERT INTO rusc.codes (key, display, label, unit, offers, initial, remaining, expires_on, holder, note, source, order_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'online', $10)`,
+          [codeKey, display, product.codeLabel ?? preset.label, preset.unit, preset.offers, preset.amount, addMonths(preset.months), holder, note, session.id],
+        );
+      }
+    }
+    await client.query("COMMIT");
+    console.log("order recorded", session.id);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function apiOrder(id) {
+  if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return { paid: false, codes: [] };
+  const order = await db.query("SELECT id FROM rusc.orders WHERE id = $1", [id]);
+  if (!order.rowCount) return { paid: false, codes: [] };
+  const { rows } = await db.query("SELECT * FROM rusc.codes WHERE order_id = $1 ORDER BY created_at, key", [id]);
+  return { paid: true, codes: rows.map((c) => ({ code: c.display, label: c.label, unit: c.unit, remaining: num(c.remaining), expiresOn: isoDate(c.expires_on) })) };
+}
+
 // ---------------------------------------------------------------- studio admin
 
 // Studio sign-in: one password (the Fly secret CODES_ADMIN_PASSWORD), then a
@@ -304,7 +417,7 @@ const page = (title, body) =>
 
 // Every studio page: the same header and menu. "Bientôt" items are next.
 const MENU = [["cours", "Cours"], ["codes", "Codes"], ["commandes", "Commandes"], ["horaires", "Horaires"]];
-const SOON = new Set(["commandes", "horaires"]);
+const SOON = new Set(["horaires"]);
 function shell(active, title, body) {
   const menu = MENU.map(([key, label]) =>
     SOON.has(key)
@@ -340,13 +453,14 @@ async function coursPage(url) {
   const bookings = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
-            c.display AS code, u.amount AS code_amount, c.unit AS code_unit
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
        LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
        LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
        LEFT JOIN rusc.codes c ON c.key = u.key
+       LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
       WHERE b.status IN ('accepted', 'pending')
         AND b."startTime" AT TIME ZONE 'UTC' >= date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris'
         AND b."startTime" AT TIME ZONE 'UTC' < (date_trunc('day', now() AT TIME ZONE 'Europe/Paris') + $1::int * interval '1 day') AT TIME ZONE 'Europe/Paris'
@@ -396,7 +510,11 @@ async function coursPage(url) {
           .map((p) => {
             const paid = p.code
               ? `<span class="ok">Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span>`
-              : `<span class="muted">à vérifier (panier ou sur place)</span>`;
+              : p.paid_order
+                ? `<a class="ok" href="/admin/commandes#${esc(p.paid_order)}">Payé en ligne</a>`
+                : WEBHOOK_SECRET
+                  ? `<span class="off">à régler (panier non payé, ou sur place)</span>`
+                  : `<span class="muted">à vérifier (paiement en ligne pas encore relié)</span>`;
             const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : "", p.phone ? esc(p.phone) : ""].filter(Boolean).join(" · ");
             return `<tr><td><b>${esc(p.name)}</b><br><span class="muted">${contact}</span></td><td>${paid}</td></tr>`;
           })
@@ -415,6 +533,46 @@ async function coursPage(url) {
     `<h1>Cours</h1><p class="muted">Les ${days} prochains jours, d’après les réservations et les horaires de Cal.
        ${days < 30 ? `<a href="?jours=30">Voir 30 jours</a>` : `<a href="?jours=14">Voir 14 jours</a>`}</p>
      ${body || `<p class="muted">Aucun cours sur cette période.</p>`}`,
+  );
+}
+
+// Online orders, newest first, with what each one paid for.
+async function commandesPage() {
+  const orders = await db.query("SELECT * FROM rusc.orders ORDER BY created_at DESC LIMIT 200");
+  const codes = await db.query("SELECT order_id, key, display, label FROM rusc.codes WHERE order_id IS NOT NULL");
+  const byOrder = new Map();
+  for (const c of codes.rows) {
+    if (!byOrder.has(c.order_id)) byOrder.set(c.order_id, []);
+    byOrder.get(c.order_id).push(c);
+  }
+  const describe = (items) =>
+    items
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((token) => {
+        const [, key, qty] = token.match(/^([a-z0-9-]+)x(\d+)/) ?? [];
+        const label = OFFERS[key]?.label ?? PRODUCTS[key]?.label ?? key;
+        return `${esc(label)}${Number(qty) > 1 ? ` × ${qty}` : ""}`;
+      })
+      .join("<br>");
+  const rows = orders.rows
+    .map((o) => {
+      const made = (byOrder.get(o.id) ?? []).map((c) => `<a href="/admin/codes/${esc(c.key)}">${esc(c.display)}</a>`).join("<br>");
+      return `<tr id="${esc(o.id)}"><td>${esc(fmtDateTime(o.created_at))}${o.livemode ? "" : ` <span class="pill">test</span>`}</td>
+        <td>${esc(o.name ?? "")}<br><span class="muted">${o.email ? `<a href="mailto:${esc(o.email)}">${esc(o.email)}</a>` : ""}</span></td>
+        <td>${describe(o.items)}</td><td>${esc(fmtAmount("euros", o.amount))}</td><td>${made || `<span class="muted">—</span>`}</td></tr>`;
+    })
+    .join("");
+  const notice = WEBHOOK_SECRET
+    ? ""
+    : `<p class="off"><b>Stripe n’est pas encore relié à l’admin</b> : les commandes apparaîtront ici dès que la clé du webhook sera enregistrée.</p>`;
+  return shell(
+    "commandes",
+    "Commandes",
+    `<h1>Commandes</h1><p class="muted">Les paiements en ligne du panier. Les carnets et bons cadeaux achetés reçoivent leur code automatiquement (colonne Codes) ; les cours payés apparaissent « Payé en ligne » dans Cours.</p>
+     ${notice}
+     <table><thead><tr><th>Date</th><th>Client</th><th>Achat</th><th>Total</th><th>Codes</th></tr></thead>
+     <tbody>${rows || `<tr><td colspan="5" class="muted">Aucune commande pour l’instant.</td></tr>`}</tbody></table>`,
   );
 }
 
@@ -564,9 +722,23 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === "/health") return send(res, 200, { ok: true });
 
+    if (url.pathname === "/stripe/webhook" && req.method === "POST") {
+      const body = await readBody(req, 512 * 1024);
+      const event = stripeEvent(body, req.headers["stripe-signature"]);
+      if (!event) return send(res, 400, { ok: false });
+      if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+        await recordOrder(event.data.object);
+      }
+      return send(res, 200, { received: true });
+    }
+
     if (url.pathname.startsWith("/api/")) {
       const headers = cors(req);
       if (req.method === "OPTIONS") return send(res, 204, {}, headers);
+      if (url.pathname === "/api/order" && req.method === "GET") {
+        if (limited(req, 60)) return send(res, 429, { paid: false, codes: [] }, headers);
+        return send(res, 200, await apiOrder(String(url.searchParams.get("id") ?? "")), headers);
+      }
       if (req.method !== "POST") return send(res, 405, { ok: false }, headers);
       if (limited(req, 40)) return send(res, 429, { ok: false, reason: "too_many" }, headers);
       reconcile().catch((e) => console.error("reconcile", e.message));
@@ -622,6 +794,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/admin" || url.pathname === "/admin/") return send(res, 303, "", { location: "/admin/cours" });
       if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
       if (url.pathname === "/admin/codes") return send(res, 200, await adminHome(url));
+      if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       const code = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)$/);
       if (code) {
         const flash = url.searchParams.has("created") ? "Code créé : donnez-le au client." : url.searchParams.has("saved") ? "Enregistré." : "";
