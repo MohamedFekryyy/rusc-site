@@ -85,6 +85,8 @@ const PRODUCTS = {
   "bon-cadeau-carnet-10": { label: "bon cadeau · carnet 10 cours", en: "gift voucher · 10-class card", preset: "carnet10", codeLabel: ["Bon cadeau · carnet 10 cours 2h", "Gift voucher · 10-class card"] },
   "bon-cadeau-stage-1j": { label: "bon cadeau · stage 1 jour", en: "gift voucher · 1-day intensive", preset: "cadeau1j" },
   "bon-cadeau-stage-2j": { label: "bon cadeau · stage 2 jours", en: "gift voucher · 2-day intensive", preset: "cadeau2j" },
+  // Any amount, chosen by the buyer (the order says it: key:<cents>x<qty>).
+  "bon-cadeau-montant": { label: "bon cadeau · montant libre", en: "gift voucher · any amount", preset: "montant" },
 };
 // Where a code comes from (rusc.codes.source).
 const SOURCES = { studio: ["building-storefront", "Atelier", "Studio"], acuity: ["arrow-down-tray", "Acuity", "Acuity"], online: ["globe-alt", "En ligne", "Online"] };
@@ -369,9 +371,9 @@ async function recordOrder(session) {
     const note = `Commande en ligne du ${fmtDate(parisToday())}`;
     const english = metadata.lang === "en"; // the code's label in the buyer's language
     for (const token of items.split(/\s+/).filter(Boolean)) {
-      const match = token.match(/^([a-z0-9-]+)x(\d+)(?:@(.+))?$/);
+      const match = token.match(/^([a-z0-9-]+)(?::(\d+))?x(\d+)(?:@(.+))?$/);
       if (!match) continue;
-      const [, key, qtyText, ref] = match;
+      const [, key, cents, qtyText, ref] = match;
       const qty = Math.min(Number(qtyText) || 1, 20);
       if (OFFERS[key]) {
         if (ref) await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [ref, session.id, key]);
@@ -389,12 +391,18 @@ async function recordOrder(session) {
       const product = PRODUCTS[key];
       const preset = product?.preset && PRESETS.find((x) => x.id === product.preset);
       if (!preset) continue;
+      // A voucher of any amount carries the amount paid; the others, their preset's.
+      const euros = cents ? Number(cents) / 100 : null;
+      const amount = euros ?? preset.amount;
+      const label = euros
+        ? english ? `Gift voucher · €${euros}` : `Bon cadeau · ${euros} €`
+        : product.codeLabel?.[english ? 1 : 0] ?? (english ? preset.en : preset.label);
       for (let i = 0; i < qty; i++) {
         const { key: codeKey, display } = newCode();
         await client.query(
           `INSERT INTO rusc.codes (key, display, label, unit, offers, initial, remaining, expires_on, holder, note, source, order_id)
            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'online', $10)`,
-          [codeKey, display, product.codeLabel?.[english ? 1 : 0] ?? (english ? preset.en : preset.label), preset.unit, preset.offers, preset.amount, addMonths(preset.months), holder, note, session.id],
+          [codeKey, display, label, preset.unit, preset.offers, amount, addMonths(preset.months), holder, note, session.id],
         );
       }
     }
@@ -1127,9 +1135,9 @@ async function commandesPage() {
       .split(/\s+/)
       .filter(Boolean)
       .map((token) => {
-        const [, key, qty] = token.match(/^([a-z0-9-]+)x(\d+)/) ?? [];
+        const [, key, cents, qty] = token.match(/^([a-z0-9-]+)(?::(\d+))?x(\d+)/) ?? [];
         const label = OFFERS[key] ? offerLabel(key) : productLabel(key);
-        return `${esc(label)}${Number(qty) > 1 ? ` × ${qty}` : ""}`;
+        return `${esc(label)}${cents ? ` · ${esc(fmtAmount("euros", Number(cents) / 100))}` : ""}${Number(qty) > 1 ? ` × ${qty}` : ""}`;
       })
       .join("<br>");
   const rows = orders.rows
