@@ -103,6 +103,16 @@ ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.or
 
 RESET ROLE;
 
+-- Tables added on 2026-09-24 were first created after RESET ROLE, as the
+-- database owner: hand them to rusc_codes (no-op once done).
+ALTER TABLE IF EXISTS rusc.clients OWNER TO rusc_codes;
+ALTER TABLE IF EXISTS rusc.history OWNER TO rusc_codes;
+ALTER TABLE IF EXISTS rusc.acuity_orders OWNER TO rusc_codes;
+ALTER TABLE IF EXISTS rusc.accounts OWNER TO rusc_codes;
+ALTER TABLE IF EXISTS rusc.account_tokens OWNER TO rusc_codes;
+
+SET ROLE rusc_codes;
+
 -- ---------------------------------------------------------------- history from Acuity
 -- Everything the studio had in Acuity, so nothing is lost at the switch
 -- (scripts/continuity/acuity-history.mjs and acuity-history.sql).
@@ -189,3 +199,5 @@ CREATE TABLE IF NOT EXISTS rusc.account_tokens (
 
 -- A code a member added to their account (shown in their space).
 ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS account_id bigint REFERENCES rusc.accounts (id) ON DELETE SET NULL;
+
+RESET ROLE;
