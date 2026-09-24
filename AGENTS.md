@@ -19,7 +19,51 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
   - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): classes as a list or a month calendar (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio) and online orders, in French or English; the timetable comes next. The booking page takes a class off a code through its API instead of sending it to the cart.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
-- **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; until they're set, the cart says online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
+- **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
+
+## Where things stand (updated 2026-09-24)
+
+Keep this section current; the migration log below keeps the history.
+
+**Live**
+- **Site:** https://rusc-preview.vercel.app (Vercel, built from `main`).
+- **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`), one event type per class, embedded in the booking pages.
+- **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`.
+- **rūsc admin** (`rusc-admin` on Fly), in French and English:
+  - Cours (list, month calendar, day);
+  - Codes;
+  - Commandes.
+- **Acuity continuity:** 46 codes still worth something and the 1 upcoming booking were imported on 2026-09-24 (`scripts/continuity/README.md`).
+
+**Waiting on the owner (Fekry)**
+- **A small real purchase** in the live cart, then a refund in Stripe. It checks the whole chain: payment, webhook, Commandes, and the codes on the thank-you screen.
+- **Booking emails:** Brevo SMTP for Cal (`deploy/cal/README.md`, step 4). `rusc-cal` has no `EMAIL_SERVER_*` secrets yet, so Cal sends no emails.
+- **Domains, at switch time:** studio-rusc.com on Vercel; optionally `booking.` and `admin.` on Fly.
+- **Acuity key:** remove `ACUITY_USER_ID` and `ACUITY_API_KEY` from Vercel's environment (the site doesn't use them), and reset the key after the switch.
+
+**Decisions for Raquel**
+- **Timetable:**
+  - the children's class: 14:00–16:00 in Acuity, 13:30–15:30 on the site;
+  - porcelain: 11:00 in Acuity, 10:00 on the site;
+  - raw-glaze decoration on Thursdays or not;
+  - school holidays.
+- **2-day gift voucher:** 260 € in Acuity, 280 € on the site. An imported 260 € voucher can't fully pay a 280 € class.
+- **Member discount** (10%): not applied online.
+- **2-hour carnets:** should the admin's 2-hour carnet presets also cover the children's class, as Acuity's carnets did?
+- **Deleted Acuity products:** codes of products since deleted in Acuity (for example old 50/100/150 € value vouchers) don't appear on its products page, so they weren't imported. If a customer shows one, create it by hand in rūsc admin.
+
+**Next for agents**
+- **Horaires in rūsc admin:** edit Cal's timetable (stage dates, holidays).
+- **Switch day:** re-run the Acuity import (`scripts/continuity/README.md`), then follow "Bascule finale" in `README.md`.
+
+**How agents work here**
+- **Secrets:** never ask for, read or paste a key.
+  - Write a small script that asks for it hidden (`read -s`) and pipes it into `vercel env add` or `fly secrets import`.
+  - Open it in the owner's terminal, and let them paste.
+- **Client data** (names, emails, codes): never in chat or in the repo. Report counts only.
+- **Studio accounts:** don't sign in to rūsc admin or Cal as the studio.
+  - To see the admin, use its local preview (`deploy/admin/preview.mjs`).
+  - The Acuity admin is the studio's account: only use it in the owner's browser, with their go-ahead.
 
 ## Commands
 
@@ -244,7 +288,7 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - Until the keys are set, "Payer" says online payment opens soon and links to the contact page.
 - **Stripe account and webhook (2026-09-23):** the studio's Stripe account is "Studio-rusc" (live mode).
   - The owner logged the Stripe CLI in (live access only), and the live webhook endpoint `we_1UIvjEBwkJn18YegcHTOBfMr` was created from it: `checkout.session.completed` → `https://rusc-preview.vercel.app/api/stripe/webhook/`.
-  - When the site moves to studio-rusc.com, update its URL: `stripe webhook_endpoints update we_1UIvjEBwkJn18YegcHTOBfMr --live -d url=https://studio-rusc.com/api/stripe/webhook/`.
+  - ~~When the site moves to studio-rusc.com, update its URL.~~ Superseded: since step 21 the webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`), which the site's domain change doesn't affect.
   - The owner pastes the keys and the endpoint's signing secret into Vercel; agents never handle them.
 - **Fulfilment is manual for now:** the studio sends voucher and card codes, and confirms paid Cal bookings. Member prices are not applied online; that decision is Raquel's.
 - **Checked** with `next start`:
@@ -417,3 +461,36 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - with sample data, at 1366 px and 375 px (no sideways scroll), in FR and EN, including the three Acuity payment cases;
   - live: September renders (13 classes, 2 places booked), and `/import/acuity` answers 404.
 - **Stripe, where it stands:** the webhook points at rūsc admin and its signing secret is saved there, and the publishable key is in Vercel. Only `STRIPE_SECRET_KEY` is missing from Vercel; the owner has it. After it's saved, redeploy production so the cart opens payment.
+
+### 25. Stripe live (2026-09-24)
+- **The key:** the owner saved the secret key in Vercel through a hidden prompt. The prompt first checked the key with a read-only Stripe call (`GET /v1/checkout/sessions?limit=1`), then ran `vercel env add STRIPE_SECRET_KEY production --sensitive`. The publishable key was already there.
+- **Redeploy:** `vercel redeploy https://rusc-preview.vercel.app --target production --scope mohamedfekryyy-s-team`. Without `--scope`, the CLI looks in the wrong team. `NEXT_PUBLIC_*` values are built into the pages, so changing a key always needs a rebuild.
+- **Checked:**
+  - `POST /api/checkout/` with an empty cart answers `empty_cart` (400) instead of `checkout_unavailable` (503);
+  - the cart's code carries the live publishable key.
+- **Still to do:** one small real purchase and its refund (the owner).
+
+### 26. rūsc admin: logo, icons, local preview (`c4f08ffa`, `b1896a64`, 2026-09-24)
+- **Owner's requests:** Heroicons "only when provides value", following their design skill (`match-fekry-design`, utility mode), and the logo in place of the word rūsc on the sign-in page and in the header.
+- **Logo:** `deploy/admin/logo.webp`, a copy of `assets/logo-rusc-trim.webp`, served at `/logo.webp`. On a phone, the menu now has its own row.
+- **Icons:** Heroicons 2.2 (MIT), inlined in `ICONS`. They go:
+  - on payment states (ticket, check, alert);
+  - on e-mail and phone (the phone is now tap-to-call);
+  - on the List / Calendar switch and the round previous/next arrows;
+  - in the search field;
+  - on where a code comes from, now translated (Atelier / Acuity / En ligne) instead of the raw database word;
+  - on notices, and on a copy button beside a code. Where the clipboard is refused, the button selects the code instead.
+
+  Menus, calendar entries and plain buttons stay text.
+- **Preview:** `node deploy/admin/preview.mjs` (or the launch config `admin-preview`) serves the admin with made-up people: no database, no sign-in.
+- **Checked:**
+  - in the preview: 1280 and 1366 px, and 375 px with no sideways scroll, in FR and EN;
+  - live: `/logo.webp` answers 200 (`image/webp`), and the sign-in page shows the logo.
+
+### 27. Documentation for whoever follows up (2026-09-24)
+- **Owner's request:** document everything so that agents can follow up.
+- "Where things stand" at the top of this file: what's live, what waits on whom, and how agents work here.
+- `deploy/admin/README.md` rewritten for today's admin (views, Acuity import, preview, look, what's left).
+- New `scripts/continuity/README.md`: the Acuity import, and how to run it again on switch day.
+- `deploy/cal/README.md`: one event type per class, and `db-run.sh` for SQL.
+- `README.md` (French) brought up to date: configuration, structure, services, switch-day steps.

@@ -26,9 +26,11 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
 
    `setup.sh` is safe to run again.
 2. **Right away**, open https://rusc-cal.fly.dev/auth/setup and create the studio's admin account. Cal.diy only allows this while no account exists.
-3. **The classes** (done 2026-09-24, account `raquel`): `node seed-classes.mjs > /tmp/classes.sql && sh db-run.sh /tmp/classes.sql` writes every class as two event types, `<key>-fr` and `<key>-en` (the sessions of `lib/cal.ts`). Each has its timetable, duration, places (seats), description and booker language.
+3. **The classes** (done 2026-09-24, account `raquel`): `node seed-classes.mjs > /tmp/classes.sql && sh db-run.sh /tmp/classes.sql` writes **one event type per class**. Its slug is the offer key (the sessions of `lib/cal.ts`), so French and English bookings fill the same places. Each has its timetable, duration, places (seats), a 30-minute slot step (60 for open studio) and the Europe/Paris time zone. It's hidden from Cal's public profile, and its French title and description carry an English translation (`EventTypeTranslation`).
+   - The seed script owns the event types: a new run puts its own values back.
+   - `patches/parallel-classes.patch` lets classes at the same time run side by side (see `patches/README.md`).
    - Classes are **seated** (several people per slot) and **not** "requires confirmation": Cal doesn't allow both.
-   - A booking holds its place at once. It's then paid in the site's cart or with a code (`deploy/codes/`). A class booked but never paid has to be cancelled by the studio in Cal.
+   - A booking holds its place at once. It's then paid in the site's cart or with a code (rūsc admin, `deploy/admin/`). A class booked but never paid has to be cancelled by the studio in Cal.
    - Payments stay off in Cal.
    - Cards, membership and gift vouchers need no event type: they go straight into the cart.
    - To change the timetable (a new stage date, a holiday), edit `seed-classes.mjs` and run it again, or edit the schedule in Cal. A new run of the script puts its own values back.
@@ -58,6 +60,8 @@ fly status -a rusc-cal
 fly logs -a rusc-cal        # or -a rusc-cal-db
 fly ssh console -a rusc-cal-db -C "psql -U cal -d cal"
 ```
+
+For SQL from a script (seeding, rūsc admin's schema, the Acuity import), use `sh db-run.sh <file.sql>`. It sends the file in small base64 chunks through `fly machine exec`, then runs it with `psql`. Large `fly ssh` uploads stall from some networks.
 
 ## Backups and restoring
 

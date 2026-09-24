@@ -1,12 +1,33 @@
 # rūsc admin: the studio's back office
 
-One web app for everything the studio manages, at https://rusc-admin.fly.dev (later `admin.studio-rusc.com`). Sign in at `/login` with the studio's password. The menu has:
-- **Cours:** the coming classes, from Cal's bookings and timetable. For each one: who's coming (name, email, phone), places left, and how each person paid.
+One web app for everything the studio manages, at https://rusc-admin.fly.dev (later `admin.studio-rusc.com`). Sign in at `/login` with the studio's password. Every page is in French or English (the FR · EN links in the header; cookie `rusc_lang`, French by default).
+
+The menu:
+- **Cours / Classes:** from Cal's bookings and timetable. For each class: who's coming (name, email, tap-to-call phone), places taken, and how each person paid:
+  - with a code;
+  - paid online;
+  - booked on Acuity before the switch (code, paid, or to pay);
+  - still to pay.
+
+  Three views:
+  - **List** (`/admin/cours`): the coming 14 or 30 days.
+  - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. A green edge means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
+  - **Day** (`?jour=YYYY-MM-DD`): one day's classes and everyone booked, past or coming. The calendar opens it.
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).
-- **Commandes:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically; the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
-- **Horaires** (next): add a stage date, block a holiday, move a class, without opening Cal.
+- **Commandes / Orders:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
+- **Horaires / Timetable** (next, greyed out): add a stage date, block a holiday, move a class, without opening Cal. Cours already follows Cal's date overrides: an override replaces the weekly hours that day, and 00:00–00:00 closes it.
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
+
+| | |
+|---|---|
+| Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
+| Address | https://rusc-admin.fly.dev |
+| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It can only *read* Cal's bookings, seats, event types, attendees and timetables. |
+| Code | `server.mjs`: Node, one dependency (`pg`), server-rendered HTML with inline CSS, no build step. `logo.webp` is a copy of the site's `assets/logo-rusc-trim.webp`. |
+| Secrets (Fly) | `DATABASE_URL`, `CODES_ADMIN_PASSWORD` (the studio's), `STRIPE_WEBHOOK_SECRET`. `IMPORT_TOKEN` only during an Acuity import. |
+
+**Agents:** don't sign in to the live admin; the password is the studio's. To see a page, use the local preview (below). Its pages hold client data, so only ever report counts from them.
 
 ## Codes
 
@@ -16,16 +37,7 @@ Customers pay for a class in two ways:
 
 rūsc admin keeps every code and its balance. On the booking page (`components/BookingEmbed.tsx`), a customer types their code above the calendar and sees what's left. The class they book is then taken off the code instead of going to the cart.
 
-| | |
-|---|---|
-| Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
-| Address | https://rusc-admin.fly.dev |
-| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It can only *read* Cal's bookings, seats, event types and attendees. |
-| Code | `server.mjs` (Node, one dependency: `pg`) |
-
-## For the studio: `/admin/codes`
-
-Sign in at https://rusc-admin.fly.dev/login with the password the studio chose (see setup).
+### For the studio: `/admin/codes`
 
 - **New code:** pick a type (carnet 5 or 10 cours, atelier libre 10 h or 20 h, gift vouchers, an amount in €) and adjust it if needed:
   - quantity and unit (sessions, hours or €);
@@ -33,19 +45,47 @@ Sign in at https://rusc-admin.fly.dev/login with the password the studio chose (
   - end date;
   - customer and note.
 
-  The code is generated (`RUSC-XXXX-XXXX`) unless you type one. Give it to the customer: they use it on the site's booking page.
-- **A code's page:** its balance and every booking made with it (class, date, name). You can:
+  The code is generated (`RUSC-XXXX-XXXX`) unless you type one. A copy button next to it puts it on the clipboard, to give to the customer. They use it on the site's booking page.
+- **A code's page:** its balance, where it comes from (studio, Acuity or online), and every booking made with it (class, date, name). You can:
   - add or remove sessions with a reason, for example a class booked by phone;
   - pause the code.
-- **Cancellations:** when a booking made with a code is cancelled in Cal, its session goes back on the code automatically, within a few minutes.
+- **Cancellations:** when a booking made with a code is cancelled in Cal, its session goes back on the code automatically, within a few minutes (`reconcile()`).
 
-## How a code is used
+### How a code is used
 
 1. `POST /api/check {code, offer}`: the booking page asks whether the code can pay for this class. Codes are read in capitals, and spaces and dashes are ignored. The answer is its label, what's left, the end date, or why not: unknown, expired, not valid for this class, used up.
 2. The customer books in the Cal calendar. Cal's `bookingSuccessful` event gives the page the attendee's **seat reference**, which is unique per person in a class.
 3. `POST /api/redeem {code, seatUid}`: the service finds that seat in Cal's database (class, time, name). It checks the code again, takes 1 session off, or the hours booked, or the class's price for a code worth an amount, and records the use. A seat can only be used once.
 
 Visitors are rate-limited (40 requests per 10 minutes each), so codes can't be guessed by trying.
+
+### Codes from Acuity
+
+The 46 Acuity codes still worth something were imported on 2026-09-24 (`source = 'acuity'`), and the one upcoming Acuity booking became a place in Cal. `POST /import/acuity` receives the data from the Acuity admin page; it only exists while the Fly secret `IMPORT_TOKEN` is set, and answers 404 otherwise. The whole procedure, to repeat on switch day, is in `scripts/continuity/README.md`.
+
+## Preview locally
+
+```bash
+node deploy/admin/preview.mjs    # http://localhost:8191/admin/cours
+```
+
+In the desktop app, use the launch config `admin-preview` instead. It serves `server.mjs` unchanged, with made-up people around today's date, no database and no sign-in. Forms don't save. Check list, calendar, day, codes and orders, in FR and EN, at desktop and phone width (no sideways scroll), before each deploy.
+
+## Look
+
+Utility first:
+- warm off-white page (`--bg`) and one green accent (`--accent`), set in `STYLE`;
+- orange (`--warn`) only for what needs action: to pay, full, paused.
+
+**Icons:** [Heroicons](https://heroicons.com) 2.2 (MIT), inlined as path data in `ICONS` and drawn with `icon(name, label?)`. Add one only where it carries meaning:
+- a payment state (ticket, check, alert);
+- a kind of contact (e-mail, phone);
+- a control (previous/next arrows, the List / Calendar switch, copy);
+- the search field, where a code comes from, a notice.
+
+Menus, calendar entries and plain buttons stay text. Take new icons from the npm package `heroicons`:
+- `16/solid` (micro) next to text;
+- `20/solid` (mini) in the round `.ibtn` buttons.
 
 ## Setup (done 2026-09-24; first deployed as `rusc-codes`, renamed `rusc-admin` the same day)
 
@@ -59,7 +99,7 @@ The script:
 - applies `schema.sql`;
 - deploys.
 
-It's safe to run again. Last step, **for the studio**, choosing the admin password:
+It's safe to run again. Last step, **for the studio**, choosing the admin password (done):
 
 ```bash
 fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD='…'
@@ -67,11 +107,18 @@ fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD='…'
 
 ## Updating
 
-Edit `server.mjs`, then `cd deploy/admin && fly deploy`. Fly builds the image from the `Dockerfile`. Schema changes go in `schema.sql`, applied with `sh ../cal/db-run.sh schema.sql`.
+1. Edit `server.mjs`, then check it in the preview (above).
+2. `cd deploy/admin && fly deploy`. Fly builds the image from the `Dockerfile`, which copies only `server.mjs` and `logo.webp`.
+3. Check live without signing in: `/health` answers 200, `/admin/cours` redirects to `/login`, `/logo.webp` is an image.
+
+Schema changes go in `schema.sql`, applied with `sh ../cal/db-run.sh schema.sql`.
 
 The list of classes (`OFFERS` in `server.mjs`) must match the sessions in `lib/cal.ts`. Prices matter for codes worth an amount.
 
 ## Still to do
 
-- **Acuity codes:** import the carnets and vouchers still valid in Acuity, with their balances (`source = 'acuity'`). Waiting for the codes export.
-- **Online sales:** carnets and vouchers bought in the cart could create their code automatically from the Stripe webhook. For now the studio creates them in `/admin` after the payment.
+- **Horaires:** edit the timetable from here (writes Cal's `Availability`, including date overrides for stage dates and holidays).
+- **Own address:** `admin.studio-rusc.com` (Fly certificate plus a DNS record at Squarespace), then update `ALLOWED_ORIGINS` in `fly.toml` if the site's domain changes.
+- **Decisions for Raquel:**
+  - Should the 2-hour carnet presets (`TWO_HOUR`) also cover the children's class, as Acuity's carnets did? Imported Acuity cards already do.
+  - Member prices (the 10% member discount) aren't applied online yet.
