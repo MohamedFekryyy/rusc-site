@@ -26,11 +26,12 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
 
    `setup.sh` is safe to run again.
 2. **Right away**, open https://rusc-cal.fly.dev/auth/setup and create the studio's admin account. Cal.diy only allows this while no account exists.
-3. **In Cal.diy:**
-   - Choose the username, and French as the language.
-   - Create one event type per session and language, with the exact slugs `<key>-fr` and `<key>-en`. The sessions are the offers with `kind: "session"` in `lib/cal.ts`: `atelier-ceramique-2h`, `atelier-modelage-2h`, `decor-a-cru-1h`, `modelage-enfant`, `atelier-ceramique-1j`, `atelier-ceramique-2j`, `porcelaine`, `atelier-libre-1h`.
-   - Turn on **Requires confirmation** and leave payments off. Visitors pay in the site's cart (Stripe), and the studio confirms the booking once it's paid.
+3. **The classes** (done 2026-09-24, account `raquel`): `node seed-classes.mjs > /tmp/classes.sql && sh db-run.sh /tmp/classes.sql` writes every class as two event types, `<key>-fr` and `<key>-en` (the sessions of `lib/cal.ts`). Each has its timetable, duration, places (seats), description and booker language.
+   - Classes are **seated** (several people per slot) and **not** "requires confirmation": Cal doesn't allow both.
+   - A booking holds its place at once. It's then paid in the site's cart or with a code (`deploy/codes/`). A class booked but never paid has to be cancelled by the studio in Cal.
+   - Payments stay off in Cal.
    - Cards, membership and gift vouchers need no event type: they go straight into the cart.
+   - To change the timetable (a new stage date, a holiday), edit `seed-classes.mjs` and run it again, or edit the schedule in Cal. A new run of the script puts its own values back.
 4. **Emails (Brevo).**
    - Create an SMTP key (SMTP & API → SMTP).
    - Authenticate studio-rusc.com (Senders & domains) with the DNS records Brevo gives, at Squarespace. Without them, booking emails land in spam.
@@ -42,10 +43,7 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
    - Run `fly certs add booking.studio-rusc.com -a rusc-cal`.
    - In Squarespace Domains → studio-rusc.com → DNS, add the records it prints: a `CNAME` for `booking` → `rusc-cal.fly.dev`.
    - Once `fly certs show booking.studio-rusc.com -a rusc-cal` says issued, change the two URLs at the top of `fly.toml` to `https://booking.studio-rusc.com` and run `sh deploy.sh`.
-6. **Point the site at it.** In Vercel → `rusc-preview` → Settings → Environment Variables:
-   - set `NEXT_PUBLIC_CAL_ORIGIN` to the address from step 2 or 5;
-   - set `NEXT_PUBLIC_CAL_USERNAME` to the username from step 3;
-   - redeploy.
+6. **The site** points at it by default (`CAL_ORIGIN` and `CAL_USERNAME` in `lib/cal.ts`: `https://rusc-cal.fly.dev`, `raquel`). The Vercel variables `NEXT_PUBLIC_CAL_ORIGIN` and `NEXT_PUBLIC_CAL_USERNAME` override them, for example once `booking.studio-rusc.com` is attached.
 
 ## Updating Cal.diy
 

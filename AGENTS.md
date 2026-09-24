@@ -16,8 +16,8 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - The target domain, studio-rusc.com, isn't attached to Vercel yet. Squarespace Domains stays the registrar.
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
-  - For now the embed loads from cal.com's hosted app, account `rusc-studio`.
-  - It moves to a self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (step 16). The site then only needs `NEXT_PUBLIC_CAL_ORIGIN` (and `NEXT_PUBLIC_CAL_USERNAME`) pointed at it.
+  - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
+  - **Codes** (carnets, gift vouchers, codes the studio issues for sales at the studio) live in a small service on Fly, `rusc-codes` (`deploy/codes/`, step 18). The booking page takes a class off a code instead of sending it to the cart.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (step 14). Until they're set, the cart says online payment opens soon.
 
@@ -240,7 +240,7 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Trailing slash** (`6021189`): with `trailingSlash`, `/api/checkout` answered a 308 first, so the cart calls `/api/checkout/`. Register the webhook in Stripe **with** its slash, `https://<site>/api/stripe/webhook/`, because Stripe does not follow redirects.
 - **To go live:**
   - In Vercel, set `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (webhook event: `checkout.session.completed`).
-  - In Cal, turn on "requires confirmation" for the sessions (`deploy/cal/README.md`).
+  - (Cal's classes are seated, so a booking holds its place at once; see step 17.)
   - Until the keys are set, "Payer" says online payment opens soon and links to the contact page.
 - **Stripe account and webhook (2026-09-23):** the studio's Stripe account is "Studio-rusc" (live mode).
   - The owner logged the Stripe CLI in (live access only), and the live webhook endpoint `we_1UIvjEBwkJn18YegcHTOBfMr` was created from it: `checkout.session.completed` → `https://rusc-preview.vercel.app/api/stripe/webhook/`.
@@ -294,3 +294,52 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - Brevo SMTP (`fly secrets set`);
   - the `booking.studio-rusc.com` certificate and DNS;
   - the site's `NEXT_PUBLIC_CAL_ORIGIN` and `NEXT_PUBLIC_CAL_USERNAME` in Vercel.
+
+### 17. The classes in Cal, and the site switched to it (2026-09-24)
+- **Timetable from Acuity**, read from its public booking API, which carries no client data: `scripts/continuity/acuity-classes.mjs`, output in `data/acuity/`. Weekly classes:
+  - tournage 2h, 7 places: Mon 16:00, Tue 18:30, Wed 18:00, Thu 17:00
+  - modelage 2h, 8 places: Mon 16:00, Thu 17:00
+  - décor à cru 1h, 8 places: Mon 16:00, Tue 18:30, Wed 18:00
+  - cours enfant 2h, 8 places: Wed 14:00
+  - atelier libre, 7 places, 1-hour slots: Tue 9–14, Thu 14–18
+- **Dated classes:**
+  - céramique 1j on 10 and 11 Oct (7 places);
+  - 2j on 10–11 Oct;
+  - porcelaine on 1 Nov 11:00, 6 h;
+  - Pot & Wine on 9 Oct 18:00, 2 h 30, 8 places. It was an Acuity class missing from the site; it's now an offer (`pot-and-wine`, 75 €).
+- **Setup script:** `deploy/cal/seed-classes.mjs` writes one schedule per class and a `-fr` and `-en` event type per class for `raquel`, with:
+  - `interfaceLanguage` (a French or English booker);
+  - times locked to Europe/Paris;
+  - seats;
+  - `disableGuests`;
+  - a 30-minute slot interval (Cal only starts slots on multiples of the interval past the hour, and the Tuesday classes start at 18:30);
+  - hidden from the profile page. Cal's sample types are hidden too.
+- **Running SQL on the database:** `deploy/cal/db-run.sh` goes through the Machines API in 4 KB pieces. Uploads over `fly ssh` (stdin, sftp, long commands) stalled from this network, and the API refuses bigger commands.
+- **Parallel classes** (`47c4a7f`): stock Cal.diy counts a booking of any event type as busy time for the host, so Monday 16:00 tournage would have blocked modelage and décor à cru.
+  - `deploy/cal/patches/parallel-classes.patch` (applied by the image workflow, image tag `<commit>-<patches hash>`) counts only bookings of the same event type.
+  - Checked live with a temporary booking: modelage stayed open next to a booked tournage slot, and the tournage slot closed.
+- **Site** (`eb94d414`): `CAL_ORIGIN` defaults to `https://rusc-cal.fly.dev` and `CAL_USERNAME` to `raquel`, so "opens soon" became the real calendar.
+- **Differences to confirm with Raquel:**
+  - the Cours page says the kids' class is 13h30–15h30, but Acuity says 14h–16h (Cal follows Acuity);
+  - the Stages pages say porcelaine is 10h–17h, but Acuity says 6 h from 11:00;
+  - the site lists décor à cru on Thursdays too; Acuity doesn't;
+  - a gift voucher for 2 days is 260 € in Acuity and 280 € on the site;
+  - school holidays (kids' class) have to be blocked in Cal as date overrides.
+
+### 18. Codes: carnets, vouchers and studio-issued codes (`deploy/codes/`, 2026-09-24)
+- **Why:** members book with their Acuity codes, and the studio sells carnets in person (cash or card, outside the site). It needs to create codes for any class that customers then use online.
+- **Service** (`b301694f`): `rusc-codes` on Fly (Node + `pg`, 256 MB, auto-stop, so it costs almost nothing).
+  - Its tables are `rusc.codes` and `rusc.uses`, in the Cal database under the role `rusc_codes`, which can only read Cal's `Booking`, `BookingSeat`, `EventType` and `Attendee`.
+  - `/admin` (Basic auth; the studio sets `CODES_ADMIN_PASSWORD`) creates codes from presets (carnet 5/10 cours 2h, atelier libre 10/20 h, gift vouchers, an amount in €), lists balances and uses, adjusts with a reason, and pauses codes.
+  - The API: `POST /api/check`, `POST /api/redeem`.
+- **Booking page** (`6eacc8f9`): a code row above each class's calendar.
+  - Once a code is accepted, the class booked is taken off it, using the seat reference from Cal's `bookingSuccessful` event (V2 has no seat). If that fails, the class goes to the cart.
+  - `lib/codes.ts` holds the client; `CODES_ORIGIN` defaults to `https://rusc-codes.fly.dev`.
+- **Cancellations:** a use whose seat disappears, or whose booking is cancelled, gives the amount back. Checked at most every 5 minutes, on requests.
+- **Checked:**
+  - on Fly, with a temporary code and booking (removed afterwards): check; refused for another class; redeem 2 → 1; a second redeem refused; cancellation 1 → 2;
+  - in the browser: an unknown code shows "Code inconnu.", a valid one shows its balance. The site's global `form{}` rule (contact form) had to be overridden on the code row.
+- **Left:**
+  - the studio sets the admin password;
+  - import the Acuity codes with their balances (needs the codes list);
+  - carnets and vouchers bought online could create their code from the Stripe webhook; for now the studio creates them in `/admin`.
