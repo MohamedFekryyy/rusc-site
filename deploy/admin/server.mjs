@@ -16,6 +16,7 @@
 // Data: schema "rusc" of the Cal.diy database (schema.sql). Cal's own tables
 // are only read (bookings, seats, event types, attendees), never written.
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import http from "node:http";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import pg from "pg";
@@ -27,51 +28,61 @@ const db = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 // Dates (expiry) as "YYYY-MM-DD" strings, not Dates shifted by the time zone.
 pg.types.setTypeParser(1082, (value) => value);
 
+// The studio pages speak French or English (cookie rusc_lang, switched with
+// the FR · EN links in their header). tr("français", "English") picks one.
+const request = new AsyncLocalStorage();
+const lang = () => request.getStore()?.lang ?? "fr";
+const tr = (fr, en) => (lang() === "en" ? en : fr);
+const LOCALE = () => (lang() === "en" ? "en-GB" : "fr-FR");
+
 // The classes a code can be used for: the offers of kind "session" in the
 // site's lib/cal.ts (same keys; each is one Cal event type, slug = key).
 // Keep in sync with it. Prices (TTC, euros) matter for codes worth an amount.
 const OFFERS = {
-  "atelier-ceramique-2h": { label: "tournage 2h", price: 50 },
-  "atelier-modelage-2h": { label: "modelage 2h", price: 50 },
-  "decor-a-cru-1h": { label: "décor à cru 1h", price: 20 },
-  "modelage-enfant": { label: "cours enfant 2h", price: 50 },
-  "atelier-libre-1h": { label: "atelier libre 1h", price: 22.5 },
-  "atelier-ceramique-1j": { label: "céramique 1 jour", price: 180 },
-  "atelier-ceramique-2j": { label: "céramique 2 jours", price: 280 },
-  porcelaine: { label: "porcelaine 1 jour", price: 230 },
-  "pot-and-wine": { label: "pot & wine", price: 75 },
+  "atelier-ceramique-2h": { label: "tournage 2h", en: "wheel throwing 2h", price: 50 },
+  "atelier-modelage-2h": { label: "modelage 2h", en: "hand-building 2h", price: 50 },
+  "decor-a-cru-1h": { label: "décor à cru 1h", en: "raw-glaze decoration 1h", price: 20 },
+  "modelage-enfant": { label: "cours enfant 2h", en: "children’s course 2h", price: 50 },
+  "atelier-libre-1h": { label: "atelier libre 1h", en: "open studio 1h", price: 22.5 },
+  "atelier-ceramique-1j": { label: "céramique 1 jour", en: "ceramics 1 day", price: 180 },
+  "atelier-ceramique-2j": { label: "céramique 2 jours", en: "ceramics 2 days", price: 280 },
+  porcelaine: { label: "porcelaine 1 jour", en: "porcelain 1 day", price: 230 },
+  "pot-and-wine": { label: "pot & wine", en: "pot & wine", price: 75 },
 };
+const offerLabel = (key) => (OFFERS[key] ? tr(OFFERS[key].label, OFFERS[key].en) : key);
 const TWO_HOUR = ["atelier-ceramique-2h", "atelier-modelage-2h"];
 
 // What the studio usually issues, to pre-fill the "new code" form.
+// label is what the customer sees on the code (French), en its English version.
 const PRESETS = [
-  { id: "carnet5", label: "Carnet 5 cours 2h", unit: "sessions", amount: 5, offers: TWO_HOUR, months: 6 },
-  { id: "carnet10", label: "Carnet 10 cours 2h", unit: "sessions", amount: 10, offers: TWO_HOUR, months: 12 },
-  { id: "libre10", label: "Atelier libre 10 h", unit: "hours", amount: 10, offers: ["atelier-libre-1h"], months: 6 },
-  { id: "libre20", label: "Atelier libre 20 h", unit: "hours", amount: 20, offers: ["atelier-libre-1h"], months: 12 },
-  { id: "cadeau2h", label: "Bon cadeau · cours 2h", unit: "sessions", amount: 1, offers: TWO_HOUR, months: 6 },
-  { id: "cadeau1j", label: "Bon cadeau · stage 1 jour", unit: "sessions", amount: 1, offers: ["atelier-ceramique-1j"], months: 6 },
-  { id: "cadeau2j", label: "Bon cadeau · stage 2 jours", unit: "sessions", amount: 1, offers: ["atelier-ceramique-2j"], months: 6 },
-  { id: "montant", label: "Bon cadeau · montant", unit: "euros", amount: 50, offers: Object.keys(OFFERS), months: 6 },
+  { id: "carnet5", label: "Carnet 5 cours 2h", en: "5-class card, 2h classes", unit: "sessions", amount: 5, offers: TWO_HOUR, months: 6 },
+  { id: "carnet10", label: "Carnet 10 cours 2h", en: "10-class card, 2h classes", unit: "sessions", amount: 10, offers: TWO_HOUR, months: 12 },
+  { id: "libre10", label: "Atelier libre 10 h", en: "Open studio, 10 hours", unit: "hours", amount: 10, offers: ["atelier-libre-1h"], months: 6 },
+  { id: "libre20", label: "Atelier libre 20 h", en: "Open studio, 20 hours", unit: "hours", amount: 20, offers: ["atelier-libre-1h"], months: 12 },
+  { id: "cadeau2h", label: "Bon cadeau · cours 2h", en: "Gift voucher · 2h class", unit: "sessions", amount: 1, offers: TWO_HOUR, months: 6 },
+  { id: "cadeau1j", label: "Bon cadeau · stage 1 jour", en: "Gift voucher · 1-day intensive", unit: "sessions", amount: 1, offers: ["atelier-ceramique-1j"], months: 6 },
+  { id: "cadeau2j", label: "Bon cadeau · stage 2 jours", en: "Gift voucher · 2-day intensive", unit: "sessions", amount: 1, offers: ["atelier-ceramique-2j"], months: 6 },
+  { id: "montant", label: "Bon cadeau · montant", en: "Gift voucher · amount", unit: "euros", amount: 50, offers: Object.keys(OFFERS), months: 6 },
 ];
 // The cart's products (lib/cal.ts, kind "product") and what an online
 // purchase of each creates: a code from a preset above, or a membership.
 const PRODUCTS = {
-  adhesion: { label: "adhésion annuelle" },
-  "carnet-5-cours": { label: "carnet 5 cours", preset: "carnet5" },
-  "carnet-10-cours": { label: "carnet 10 cours", preset: "carnet10" },
-  "atelier-libre-10h": { label: "carnet atelier libre 10 h", preset: "libre10" },
-  "atelier-libre-20h": { label: "carnet atelier libre 20 h", preset: "libre20" },
-  "bon-cadeau-cours-2h": { label: "bon cadeau · un cours de 2h", preset: "cadeau2h" },
-  "bon-cadeau-carnet-5": { label: "bon cadeau · carnet 5 cours", preset: "carnet5", codeLabel: "Bon cadeau · carnet 5 cours 2h" },
-  "bon-cadeau-carnet-10": { label: "bon cadeau · carnet 10 cours", preset: "carnet10", codeLabel: "Bon cadeau · carnet 10 cours 2h" },
-  "bon-cadeau-stage-1j": { label: "bon cadeau · stage 1 jour", preset: "cadeau1j" },
-  "bon-cadeau-stage-2j": { label: "bon cadeau · stage 2 jours", preset: "cadeau2j" },
+  adhesion: { label: "adhésion annuelle", en: "annual membership" },
+  "carnet-5-cours": { label: "carnet 5 cours", en: "5-class card", preset: "carnet5" },
+  "carnet-10-cours": { label: "carnet 10 cours", en: "10-class card", preset: "carnet10" },
+  "atelier-libre-10h": { label: "carnet atelier libre 10 h", en: "open studio 10h card", preset: "libre10" },
+  "atelier-libre-20h": { label: "carnet atelier libre 20 h", en: "open studio 20h card", preset: "libre20" },
+  "bon-cadeau-cours-2h": { label: "bon cadeau · un cours de 2h", en: "gift voucher · one 2h class", preset: "cadeau2h" },
+  "bon-cadeau-carnet-5": { label: "bon cadeau · carnet 5 cours", en: "gift voucher · 5-class card", preset: "carnet5", codeLabel: ["Bon cadeau · carnet 5 cours 2h", "Gift voucher · 5-class card"] },
+  "bon-cadeau-carnet-10": { label: "bon cadeau · carnet 10 cours", en: "gift voucher · 10-class card", preset: "carnet10", codeLabel: ["Bon cadeau · carnet 10 cours 2h", "Gift voucher · 10-class card"] },
+  "bon-cadeau-stage-1j": { label: "bon cadeau · stage 1 jour", en: "gift voucher · 1-day intensive", preset: "cadeau1j" },
+  "bon-cadeau-stage-2j": { label: "bon cadeau · stage 2 jours", en: "gift voucher · 2-day intensive", preset: "cadeau2j" },
 };
+const productLabel = (key) => (PRODUCTS[key] ? tr(PRODUCTS[key].label, PRODUCTS[key].en) : key);
 const UNIT = {
-  sessions: { one: "séance", many: "séances" },
-  hours: { one: "heure", many: "heures" },
-  euros: { one: "€", many: "€" },
+  sessions: { one: ["séance", "session"], many: ["séances", "sessions"] },
+  hours: { one: ["heure", "hour"], many: ["heures", "hours"] },
+  euros: { one: ["€", "€"], many: ["€", "€"] },
 };
 
 // ---------------------------------------------------------------- helpers
@@ -90,12 +101,13 @@ const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmtAmount = (unit, n) => {
   const v = num(n);
-  if (unit === "euros") return `${v.toLocaleString("fr-FR", { minimumFractionDigits: v % 1 ? 2 : 0 })} €`;
-  return `${v.toLocaleString("fr-FR")} ${v === 1 ? UNIT[unit].one : UNIT[unit].many}`;
+  if (unit === "euros") return `${v.toLocaleString(LOCALE(), { minimumFractionDigits: v % 1 ? 2 : 0 })} €`;
+  const [fr, en] = v === 1 ? UNIT[unit].one : UNIT[unit].many;
+  return `${v.toLocaleString(LOCALE())} ${tr(fr, en)}`;
 };
-const fmtDate = (d) => (d ? new Date(`${isoDate(d)}T12:00:00Z`).toLocaleDateString("fr-FR", { dateStyle: "medium" }) : "—");
+const fmtDate = (d) => (d ? new Date(`${isoDate(d)}T12:00:00Z`).toLocaleDateString(LOCALE(), { dateStyle: "medium" }) : "—");
 const fmtDateTime = (d) =>
-  d ? new Date(d).toLocaleString("fr-FR", { timeZone: "Europe/Paris", dateStyle: "medium", timeStyle: "short" }) : "—";
+  d ? new Date(d).toLocaleString(LOCALE(), { timeZone: "Europe/Paris", dateStyle: "medium", timeStyle: "short" }) : "—";
 
 // How much of a code one booking takes.
 function needed(unit, offerKey, minutes) {
@@ -321,6 +333,7 @@ async function recordOrder(session) {
     }
     const holder = [name, email].filter(Boolean).join(" · ") || null;
     const note = `Commande en ligne du ${fmtDate(parisToday())}`;
+    const english = metadata.lang === "en"; // the code's label in the buyer's language
     for (const token of items.split(/\s+/).filter(Boolean)) {
       const match = token.match(/^([a-z0-9-]+)x(\d+)(?:@(.+))?$/);
       if (!match) continue;
@@ -347,7 +360,7 @@ async function recordOrder(session) {
         await client.query(
           `INSERT INTO rusc.codes (key, display, label, unit, offers, initial, remaining, expires_on, holder, note, source, order_id)
            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'online', $10)`,
-          [codeKey, display, product.codeLabel ?? preset.label, preset.unit, preset.offers, preset.amount, addMonths(preset.months), holder, note, session.id],
+          [codeKey, display, product.codeLabel?.[english ? 1 : 0] ?? (english ? preset.en : preset.label), preset.unit, preset.offers, preset.amount, addMonths(preset.months), holder, note, session.id],
         );
       }
     }
@@ -413,33 +426,45 @@ const STYLE = `
   .session table td{font-size:14px}.ok{color:var(--accent)}.day{margin:28px 0 10px}.day::first-letter{text-transform:uppercase}
 `;
 const page = (title, body) =>
-  `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
+  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
 
-// Every studio page: the same header and menu. "Bientôt" items are next.
-const MENU = [["cours", "Cours"], ["codes", "Codes"], ["commandes", "Commandes"], ["horaires", "Horaires"]];
+// FR · EN links: the page's own address comes back after the switch.
+function langSwitch() {
+  const back = encodeURIComponent(request.getStore()?.path ?? "/admin/cours");
+  return ["fr", "en"]
+    .map((l) => (l === lang() ? `<b>${l.toUpperCase()}</b>` : `<a href="/lang?to=${l}&back=${back}">${l.toUpperCase()}</a>`))
+    .join(" · ");
+}
+
+// Every studio page: the same header and menu. SOON items are next.
+const MENU = [["cours", "Cours", "Classes"], ["codes", "Codes", "Codes"], ["commandes", "Commandes", "Orders"], ["horaires", "Horaires", "Timetable"]];
 const SOON = new Set(["horaires"]);
 function shell(active, title, body) {
-  const menu = MENU.map(([key, label]) =>
+  const menu = MENU.map(([key, fr, en]) =>
     SOON.has(key)
-      ? `<span class="soon" title="Bientôt">${label}</span>`
-      : `<a href="/admin/${key}"${key === active ? ' aria-current="page"' : ""}>${label}</a>`,
+      ? `<span class="soon" title="${tr("Bientôt", "Soon")}">${tr(fr, en)}</span>`
+      : `<a href="/admin/${key}"${key === active ? ' aria-current="page"' : ""}>${tr(fr, en)}</a>`,
   ).join("");
-  return page(title, `<header class="top"><b>rūsc · admin</b><nav>${menu}</nav><a class="muted" href="/logout">Déconnexion</a></header>${body}`);
+  return page(
+    title,
+    `<header class="top"><b>rūsc · admin</b><nav>${menu}</nav><span class="muted">${langSwitch()}</span><a class="muted" href="/logout">${tr("Déconnexion", "Sign out")}</a></header>${body}`,
+  );
 }
 
 const loginPage = (error, next) =>
   page(
-    "Connexion",
-    `<div class="login"><h1>rūsc · admin</h1><p class="muted">L’espace de l’atelier : cours, codes, commandes.</p>
+    tr("Connexion", "Sign in"),
+    `<div class="login"><p class="muted" style="text-align:right">${langSwitch()}</p><h1>rūsc · admin</h1>
+     <p class="muted">${tr("L’espace de l’atelier : cours, codes, commandes.", "The studio’s back office: classes, codes, orders.")}</p>
      ${error ? `<p class="off"><b>${esc(error)}</b></p>` : ""}
      <form class="box" method="post" action="/login"><input type="hidden" name="next" value="${esc(next)}">
-       <label>Mot de passe<input type="password" name="password" required autofocus autocomplete="current-password"></label>
-       <div><button type="submit">Entrer</button></div></form></div>`,
+       <label>${tr("Mot de passe", "Password")}<input type="password" name="password" required autofocus autocomplete="current-password"></label>
+       <div><button type="submit">${tr("Entrer", "Sign in")}</button></div></form></div>`,
   );
 
 // ---------------------------------------------------------------- Cours
 
-const WEEKDAY = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" });
+const weekday = (date) => new Intl.DateTimeFormat(LOCALE(), { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" }).format(date);
 const parisParts = (date) => {
   const f = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
   const [day, time] = f.format(date).split(" ");
@@ -511,28 +536,28 @@ async function coursPage(url) {
             const paid = p.code
               ? `<span class="ok">Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span>`
               : p.paid_order
-                ? `<a class="ok" href="/admin/commandes#${esc(p.paid_order)}">Payé en ligne</a>`
+                ? `<a class="ok" href="/admin/commandes#${esc(p.paid_order)}">${tr("Payé en ligne", "Paid online")}</a>`
                 : WEBHOOK_SECRET
-                  ? `<span class="off">à régler (panier non payé, ou sur place)</span>`
-                  : `<span class="muted">à vérifier (paiement en ligne pas encore relié)</span>`;
+                  ? `<span class="off">${tr("à régler (panier non payé, ou sur place)", "to pay (cart not paid, or at the studio)")}</span>`
+                  : `<span class="muted">${tr("à vérifier (paiement en ligne pas encore relié)", "to check (online payment not linked yet)")}</span>`;
             const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : "", p.phone ? esc(p.phone) : ""].filter(Boolean).join(" · ");
             return `<tr><td><b>${esc(p.name)}</b><br><span class="muted">${contact}</span></td><td>${paid}</td></tr>`;
           })
           .join("")}</tbody></table>`
-      : `<p class="muted" style="margin:0">Personne pour l’instant.</p>`;
+      : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
 
   const body = [...byDay.entries()]
-    .map(([day, list]) => `<h2 class="day">${esc(WEEKDAY.format(new Date(`${day}T12:00:00Z`)))}</h2>${list
-      .map((s) => `<div class="session"><div class="head"><b>${esc(s.time)} · ${esc(s.title)}</b>
-          <span class="pill">${s.people.length} / ${s.seats ?? "?"} places</span></div>${people(s.people)}</div>`)
+    .map(([day, list]) => `<h2 class="day">${esc(weekday(new Date(`${day}T12:00:00Z`)))}</h2>${list
+      .map((s) => `<div class="session"><div class="head"><b>${esc(s.time)} · ${esc(offerLabel(s.slug))}</b>
+          <span class="pill">${s.people.length} / ${s.seats ?? "?"} ${tr("places", "places")}</span></div>${people(s.people)}</div>`)
       .join("")}`)
     .join("");
   return shell(
     "cours",
-    "Cours",
-    `<h1>Cours</h1><p class="muted">Les ${days} prochains jours, d’après les réservations et les horaires de Cal.
-       ${days < 30 ? `<a href="?jours=30">Voir 30 jours</a>` : `<a href="?jours=14">Voir 14 jours</a>`}</p>
-     ${body || `<p class="muted">Aucun cours sur cette période.</p>`}`,
+    tr("Cours", "Classes"),
+    `<h1>${tr("Cours", "Classes")}</h1><p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
+       ${days < 30 ? `<a href="?jours=30">${tr("Voir 30 jours", "Show 30 days")}</a>` : `<a href="?jours=14">${tr("Voir 14 jours", "Show 14 days")}</a>`}</p>
+     ${body || `<p class="muted">${tr("Aucun cours sur cette période.", "No classes in this period.")}</p>`}`,
   );
 }
 
@@ -551,7 +576,7 @@ async function commandesPage() {
       .filter(Boolean)
       .map((token) => {
         const [, key, qty] = token.match(/^([a-z0-9-]+)x(\d+)/) ?? [];
-        const label = OFFERS[key]?.label ?? PRODUCTS[key]?.label ?? key;
+        const label = OFFERS[key] ? offerLabel(key) : productLabel(key);
         return `${esc(label)}${Number(qty) > 1 ? ` × ${qty}` : ""}`;
       })
       .join("<br>");
@@ -565,20 +590,20 @@ async function commandesPage() {
     .join("");
   const notice = WEBHOOK_SECRET
     ? ""
-    : `<p class="off"><b>Stripe n’est pas encore relié à l’admin</b> : les commandes apparaîtront ici dès que la clé du webhook sera enregistrée.</p>`;
+    : `<p class="off"><b>${tr("Stripe n’est pas encore relié à l’admin", "Stripe isn’t linked to the admin yet")}</b> : ${tr("les commandes apparaîtront ici dès que la clé du webhook sera enregistrée.", "orders will show here once the webhook’s secret is saved.")}</p>`;
   return shell(
     "commandes",
-    "Commandes",
-    `<h1>Commandes</h1><p class="muted">Les paiements en ligne du panier. Les carnets et bons cadeaux achetés reçoivent leur code automatiquement (colonne Codes) ; les cours payés apparaissent « Payé en ligne » dans Cours.</p>
+    tr("Commandes", "Orders"),
+    `<h1>${tr("Commandes", "Orders")}</h1><p class="muted">${tr("Les paiements en ligne du panier. Les carnets et bons cadeaux achetés reçoivent leur code automatiquement (colonne Codes) ; les cours payés apparaissent « Payé en ligne » dans Cours.", "Online payments from the cart. Cards and gift vouchers bought get their code automatically (Codes column); paid classes show as “Paid online” in Classes.")}</p>
      ${notice}
-     <table><thead><tr><th>Date</th><th>Client</th><th>Achat</th><th>Total</th><th>Codes</th></tr></thead>
-     <tbody>${rows || `<tr><td colspan="5" class="muted">Aucune commande pour l’instant.</td></tr>`}</tbody></table>`,
+     <table><thead><tr><th>Date</th><th>${tr("Client", "Customer")}</th><th>${tr("Achat", "Bought")}</th><th>Total</th><th>Codes</th></tr></thead>
+     <tbody>${rows || `<tr><td colspan="5" class="muted">${tr("Aucune commande pour l’instant.", "No orders yet.")}</td></tr>`}</tbody></table>`,
   );
 }
 
 function offerBoxes(selected) {
-  return `<fieldset><legend>Valable pour</legend>${Object.entries(OFFERS)
-    .map(([k, o]) => `<label><input type="checkbox" name="offers" value="${k}"${selected.includes(k) ? " checked" : ""}> ${esc(o.label)}</label>`)
+  return `<fieldset><legend>${tr("Valable pour", "Valid for")}</legend>${Object.keys(OFFERS)
+    .map((k) => `<label><input type="checkbox" name="offers" value="${k}"${selected.includes(k) ? " checked" : ""}> ${esc(offerLabel(k))}</label>`)
     .join("")}</fieldset>`;
 }
 
@@ -590,18 +615,18 @@ function newCodeForm(presetId) {
   <form class="box" method="post" action="/admin/codes">
     <label>Type
       <select name="preset" onchange="location.search='?preset='+this.value">
-        ${PRESETS.map((x) => `<option value="${x.id}"${x.id === p.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}
+        ${PRESETS.map((x) => `<option value="${x.id}"${x.id === p.id ? " selected" : ""}>${esc(tr(x.label, x.en))}</option>`).join("")}
       </select></label>
-    <label>Intitulé (ce que voit le client)<input name="label" value="${esc(p.label)}" required maxlength="80"></label>
-    <label>Quantité
+    <label>${tr("Intitulé (ce que voit le client)", "Label (what the customer sees)")}<input name="label" value="${esc(tr(p.label, p.en))}" required maxlength="80"></label>
+    <label>${tr("Quantité", "Amount")}
       <span style="display:flex;gap:6px"><input name="amount" type="number" min="0.5" step="0.5" value="${p.amount}" required style="width:100px">
-      <select name="unit">${Object.entries(UNIT).map(([u, t]) => `<option value="${u}"${u === p.unit ? " selected" : ""}>${t.many}</option>`).join("")}</select></span></label>
-    <label>Valable jusqu’au<input name="expires_on" type="date" value="${isoDate(expiry)}"></label>
-    <label>Client (nom, e-mail)<input name="holder" maxlength="120" placeholder="facultatif"></label>
-    <label>Note<input name="note" maxlength="200" placeholder="ex. payé en espèces le 24/09"></label>
-    <label>Code<input name="code" maxlength="40" placeholder="laisser vide : créé automatiquement"></label>
+      <select name="unit">${Object.entries(UNIT).map(([u, t]) => `<option value="${u}"${u === p.unit ? " selected" : ""}>${tr(...t.many)}</option>`).join("")}</select></span></label>
+    <label>${tr("Valable jusqu’au", "Valid until")}<input name="expires_on" type="date" value="${isoDate(expiry)}"></label>
+    <label>${tr("Client (nom, e-mail)", "Customer (name, email)")}<input name="holder" maxlength="120" placeholder="${tr("facultatif", "optional")}"></label>
+    <label>Note<input name="note" maxlength="200" placeholder="${tr("ex. payé en espèces le 24/09", "e.g. paid in cash on 24/09")}"></label>
+    <label>Code<input name="code" maxlength="40" placeholder="${tr("laisser vide : créé automatiquement", "leave empty: made for you")}"></label>
     ${offerBoxes(p.offers)}
-    <div><button type="submit">Créer le code</button></div>
+    <div><button type="submit">${tr("Créer le code", "Create the code")}</button></div>
   </form>`;
 }
 
@@ -619,20 +644,20 @@ async function adminHome(url) {
   const list = rows
     .map((c) => {
       const expired = c.expires_on && isoDate(c.expires_on) < today;
-      const state = !c.active ? `<span class="pill off">en pause</span>` : expired ? `<span class="pill off">expiré</span>` : "";
+      const state = !c.active ? `<span class="pill off">${tr("en pause", "paused")}</span>` : expired ? `<span class="pill off">${tr("expiré", "expired")}</span>` : "";
       return `<tr><td><a href="/admin/codes/${esc(c.key)}"><b>${esc(c.display)}</b></a> ${state}<br><span class="muted">${esc(c.label)}</span></td>
-        <td>${esc(fmtAmount(c.unit, c.remaining))}<br><span class="muted">sur ${esc(fmtAmount(c.unit, c.initial))}</span></td>
+        <td>${esc(fmtAmount(c.unit, c.remaining))}<br><span class="muted">${tr("sur", "of")} ${esc(fmtAmount(c.unit, c.initial))}</span></td>
         <td>${esc(fmtDate(c.expires_on))}</td><td>${esc(c.holder ?? "")}</td><td>${num(c.bookings)}</td><td class="muted">${esc(c.source)}</td></tr>`;
     })
     .join("");
   return shell(
     "codes",
     "Codes",
-    `<h1>Codes</h1><p class="muted">Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.</p>
-     <h2>Nouveau code</h2>${newCodeForm(url.searchParams.get("preset"))}
-     <h2>Tous les codes</h2>
-     <form class="search" method="get" action="/admin/codes"><input name="q" value="${esc(q)}" placeholder="Chercher un code, un client, un type"><button class="plain">Chercher</button></form>
-     <table><thead><tr><th>Code</th><th>Reste</th><th>Valable jusqu’au</th><th>Client</th><th>Réservations</th><th>Origine</th></tr></thead><tbody>${list || `<tr><td colspan="6" class="muted">Aucun code.</td></tr>`}</tbody></table>`,
+    `<h1>Codes</h1><p class="muted">${tr("Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.", "Class cards, gift vouchers and studio codes. A customer uses their code on the site’s booking page: each booking is taken off here.")}</p>
+     <h2>${tr("Nouveau code", "New code")}</h2>${newCodeForm(url.searchParams.get("preset"))}
+     <h2>${tr("Tous les codes", "All codes")}</h2>
+     <form class="search" method="get" action="/admin/codes"><input name="q" value="${esc(q)}" placeholder="${tr("Chercher un code, un client, un type", "Search a code, a customer, a type")}"><button class="plain">${tr("Chercher", "Search")}</button></form>
+     <table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th><th>${tr("Client", "Customer")}</th><th>${tr("Réservations", "Bookings")}</th><th>${tr("Origine", "Source")}</th></tr></thead><tbody>${list || `<tr><td colspan="6" class="muted">${tr("Aucun code.", "No codes.")}</td></tr>`}</tbody></table>`,
   );
 }
 
@@ -644,34 +669,34 @@ async function adminCode(key, flash) {
   const history = uses.rows
     .map((u) => {
       const what = u.seat_uid
-        ? `${esc(OFFERS[u.offer]?.label ?? u.offer)} · ${esc(fmtDateTime(u.starts_at))}${u.attendee ? `<br><span class="muted">${esc(u.attendee)}</span>` : ""}`
-        : esc(u.note ?? "Ajustement");
+        ? `${esc(offerLabel(u.offer))} · ${esc(fmtDateTime(u.starts_at))}${u.attendee ? `<br><span class="muted">${esc(u.attendee)}</span>` : ""}`
+        : esc(u.note ?? tr("Ajustement", "Adjustment"));
       const amount = num(u.amount) >= 0 ? `− ${fmtAmount(c.unit, u.amount)}` : `+ ${fmtAmount(c.unit, -num(u.amount))}`;
-      return `<tr><td>${esc(fmtDateTime(u.at))}</td><td>${what}</td><td>${esc(amount)}${u.cancelled_at ? ` <span class="pill">annulée, rendue</span>` : ""}</td></tr>`;
+      return `<tr><td>${esc(fmtDateTime(u.at))}</td><td>${what}</td><td>${esc(amount)}${u.cancelled_at ? ` <span class="pill">${tr("annulée, rendue", "cancelled, given back")}</span>` : ""}</td></tr>`;
     })
     .join("");
   return shell(
     "codes",
     c.display,
-    `<p><a href="/admin/codes">← Tous les codes</a></p>
+    `<p><a href="/admin/codes">${tr("← Tous les codes", "← All codes")}</a></p>
      ${flash ? `<p style="color:var(--accent)"><b>${esc(flash)}</b></p>` : ""}
      <div class="code">${esc(c.display)}</div>
      <h1 style="margin-top:14px">${esc(c.label)}</h1>
-     <p>Reste <b>${esc(fmtAmount(c.unit, c.remaining))}</b> sur ${esc(fmtAmount(c.unit, c.initial))} · valable jusqu’au ${esc(fmtDate(c.expires_on))}
-       ${!c.active ? ` · <span class="off">en pause</span>` : ""}</p>
-     <p class="muted">Pour : ${c.offers.map((k) => esc(OFFERS[k]?.label ?? k)).join(", ")}${c.holder ? ` · Client : ${esc(c.holder)}` : ""}${c.note ? ` · ${esc(c.note)}` : ""} · origine : ${esc(c.source)}</p>
-     <h2>Ajuster le solde</h2>
+     <p>${tr("Reste", "Left:")} <b>${esc(fmtAmount(c.unit, c.remaining))}</b> ${tr("sur", "of")} ${esc(fmtAmount(c.unit, c.initial))} · ${tr("valable jusqu’au", "valid until")} ${esc(fmtDate(c.expires_on))}
+       ${!c.active ? ` · <span class="off">${tr("en pause", "paused")}</span>` : ""}</p>
+     <p class="muted">${tr("Pour", "For")} : ${c.offers.map((k) => esc(offerLabel(k))).join(", ")}${c.holder ? ` · ${tr("Client", "Customer")} : ${esc(c.holder)}` : ""}${c.note ? ` · ${esc(c.note)}` : ""} · ${tr("origine", "source")} : ${esc(c.source)}</p>
+     <h2>${tr("Ajuster le solde", "Adjust the balance")}</h2>
      <form class="box" method="post" action="/admin/codes/${esc(c.key)}/adjust">
-       <label>Ajouter (+) ou retirer (−)<input name="delta" type="number" step="0.5" required placeholder="ex. -1 ou 2"></label>
-       <label>Raison<input name="note" maxlength="200" required placeholder="ex. séance réservée par téléphone"></label>
-       <div><button type="submit">Enregistrer</button></div>
+       <label>${tr("Ajouter (+) ou retirer (−)", "Add (+) or take off (−)")}<input name="delta" type="number" step="0.5" required placeholder="${tr("ex. -1 ou 2", "e.g. -1 or 2")}"></label>
+       <label>${tr("Raison", "Reason")}<input name="note" maxlength="200" required placeholder="${tr("ex. séance réservée par téléphone", "e.g. class booked by phone")}"></label>
+       <div><button type="submit">${tr("Enregistrer", "Save")}</button></div>
      </form>
      <form method="post" action="/admin/codes/${esc(c.key)}/active" style="margin-top:12px">
        <input type="hidden" name="active" value="${c.active ? "0" : "1"}">
-       <button class="plain" type="submit">${c.active ? "Mettre en pause (le code ne marche plus)" : "Réactiver le code"}</button>
+       <button class="plain" type="submit">${c.active ? tr("Mettre en pause (le code ne marche plus)", "Pause (the code stops working)") : tr("Réactiver le code", "Reactivate the code")}</button>
      </form>
-     <h2>Historique</h2>
-     <table><thead><tr><th>Quand</th><th>Quoi</th><th>Solde</th></tr></thead><tbody>${history || `<tr><td colspan="3" class="muted">Pas encore utilisé.</td></tr>`}</tbody></table>`,
+     <h2>${tr("Historique", "History")}</h2>
+     <table><thead><tr><th>${tr("Quand", "When")}</th><th>${tr("Quoi", "What")}</th><th>${tr("Solde", "Balance")}</th></tr></thead><tbody>${history || `<tr><td colspan="3" class="muted">${tr("Pas encore utilisé.", "Not used yet.")}</td></tr>`}</tbody></table>`,
   );
 }
 
@@ -680,7 +705,7 @@ async function adminCreate(form) {
   const amount = num(form.get("amount"));
   const offers = form.getAll("offers").filter((k) => OFFERS[k]);
   const label = String(form.get("label") ?? "").trim().slice(0, 80);
-  if (!(amount > 0) || !offers.length || !label) throw Object.assign(new Error("Quantité, intitulé et au moins un cours sont nécessaires."), { status: 400 });
+  if (!(amount > 0) || !offers.length || !label) throw Object.assign(new Error(tr("Quantité, intitulé et au moins un cours sont nécessaires.", "An amount, a label and at least one class are needed.")), { status: 400 });
   const custom = normalize(form.get("code"));
   const { key, display } = custom ? { key: custom, display: String(form.get("code")).trim().toUpperCase() } : newCode();
   const expires = String(form.get("expires_on") ?? "") || null;
@@ -689,14 +714,14 @@ async function adminCreate(form) {
      VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'studio') ON CONFLICT (key) DO NOTHING RETURNING key`,
     [key, display, label, unit, offers, amount, expires, String(form.get("holder") ?? "").trim().slice(0, 120) || null, String(form.get("note") ?? "").trim().slice(0, 200) || null],
   );
-  if (!result.rowCount) throw Object.assign(new Error("Ce code existe déjà."), { status: 409 });
+  if (!result.rowCount) throw Object.assign(new Error(tr("Ce code existe déjà.", "This code already exists.")), { status: 409 });
   return key;
 }
 
 async function adminAdjust(key, form) {
   const delta = num(form.get("delta"));
   const note = String(form.get("note") ?? "").trim().slice(0, 200);
-  if (!delta || !note) throw Object.assign(new Error("Montant et raison sont nécessaires."), { status: 400 });
+  if (!delta || !note) throw Object.assign(new Error(tr("Montant et raison sont nécessaires.", "An amount and a reason are needed.")), { status: 400 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");
@@ -704,7 +729,7 @@ async function adminAdjust(key, form) {
       "UPDATE rusc.codes SET remaining = remaining + $2 WHERE key = $1 AND remaining + $2 >= 0 RETURNING key",
       [key, delta],
     );
-    if (!updated.rowCount) throw Object.assign(new Error("Le solde ne peut pas passer sous zéro."), { status: 400 });
+    if (!updated.rowCount) throw Object.assign(new Error(tr("Le solde ne peut pas passer sous zéro.", "The balance can’t go below zero.")), { status: 400 });
     await client.query("INSERT INTO rusc.uses (key, amount, note) VALUES ($1, $2, $3)", [key, -delta, note]);
     await client.query("COMMIT");
   } catch (error) {
@@ -717,9 +742,18 @@ async function adminAdjust(key, form) {
 
 // ---------------------------------------------------------------- server
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, "http://localhost");
+// The page language: cookie rusc_lang ("en" or French by default).
+const langOf = (req) => (/(?:^|;\s*)rusc_lang=en(?:;|$)/.test(req.headers.cookie ?? "") ? "en" : "fr");
+
+async function handle(req, res, url) {
   try {
+    // FR · EN switch: remembered for a year, then back to the same page.
+    if (url.pathname === "/lang") {
+      const to = url.searchParams.get("to") === "en" ? "en" : "fr";
+      const back = String(url.searchParams.get("back") ?? "");
+      const target = /^\/(admin|login)[\w/?=&.-]*$/.test(back) ? back : "/admin/cours";
+      return send(res, 303, "", { location: target, "set-cookie": `rusc_lang=${to}; Path=/; Secure; SameSite=Lax; Max-Age=31536000` });
+    }
     if (url.pathname === "/health") return send(res, 200, { ok: true });
 
     if (url.pathname === "/stripe/webhook" && req.method === "POST") {
@@ -753,14 +787,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/login") {
-      if (!ADMIN_PASSWORD) return send(res, 503, page("Connexion", "<h1>rūsc · admin</h1><p>Pas encore de mot de passe : <code>fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD=…</code></p>"));
+      if (!ADMIN_PASSWORD) return send(res, 503, page(tr("Connexion", "Sign in"), `<h1>rūsc · admin</h1><p>${tr("Pas encore de mot de passe", "No password yet")} : <code>fly secrets set -a rusc-admin CODES_ADMIN_PASSWORD=…</code></p>`));
       const next = url.searchParams.get("next") ?? "/admin/cours";
       if (req.method !== "POST") return send(res, 200, loginPage("", next));
-      if (limited(req, 10)) return send(res, 429, loginPage("Trop d’essais : réessayez dans quelques minutes.", next));
+      if (limited(req, 10)) return send(res, 429, loginPage(tr("Trop d’essais : réessayez dans quelques minutes.", "Too many tries: please try again in a few minutes."), next));
       const form = new URLSearchParams(await readBody(req));
       const target = String(form.get("next") ?? "");
       const safeNext = /^\/admin(\/[\w/-]*)?$/.test(target) ? target : "/admin/cours";
-      if (!sameText(form.get("password") ?? "", ADMIN_PASSWORD)) return send(res, 401, loginPage("Mot de passe incorrect.", safeNext));
+      if (!sameText(form.get("password") ?? "", ADMIN_PASSWORD)) return send(res, 401, loginPage(tr("Mot de passe incorrect.", "Wrong password."), safeNext));
       return send(res, 303, "", { location: safeNext, "set-cookie": sessionCookie() });
     }
     if (url.pathname === "/logout") {
@@ -774,7 +808,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "POST") {
         // Forms only come from these pages.
         const origin = req.headers.origin;
-        if (origin && origin !== `https://${req.headers.host}`) return send(res, 403, page("Refusé", "<p>Refusé.</p>"));
+        if (origin && origin !== `https://${req.headers.host}`) return send(res, 403, page(tr("Refusé", "Refused"), `<p>${tr("Refusé.", "Refused.")}</p>`));
         const form = new URLSearchParams(await readBody(req));
         const match = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)\/(adjust|active)$/);
         if (url.pathname === "/admin/codes") {
@@ -789,7 +823,7 @@ const server = http.createServer(async (req, res) => {
           await db.query("UPDATE rusc.codes SET active = $2 WHERE key = $1", [match[1], form.get("active") === "1"]);
           return send(res, 303, "", { location: `/admin/codes/${match[1]}?saved=1` });
         }
-        return send(res, 404, page("Introuvable", "<p>Introuvable.</p>"));
+        return send(res, 404, page(tr("Introuvable", "Not found"), `<p>${tr("Introuvable.", "Not found.")}</p>`));
       }
       if (url.pathname === "/admin" || url.pathname === "/admin/") return send(res, 303, "", { location: "/admin/cours" });
       if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
@@ -797,11 +831,11 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       const code = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)$/);
       if (code) {
-        const flash = url.searchParams.has("created") ? "Code créé : donnez-le au client." : url.searchParams.has("saved") ? "Enregistré." : "";
+        const flash = url.searchParams.has("created") ? tr("Code créé : donnez-le au client.", "Code created: give it to the customer.") : url.searchParams.has("saved") ? tr("Enregistré.", "Saved.") : "";
         const html = await adminCode(code[1], flash);
-        return html ? send(res, 200, html) : send(res, 404, page("Introuvable", "<p>Code introuvable.</p>"));
+        return html ? send(res, 200, html) : send(res, 404, page(tr("Introuvable", "Not found"), `<p>${tr("Code introuvable.", "Code not found.")}</p>`));
       }
-      return send(res, 404, shell("", "Introuvable", "<p>Introuvable.</p>"));
+      return send(res, 404, shell("", tr("Introuvable", "Not found"), `<p>${tr("Introuvable.", "Not found.")}</p>`));
     }
 
     send(res, 404, { ok: false });
@@ -809,10 +843,15 @@ const server = http.createServer(async (req, res) => {
     const status = error.status ?? (error instanceof SyntaxError ? 400 : 500);
     if (status === 500) console.error(req.method, url.pathname, error);
     if (url.pathname.startsWith("/admin")) {
-      return send(res, status, page("Erreur", `<p class="off"><b>${esc(status === 500 ? "Erreur, réessayez." : error.message)}</b></p><p><a href="javascript:history.back()">← Retour</a></p>`));
+      return send(res, status, page(tr("Erreur", "Error"), `<p class="off"><b>${esc(status === 500 ? tr("Erreur, réessayez.", "Something went wrong, please try again.") : error.message)}</b></p><p><a href="javascript:history.back()">${tr("← Retour", "← Back")}</a></p>`));
     }
     send(res, status, { ok: false, reason: status === 500 ? "error" : "bad_request" }, cors(req));
   }
+}
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, "http://localhost");
+  request.run({ lang: langOf(req), path: url.pathname + url.search }, () => handle(req, res, url));
 });
 
-server.listen(PORT, "0.0.0.0", () => console.log(`rusc-codes on :${PORT}`));
+server.listen(PORT, "0.0.0.0", () => console.log(`rusc-admin on :${PORT}`));
