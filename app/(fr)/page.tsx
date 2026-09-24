@@ -11,7 +11,6 @@ import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
-import privatisation from "@/assets/photos/atelier-05.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
 import stages from "@/assets/photos/stages-o.jpg";
 import "@/styles/home.css";
@@ -19,12 +18,12 @@ import "@/styles/home.css";
 export const metadata: Metadata = {
   title: "rūsc — atelier de céramique à Chamonix · oser l'art",
   description:
-    "rūsc, atelier de céramique à Chamonix : cours, stages, privatisation, résidence d'artiste, expositions. Un lieu ouvert à tous, sans prérequis. Osez l'art.",
+    "rūsc, atelier de céramique à Chamonix : cours, stages, privatisation, résidence d'artiste. Un lieu ouvert à tous, sans prérequis. Osez l'art.",
   alternates: { canonical: "/", languages: { fr: "/", en: "/en/", "x-default": "/" } },
   openGraph: {
     type: "website",
     title: "rūsc — oser l'art",
-    description: "Atelier de céramique à Chamonix. Cours, stages, privatisation, résidence d'artiste, expositions.",
+    description: "Atelier de céramique à Chamonix. Cours, stages, privatisation, résidence d'artiste.",
     url: "/",
     locale: "fr_FR",
     alternateLocale: "en_GB",
@@ -37,7 +36,7 @@ const jsonLd = {
   ...STUDIO_JSON_LD,
   slogan: "oser l'art",
   description:
-    "Atelier de céramique à Chamonix : cours, stages, privatisation, résidence d'artiste, expositions. Osez l'art.",
+    "Atelier de céramique à Chamonix : cours, stages, privatisation, résidence d'artiste. Osez l'art.",
   url: `${SITE_URL}/`,
   inLanguage: "fr",
 };
@@ -66,18 +65,11 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
     text: "Céramique 1 et 2 jours, porcelaine, tapisserie d'ameublement.",
   },
   {
-    href: PAGES.privatisation.fr,
-    img: privatisation,
-    tag: "Sur mesure",
-    title: "privatisation",
-    text: "Team building, EVJF, anniversaires, dîners à thème. Privatisez l'atelier.",
-  },
-  {
-    href: PAGES.residence.fr,
+    href: "/contact/",
     img: residence,
-    tag: "Résidence",
-    title: "résidence d'artiste",
-    text: "Artisans, peintres, plasticiens, photographes. Une formule sur mesure, accompagnée jusqu'à l'inauguration.",
+    tag: "Sur mesure",
+    title: "résidence & privatisation",
+    text: "Résidence d'artiste, team building, EVJF, événements. Une formule adaptée à votre projet — devis sur demande.",
   },
 ];
 
@@ -126,7 +118,6 @@ export default function Home() {
             ))}
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
-            <a className="btn ghost" href={PAGES.expo.fr}>Expo</a>
             <a className="btn ghost" href={PAGES.us.fr}>Ūs</a>
           </div>
         </div>

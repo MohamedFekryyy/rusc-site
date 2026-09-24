@@ -18,7 +18,6 @@ const LABELS: Record<Lang, Record<PageKey, string>> = {
     stages: "Stages",
     privatisation: "Privatisation",
     residence: "Résidence d'artiste",
-    expo: "Expo",
     cuisson: "Cuisson",
     contact: "Contact",
   },
@@ -29,7 +28,6 @@ const LABELS: Record<Lang, Record<PageKey, string>> = {
     stages: "Intensives",
     privatisation: "Space hire",
     residence: "Artist residency",
-    expo: "Exhibitions",
     cuisson: "Firing",
     contact: "Contact",
   },
@@ -42,7 +40,6 @@ const ORDER: PageKey[] = [
   "stages",
   "privatisation",
   "residence",
-  "expo",
   "cuisson",
   "contact",
 ];

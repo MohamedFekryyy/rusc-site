@@ -11,7 +11,6 @@ import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
-import privatisation from "@/assets/photos/atelier-05.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
 import stages from "@/assets/photos/stages-o.jpg";
 import "@/styles/home.css";
@@ -19,12 +18,12 @@ import "@/styles/home.css";
 export const metadata: Metadata = {
   title: "rūsc — ceramics studio in Chamonix · dare art",
   description:
-    "rūsc, a ceramics studio in Chamonix: courses, intensives, space hire, artist residency, exhibitions. A place open to all, no prerequisites. Dare art.",
+    "rūsc, a ceramics studio in Chamonix: courses, intensives, space hire, artist residency. A place open to all, no prerequisites. Dare art.",
   alternates: { canonical: "/en/", languages: { fr: "/", en: "/en/", "x-default": "/" } },
   openGraph: {
     type: "website",
     title: "rūsc — dare art",
-    description: "Ceramics studio in Chamonix. Courses, intensives, space hire, artist residency, exhibitions.",
+    description: "Ceramics studio in Chamonix. Courses, intensives, space hire, artist residency.",
     url: "/en/",
     locale: "en_GB",
     alternateLocale: "fr_FR",
@@ -37,7 +36,7 @@ const jsonLd = {
   ...STUDIO_JSON_LD,
   slogan: "dare art",
   description:
-    "Ceramics studio in Chamonix: courses, intensives, space hire, artist residency, exhibitions. Dare art.",
+    "Ceramics studio in Chamonix: courses, intensives, space hire, artist residency. Dare art.",
   url: `${SITE_URL}/en/`,
   inLanguage: "en",
 };
@@ -46,8 +45,7 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
   { href: PAGES.membres.en, img: membre, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates.", drawing: true },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single or by card." },
   { href: PAGES.stages.en, img: stages, tag: "Immersion · 10am – 5pm", title: "intensives", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
-  { href: PAGES.privatisation.en, img: privatisation, tag: "Tailor-made", title: "space hire", text: "Team building, hen parties, birthdays, themed dinners. Hire the studio." },
-  { href: PAGES.residence.en, img: residence, tag: "Residency", title: "artist residency", text: "Craftspeople, painters, sculptors, photographers. A tailor-made programme, supported through to the opening." },
+  { href: "/en/contact/", img: residence, tag: "Tailor-made", title: "residency & space hire", text: "Artist residency, team building, hen parties, events. A programme shaped to your project — quote on request." },
 ];
 
 export default function Home() {
@@ -94,7 +92,6 @@ export default function Home() {
             ))}
           </div>
           <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
-            <a className="btn ghost" href={PAGES.expo.en}>Exhibitions</a>
             <a className="btn ghost" href={PAGES.us.en}>Ūs</a>
           </div>
         </div>
