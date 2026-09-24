@@ -74,17 +74,27 @@
   for (let i = 0; i < csv.length; i++) {
     const ch = csv[i];
     if (quoted) {
-      if (ch === '"' && csv[i + 1] === '"') (field += '"'), i++;
-      else if (ch === '"') quoted = false;
+      if (ch === '"' && csv[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ",") row.push(field), (field = "");
-    else if (ch === "\n" || ch === "\r") {
+    else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && csv[i + 1] === "\n") i++;
-      row.push(field), rows.push(row), (row = []), (field = "");
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
     } else field += ch;
   }
-  if (field || row.length) row.push(field), rows.push(row);
+  if (field || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
   const [header, ...data] = rows.filter((r) => r.length > 1);
   const col = (name) => header.indexOf(name);
   const appointments = data.map((r) => ({
