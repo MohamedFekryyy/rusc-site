@@ -920,7 +920,8 @@ async function handle(req, res, url) {
       if (limited(req, 10)) return send(res, 429, loginPage(tr("Trop d’essais : réessayez dans quelques minutes.", "Too many tries: please try again in a few minutes."), next));
       const form = new URLSearchParams(await readBody(req));
       const target = String(form.get("next") ?? "");
-      const safeNext = /^\/admin(\/[\w/-]*)?$/.test(target) ? target : "/admin/cours";
+      // Back to the page asked for, with its view (?vue=calendrier&mois=…), never elsewhere.
+      const safeNext = /^\/admin(\/[\w/-]*)?(\?[\w=&-]*)?$/.test(target) ? target : "/admin/cours";
       if (!sameText(form.get("password") ?? "", ADMIN_PASSWORD)) return send(res, 401, loginPage(tr("Mot de passe incorrect.", "Wrong password."), safeNext));
       return send(res, 303, "", { location: safeNext, "set-cookie": sessionCookie() });
     }
@@ -930,7 +931,7 @@ async function handle(req, res, url) {
     if (url.pathname === "/" ) return send(res, 303, "", { location: "/admin/cours" });
 
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      if (!signedIn(req)) return send(res, 303, "", { location: `/login?next=${encodeURIComponent(url.pathname)}` });
+      if (!signedIn(req)) return send(res, 303, "", { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
       await reconcile();
       if (req.method === "POST") {
         // Forms only come from these pages.
