@@ -17,7 +17,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
   - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
-  - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): class lists (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio), then online orders and the timetable. The booking page takes a class off a code through its API instead of sending it to the cart.
+  - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): classes as a list or a month calendar (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio) and online orders, in French or English; the timetable comes next. The booking page takes a class off a code through its API instead of sending it to the cart.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; until they're set, the cart says online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
@@ -382,3 +382,38 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - point the Stripe webhook endpoint (`we_1UIvjEBwkJn18YegcHTOBfMr`) at `https://rusc-admin.fly.dev/stripe/webhook`;
   - save its signing secret in rusc-admin (`fly secrets set -a rusc-admin STRIPE_WEBHOOK_SECRET=…`);
   - put the two keys in Vercel.
+
+### 22. rūsc admin in French and English (`30dc5471`, 2026-09-24)
+- **Owner's request:** an FR · EN switch in the admin. The links in the header (and on the sign-in page) set the cookie `rusc_lang` for a year and return to the same page, view included. French is the default.
+- **In the code:** `tr("français", "English")` picks the page's language, which `AsyncLocalStorage` carries through each request. Dates and amounts follow it (`fr-FR` / `en-GB`). Offers, presets and products have both labels. Codes bought from the English site get English labels (the order's `metadata.lang`).
+
+### 23. Acuity's codes and bookings carried over (2026-09-24)
+- **Why:** continuity is a must. Anyone holding an Acuity carnet, open-studio hours or a gift voucher must be able to use its code on the new site.
+- **How:** Acuity's API is closed on the studio's plan (403), so the data comes from its admin pages.
+  - `scripts/continuity/acuity-extract.js` runs in the Acuity admin page, signed in as the studio. It reads every code of the 10 packages and gift certificates: all the `viewCodes` pages, 15 codes each, since the edit page only shows the oldest 15. It also reads the classes each code is valid for, and the upcoming appointments from Acuity's CSV export.
+  - It sends them to rūsc admin's `POST /import/acuity`, which keeps them as received (`rusc.imports`). That route only exists while the Fly secret `IMPORT_TOKEN` is set, and only answers Acuity's admin. The secret was unset right after.
+  - `scripts/continuity/acuity-apply.sql` (`sh deploy/cal/db-run.sh scripts/continuity/acuity-apply.sql`) turns the latest import into codes and Cal places, inside the database. It prints counts only. For a dry run, change its last `COMMIT;` to `ROLLBACK;`.
+- **Conversion:**
+  - Minutes become classes (2-hour cards) or hours (open studio), rounded down to a half. Euro vouchers stay in euros, and a booking takes the class price.
+  - A code never used shows no balance in Acuity, only "Code has not been used". It gets its product's full value (the `products` table in the SQL, copied from each product's settings).
+  - A card valid for wheel throwing is valid for every 2-hour class, as the site sells them.
+  - On a re-run, a code already used in the new system keeps its balance.
+- **Applied 2026-09-24:**
+  - 237 codes read. 46 carried over (27 never used): 115.5 classes, 91 open-studio hours and one 180 € voucher.
+  - Skipped: 178 expired, 13 used up. None had an unreadable balance, and none was only valid for classes we don't run.
+  - The one upcoming Acuity booking is now a place in Cal. Cours shows how it was paid (`rusc.acuity_seats`: code, paid, or to pay).
+- **On switch day:** set `IMPORT_TOKEN`, run the extract again from Acuity, apply, then unset the token. Afterwards, delete the raw imports (`DELETE FROM rusc.imports`), which hold client details.
+- **Acuity API key:** `scripts/continuity/acuity-export.mjs` and the key in `.secrets/acuity.env` need the API, which the plan doesn't include. Reset that key after the switch. It's also in Vercel's environment (`ACUITY_USER_ID`, `ACUITY_API_KEY`), which the site doesn't use.
+
+### 24. Cours as a calendar (`3645f418`, `021771e3`, 2026-09-24)
+- **Owner's request:** a calendar view of the classes.
+- **Two views in Cours:**
+  - **List:** the coming 14 or 30 days, as before.
+  - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. A green edge means people are booked; orange means full. Past days only show classes someone was booked on. On a phone, the month becomes an agenda of the days that have classes.
+- **Day page:** a day or a class in the calendar opens `?jour=YYYY-MM-DD`, past or coming. It lists everyone booked and how each paid, with links to the previous and next day.
+- **Cal's date overrides:** the timetable now follows them. An override replaces the weekly hours that day, and 00:00–00:00 closes it. Horaires will write them.
+- **Sign-in:** it now returns to the page asked for, view included.
+- **Checked:**
+  - with sample data, at 1366 px and 375 px (no sideways scroll), in FR and EN, including the three Acuity payment cases;
+  - live: September renders (13 classes, 2 places booked), and `/import/acuity` answers 404.
+- **Stripe, where it stands:** the webhook points at rūsc admin and its signing secret is saved there, and the publishable key is in Vercel. Only `STRIPE_SECRET_KEY` is missing from Vercel; the owner has it. After it's saved, redeploy production so the cart opens payment.
