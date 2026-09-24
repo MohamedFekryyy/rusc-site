@@ -8,6 +8,9 @@ CREATE SCHEMA IF NOT EXISTS rusc AUTHORIZATION rusc_codes;
 -- Cal's tables it reads to check a booking; it never writes them.
 GRANT USAGE ON SCHEMA public TO rusc_codes;
 GRANT SELECT ON public."Booking", public."BookingSeat", public."EventType", public."Attendee", public."Availability" TO rusc_codes;
+-- Horaires (the timetable page) edits the classes' hours: Cal's Availability rows.
+GRANT INSERT, UPDATE, DELETE ON public."Availability" TO rusc_codes;
+GRANT USAGE, SELECT ON SEQUENCE public."Availability_id_seq" TO rusc_codes;
 
 SET ROLE rusc_codes;
 
@@ -99,3 +102,87 @@ CREATE TABLE IF NOT EXISTS rusc.acuity_seats (
 ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.orders (id);
 
 RESET ROLE;
+
+-- ---------------------------------------------------------------- history from Acuity
+-- Everything the studio had in Acuity, so nothing is lost at the switch
+-- (scripts/continuity/acuity-history.mjs and acuity-history.sql).
+
+-- The studio's clients: Acuity's client list, then everyone who books, buys
+-- or opens an account (reconcile() adds new e-mails every few minutes).
+CREATE TABLE IF NOT EXISTS rusc.clients (
+  id bigserial PRIMARY KEY,
+  email text,
+  first_name text,
+  last_name text,
+  phone text,
+  notes text,                          -- the studio's notes, from Acuity
+  source text NOT NULL DEFAULT 'acuity', -- acuity, cal, online, account
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS clients_email ON rusc.clients (lower(email)) WHERE email IS NOT NULL;
+
+-- Acuity's appointments, as exported. Upcoming ones at the switch are also
+-- Cal places (rusc.acuity_seats); the admin shows these for past days only.
+CREATE TABLE IF NOT EXISTS rusc.history (
+  acuity_id text PRIMARY KEY,
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz,
+  type text NOT NULL,                  -- Acuity's appointment type
+  offer text,                          -- our offer key (lib/cal.ts), when there's one
+  first_name text,
+  last_name text,
+  email text,
+  phone text,
+  price numeric,
+  paid boolean,
+  amount_paid numeric,
+  certificate text,                    -- the code it was paid with
+  notes text,
+  label text,
+  scheduled_by text,
+  scheduled_on date,
+  rescheduled_on date,
+  canceled boolean NOT NULL DEFAULT false,
+  canceled_on date
+);
+CREATE INDEX IF NOT EXISTS history_starts ON rusc.history (starts_at);
+CREATE INDEX IF NOT EXISTS history_email ON rusc.history (lower(email));
+
+-- Acuity's orders (packages and gift certificates bought online).
+CREATE TABLE IF NOT EXISTS rusc.acuity_orders (
+  id text PRIMARY KEY,                 -- md5 of the row: the export has no order number
+  ordered_at timestamp NOT NULL,       -- Paris time, as exported
+  first_name text,
+  last_name text,
+  email text,
+  phone text,
+  total numeric,
+  status text,
+  notes text,
+  products text
+);
+CREATE INDEX IF NOT EXISTS acuity_orders_email ON rusc.acuity_orders (lower(email));
+
+-- ---------------------------------------------------------------- member accounts
+-- The site's Connexion page (/connexion/, /en/login/): accounts and their
+-- sign-in tokens. Passwords are only kept as scrypt hashes, tokens as SHA-256.
+CREATE TABLE IF NOT EXISTS rusc.accounts (
+  id bigserial PRIMARY KEY,
+  email text NOT NULL,
+  name text NOT NULL,
+  password text NOT NULL,              -- scrypt$<salt>$<hash>
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_login_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_email ON rusc.accounts (lower(email));
+
+CREATE TABLE IF NOT EXISTS rusc.account_tokens (
+  hash text PRIMARY KEY,               -- SHA-256 of the token
+  account_id bigint NOT NULL REFERENCES rusc.accounts (id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('session', 'reset')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+
+-- A code a member added to their account (shown in their space).
+ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS account_id bigint REFERENCES rusc.accounts (id) ON DELETE SET NULL;

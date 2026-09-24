@@ -70,7 +70,42 @@ const codes = [
   { ...code, key: "RUSCZZZZYYYY", display: "RUSC-ZZZZ-YYYY", label: "Bon cadeau · 1 cours 2h", remaining: "1", initial: "1", holder: "Personne 3", source: "online", active: false, bookings: "0" },
 ];
 
+// Acuity's history (before the switch), clients, orders; the timetable as
+// Horaires reads it.
+const history = [
+  { acuity_id: "h1", starts_at: at(day(-2), "18:00"), offer: "atelier-ceramique-2h", type: "atelier céramique 2 H", name: "Personne 13", email: "personne13@example.invalid", phone: null, paid: false, amount_paid: "0", certificate: "ABCD1234", canceled: false },
+  { acuity_id: "h2", starts_at: at(day(-2), "18:00"), offer: "atelier-ceramique-2h", type: "atelier céramique 2 H", name: "Personne 14", email: "personne14@example.invalid", phone: null, paid: true, amount_paid: "50", certificate: null, canceled: false },
+  { acuity_id: "h3", starts_at: at(day(-5), "10:00"), offer: null, type: "Stage raku (ancien)", name: "Personne 15", email: "personne15@example.invalid", phone: null, paid: false, amount_paid: "0", certificate: null, canceled: false },
+];
+const clients = [1, 2, 3, 13, 14, 15].map((i) => ({ id: i, email: `personne${i}@example.invalid`, first_name: "Personne", last_name: String(i), phone: i === 3 ? "+33 6 12 34 56 78" : null, notes: i === 13 ? "Préfère le tour 3. Allergique au latex." : null, source: i > 12 ? "acuity" : "cal", visits: String(i % 5), last_visit: at(day(-i), "18:00"), member_until: i === 1 ? day(200) : null }));
+const acuityOrders = [{ id: "o1", ordered: at(day(-40), "12:00"), first_name: "Personne", last_name: "13", email: "personne13@example.invalid", total: "210", status: "Paid", products: "Carnet 5 x 2H", client_id: 13 }];
+const classes = [
+  { id: 11, slug: "atelier-ceramique-2h", title: "tournage 2h", length: 120, seats: 7, schedule_id: 1 },
+  { id: 12, slug: "atelier-libre-1h", title: "atelier libre 1h", length: 60, seats: 7, schedule_id: 2 },
+  { id: 13, slug: "pot-and-wine", title: "pot & wine", length: 150, seats: 8, schedule_id: 3 },
+];
+const availability = [
+  { id: 101, schedule_id: 1, days: [1], date: null, start: "16:00:00", end: "18:00:00" },
+  { id: 102, schedule_id: 1, days: [2], date: null, start: "18:30:00", end: "20:30:00" },
+  { id: 103, schedule_id: 1, days: [], date: day(12), start: "00:00:00", end: "00:00:00" },
+  { id: 104, schedule_id: 2, days: [2], date: null, start: "09:00:00", end: "14:00:00" },
+  { id: 105, schedule_id: 3, days: [], date: day(9), start: "18:00:00", end: "20:30:00" },
+  { id: 106, schedule_id: 3, days: [], date: day(-30), start: "18:00:00", end: "20:30:00" },
+];
+
 globalThis.__sample = (sql, params = []) => {
+  if (sql.includes("FROM rusc.history h") && sql.includes("rusc.acuity_seats")) return { rows: history.filter((h) => parisDay(h.starts_at) >= params[0] && parisDay(h.starts_at) < params[1]) };
+  if (sql.includes("SELECT * FROM rusc.history")) return { rows: history.filter((h) => h.email === params[0]) };
+  if (sql.includes("SELECT count(*) FROM rusc.clients")) return { rows: [{ count: String(clients.length) }] };
+  if (sql.includes("FROM rusc.clients c LEFT JOIN rusc.members")) return { rows: clients };
+  if (sql.includes("SELECT * FROM rusc.clients WHERE id")) return { rows: clients.filter((c) => String(c.id) === String(params[0])) };
+  if (sql.includes("FROM rusc.acuity_orders o LEFT JOIN")) return { rows: acuityOrders };
+  if (sql.includes("FROM rusc.acuity_orders WHERE")) return { rows: acuityOrders.filter((o) => o.email === params[0]) };
+  if (sql.includes("FROM rusc.members WHERE")) return { rows: params[0] === "personne1@example.invalid" ? [{ since: day(-165), until: day(200) }] : [] };
+  if (sql.includes("FROM rusc.accounts WHERE lower(email)")) return { rows: params[0] === "personne3@example.invalid" ? [{ id: 7, name: "Personne 3", created_at: new Date(), last_login_at: new Date() }] : [] };
+  if (sql.includes('e."scheduleId" IS NOT NULL ORDER BY e.id')) return { rows: classes };
+  if (sql.includes('FROM public."Availability" v WHERE')) return { rows: availability };
+  if (sql.includes("FROM public.\"Attendee\" a JOIN public.\"Booking\" b") && sql.includes("lower(a.email) = $1")) return { rows: bookings.filter((b) => b.email === params[0]).map((b) => ({ starts: b.starts, status: "accepted", slug: b.slug, title: b.title, code: b.code, paid_order: b.paid_order })) };
   if (sql.includes('FROM public."Booking" b')) return { rows: bookings.filter((b) => parisDay(b.starts) >= params[0] && parisDay(b.starts) < params[1]) };
   if (sql.includes('JOIN public."Availability"')) return { rows: timetable };
   if (sql.includes("FROM rusc.codes c")) return { rows: codes };

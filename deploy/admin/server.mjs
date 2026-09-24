@@ -6,20 +6,26 @@
 //                  list of the coming days, a month calendar, or one day
 //   /admin/codes   carnets, gift vouchers and codes the studio issues itself (a
 //                  carnet paid in cash at the studio…): create, adjust, pause
-//   /admin/commandes  online orders; carnets and vouchers bought get their code
+//   /admin/clients everyone the studio knows (Acuity's list and history, then
+//                  bookings, orders, accounts): contact, notes, visits, codes
+//   /admin/commandes  online orders (carnets and vouchers bought get their
+//                  code), then Acuity's orders
+//   /admin/horaires   the classes' hours in Cal: weekly slots, dates, closed days
 // Stripe calls POST /stripe/webhook (checkout.session.completed), checked with
 // the endpoint's signing secret STRIPE_WEBHOOK_SECRET.
 // Public API, called by the booking page (components/BookingEmbed.tsx):
 //   POST /api/check   {code, offer}    what's left, and whether it covers that class
 //   POST /api/redeem  {code, seatUid}  takes the class just booked in Cal off the code
 //   GET  /api/order?id=cs_…            the codes an online order created (thank-you screen)
+//   /api/auth/…  the site's member accounts (signup, login, logout, session,
+//                account, codes, reset), with a Bearer token
 //
 // Data: schema "rusc" of the Cal.diy database (schema.sql). Cal's own tables
 // are only read (bookings, seats, event types, attendees), never written.
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import http from "node:http";
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import pg from "pg";
 
@@ -163,8 +169,8 @@ function send(res, status, body, headers = {}) {
 
 // A few requests per visitor per window: codes can't be guessed by trying.
 const hits = new Map();
-function limited(req, max) {
-  const ip = req.headers["fly-client-ip"] ?? req.socket.remoteAddress ?? "?";
+function limited(req, max, bucket = "") {
+  const ip = bucket + (req.headers["fly-client-ip"] ?? req.socket.remoteAddress ?? "?");
   const now = Date.now();
   if (hits.size > 5000) hits.clear();
   const entry = hits.get(ip);
@@ -182,6 +188,19 @@ let lastReconcile = 0;
 async function reconcile() {
   if (Date.now() - lastReconcile < 5 * 60_000) return;
   lastReconcile = Date.now();
+  // Everyone who books in Cal, buys online or opens an account joins the
+  // clients (Acuity's list came in with its history).
+  await db.query(
+    `INSERT INTO rusc.clients (email, first_name, phone, source)
+     SELECT DISTINCT ON (lower(email)) lower(email), name, phone, source FROM (
+       SELECT a.email, a.name, a."phoneNumber" AS phone, 'cal' AS source, 1 AS rank FROM public."Attendee" a
+       UNION ALL SELECT o.email, o.name, NULL, 'online', 2 FROM rusc.orders o
+       UNION ALL SELECT ac.email, ac.name, NULL, 'account', 3 FROM rusc.accounts ac
+     ) x
+     WHERE email ~ '@' AND email NOT LIKE '%@clients.studio-rusc.com'
+     ORDER BY lower(email), rank
+     ON CONFLICT (lower(email)) WHERE email IS NOT NULL DO NOTHING`,
+  ).catch((e) => console.error("clients", e.message));
   const { rows } = await db.query(`
     SELECT u.id FROM rusc.uses u
     WHERE u.cancelled_at IS NULL AND u.amount > 0 AND u.seat_uid IS NOT NULL
@@ -214,7 +233,7 @@ async function reconcile() {
 function cors(req) {
   const origin = req.headers.origin;
   return origin && ORIGINS.has(origin)
-    ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET, POST, OPTIONS", vary: "origin" }
+    ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type, authorization", "access-control-allow-methods": "GET, POST, OPTIONS", vary: "origin" }
     : {};
 }
 
@@ -302,6 +321,8 @@ const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 // while the Fly secret IMPORT_TOKEN is set, and only from Acuity's admin.
 const IMPORT_TOKEN = process.env.IMPORT_TOKEN ?? "";
 const IMPORT_ORIGIN = "https://secure.acuityscheduling.com";
+// The public site, for the password links the studio sends to members.
+const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://rusc-preview.vercel.app";
 
 // Stripe's signature: header "t=<time>,v1=<hex>…", HMAC-SHA256 of "<t>.<body>".
 function stripeEvent(body, header) {
@@ -432,8 +453,9 @@ const STYLE = `
   .code{font:600 26px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;background:#fff;border:1px solid var(--line);padding:14px 18px;display:inline-block}
   .off{color:var(--warn)}.pill{font-size:12px;border:1px solid var(--line);padding:1px 8px;border-radius:99px;white-space:nowrap}
   .search{display:flex;gap:8px;margin:0 0 12px}.search input{flex:1}
-  header.top{display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding:0 0 18px;margin:0 0 22px;border-bottom:1px solid var(--line)}
-  header.top nav{display:flex;gap:16px;flex:1;flex-wrap:wrap}header.top nav a{text-decoration:none}header.top nav a[aria-current]{font-weight:600;text-decoration:underline}
+  header.top{display:grid;grid-template-columns:1fr auto 1fr;gap:12px 18px;align-items:center;padding:0 0 18px;margin:0 0 22px;border-bottom:1px solid var(--line)}
+  header.top .brand{justify-self:start}header.top .right{justify-self:end;display:flex;gap:14px;align-items:center}
+  header.top nav{display:flex;gap:6px 18px;flex-wrap:wrap;justify-content:center}header.top nav a{text-decoration:none}header.top nav a[aria-current]{font-weight:600;text-decoration:underline}
   .soon{color:var(--muted);opacity:.6}.login{max-width:360px;margin:12vh auto 0}.login form.box{grid-template-columns:1fr}
   .session{background:#fff;border:1px solid var(--line);padding:12px 14px;margin:0 0 12px}.session .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
   .session table td{font-size:14px}.ok{color:var(--accent)}.day{margin:28px 0 10px}.day::first-letter{text-transform:uppercase}
@@ -445,7 +467,8 @@ const STYLE = `
   .field{position:relative;flex:1;display:flex}.field .i{position:absolute;left:10px;top:50%;margin-top:-8px;color:var(--muted);pointer-events:none}.field input{flex:1;padding-left:32px}
   .brand{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}.brand .logo{display:block}.brand span{color:var(--muted);font-weight:500}
   h1.brand{margin:0 0 10px}h1.brand span{font-size:22px}
-  @media (max-width:700px){header.top{gap:12px 16px}header.top nav{order:3;flex-basis:100%}header.top .lang{margin-left:auto}}
+  @media (max-width:700px){header.top{grid-template-columns:1fr auto}header.top nav{grid-column:1/-1;grid-row:2}}
+  button.small{padding:4px 10px;font-size:13px}.linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{background:#fff;border:1px solid var(--line);padding:6px 8px;font-size:13px;word-break:break-all}
   .flash{display:flex;gap:8px;align-items:center;color:var(--accent);font-weight:600}
   .session:target{box-shadow:0 0 0 2px var(--accent)}.cap::first-letter{text-transform:uppercase}.small{font-size:13px}
   nav.tabs{display:flex;gap:6px;margin:12px 0 18px}nav.tabs a{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border:1px solid var(--line);background:#fff;text-decoration:none}nav.tabs a[aria-current]{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -505,8 +528,8 @@ function langSwitch() {
 }
 
 // Every studio page: the same header and menu. SOON items are next.
-const MENU = [["cours", "Cours", "Classes"], ["codes", "Codes", "Codes"], ["commandes", "Commandes", "Orders"], ["horaires", "Horaires", "Timetable"]];
-const SOON = new Set(["horaires"]);
+const MENU = [["cours", "Cours", "Classes"], ["clients", "Clients", "Clients"], ["codes", "Codes", "Codes"], ["commandes", "Commandes", "Orders"], ["horaires", "Horaires", "Timetable"]];
+const SOON = new Set(); // menu items not ready yet: shown greyed out
 function shell(active, title, body) {
   const menu = MENU.map(([key, fr, en]) =>
     SOON.has(key)
@@ -515,7 +538,7 @@ function shell(active, title, body) {
   ).join("");
   return page(
     title,
-    `<header class="top"><a class="brand" href="/admin/cours">${brand(18)}</a><nav>${menu}</nav><span class="muted lang">${langSwitch()}</span><a class="muted" href="/logout">${tr("Déconnexion", "Sign out")}</a></header>${body}`,
+    `<header class="top"><a class="brand" href="/admin/cours">${brand(18)}</a><nav>${menu}</nav><div class="right"><span class="muted lang">${langSwitch()}</span><a class="muted" href="/logout">${tr("Déconnexion", "Sign out")}</a></div></header>${body}`,
   );
 }
 
@@ -602,7 +625,29 @@ async function loadSessions(from, to) {
     at(day, time, row.slug, row.title, row.seats).people.push(row);
   }
 
+  // Before the switch: Acuity's appointments (rusc.history), for times already
+  // past, except those copied into Cal (rusc.acuity_seats). Types we don't run
+  // any more keep their Acuity name.
   const now = parisParts(new Date());
+  if (from <= now.day) {
+    const history = await db.query(
+      `SELECT h.acuity_id, h.starts_at, h.offer, h.type, trim(concat_ws(' ', h.first_name, h.last_name)) AS name,
+              h.email, h.phone, h.paid, h.amount_paid, h.certificate
+         FROM rusc.history h
+        WHERE NOT h.canceled AND h.starts_at < now()
+          AND h.starts_at >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
+          AND h.starts_at < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
+          AND NOT EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.acuity_id = h.acuity_id)
+        ORDER BY h.starts_at, 5`,
+      [from, to],
+    );
+    for (const row of history.rows) {
+      const { day, time } = parisParts(new Date(row.starts_at));
+      const seats = row.offer ? (timetable.get(row.offer)?.[0]?.seats ?? null) : null;
+      at(day, time, row.offer ?? `acuity:${row.type}`, row.type, seats).people.push({ ...row, history: true });
+    }
+  }
+
   const byDay = new Map();
   for (const session of [...sessions.values()].sort((a, b) => `${a.day} ${a.time}`.localeCompare(`${b.day} ${b.time}`) || a.title.localeCompare(b.title))) {
     if (!session.people.length && (session.day < now.day || (session.day === now.day && session.time < now.time))) continue;
@@ -614,6 +659,12 @@ async function loadSessions(from, to) {
 
 // How one person paid for their place.
 function payment(p) {
+  if (p.history) {
+    // An appointment from Acuity's history: a code, paid online, or neither.
+    if (p.certificate) return `<span class="st ok">${icon("ticket")}<span>Code ${esc(p.certificate)} · Acuity</span></span>`;
+    if (p.paid) return `<span class="st ok">${icon("check-circle")}<span>${tr("Payé sur Acuity", "Paid on Acuity")}${num(p.amount_paid) > 0 ? ` (${esc(fmtAmount("euros", num(p.amount_paid)))})` : ""}</span></span>`;
+    return `<span class="st muted">${tr("Acuity · réglé à l’atelier ou non renseigné", "Acuity · paid at the studio or not recorded")}</span>`;
+  }
   if (p.code) return `<span class="st ok">${icon("ticket")}<span>Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span></span>`;
   if (p.paid_order) return `<a class="st ok" href="/admin/commandes#${esc(p.paid_order)}">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</a>`;
   if (p.acuity_pay) {
@@ -644,11 +695,15 @@ const people = (list) =>
         .join("")}</tbody></table>`
     : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
 
+// A class's name: ours, or Acuity's for a type we don't run any more.
+const sessionLabel = (s) => (OFFERS[s.slug] ? offerLabel(s.slug) : s.title);
+const placesTaken = (s) => (s.seats ? `${s.people.length}/${s.seats}` : `${s.people.length}`);
+
 // One class, with its people; the calendar links to it by its id.
-const sessionId = (s) => `c${s.time.replace(":", "")}-${s.slug}`;
+const sessionId = (s) => `c${s.time.replace(":", "")}-${s.slug.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()}`;
 const sessionBox = (s) =>
-  `<div class="session" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(offerLabel(s.slug))}</b>
-     <span class="pill">${s.people.length} / ${s.seats ?? "?"} ${tr("places", "places")}</span></div>${people(s.people)}</div>`;
+  `<div class="session" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(sessionLabel(s))}</b>
+     <span class="pill">${s.seats ? `${s.people.length} / ${s.seats} ${tr("places", "places")}` : `${s.people.length} ${tr("inscrits", "booked")}`}</span></div>${people(s.people)}</div>`;
 
 // List · Calendar, at the top of Cours.
 function coursTabs(active) {
@@ -697,7 +752,7 @@ async function coursCalendar(month) {
   const chip = (s) => {
     const taken = s.people.length;
     const state = s.seats && taken >= s.seats ? " full" : taken ? " some" : "";
-    return `<a class="chip${state}" href="?jour=${s.day}#${esc(sessionId(s))}" title="${esc(`${s.time} · ${offerLabel(s.slug)} · ${taken} / ${s.seats ?? "?"}`)}"><span>${esc(s.time)}</span><span class="l">${esc(offerLabel(s.slug).replace(/ [12]h$/, ""))}</span><b>${taken}/${s.seats ?? "?"}</b></a>`;
+    return `<a class="chip${state}" href="?jour=${s.day}#${esc(sessionId(s))}" title="${esc(`${s.time} · ${sessionLabel(s)} · ${placesTaken(s)}`)}"><span>${esc(s.time)}</span><span class="l">${esc(sessionLabel(s).replace(/ [12] ?h$/i, ""))}</span><b>${placesTaken(s)}</b></a>`;
   };
   const cells = [];
   for (let day = from; day < to; day = addDays(day, 1)) {
@@ -729,6 +784,332 @@ async function coursDay(day) {
     `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}
      <div class="calnav"><a class="ibtn" href="?jour=${addDays(day, -1)}" title="${tr("Veille", "Previous day")}">${icon("chevron-left", tr("Veille", "Previous day"))}</a><a class="ibtn" href="?jour=${addDays(day, 1)}" title="${tr("Lendemain", "Next day")}">${icon("chevron-right", tr("Lendemain", "Next day"))}</a><a href="?vue=calendrier&mois=${day.slice(0, 7)}">${tr("Tout le mois", "The whole month")}</a></div>
      ${list.length ? list.map(sessionBox).join("") : `<p class="muted">${tr("Aucun cours ce jour-là.", "No classes that day.")}</p>`}`,
+  );
+}
+
+// ---------------------------------------------------------------- Horaires
+// The classes' hours: Cal's Availability rows of each class's schedule (one
+// schedule per class, deploy/cal/seed-classes.mjs). Weekly rows have days
+// (0 = Sunday); dated rows are one-off sessions (stages); a dated row from
+// 00:00 to 00:00 closes that class that day, as Cal's date overrides do.
+// Bookings already made are never touched.
+
+const weekdayName = (d) => new Intl.DateTimeFormat(LOCALE(), { weekday: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 0, 4 + d, 12))); // 4 Jan 2026 is a Sunday
+const hhmm = (t) => String(t ?? "").slice(0, 5);
+const toMinutes = (t) => {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(t ?? "").trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const fromMinutes = (n) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+const refused = (fr, en) => Object.assign(new Error(tr(fr, en)), { status: 400 });
+
+async function horairesClasses() {
+  const classes = await db.query(
+    `SELECT e.id, e.slug, e.title, e.length, e."seatsPerTimeSlot" AS seats, e."scheduleId" AS schedule_id
+       FROM public."EventType" e WHERE e."seatsPerTimeSlot" IS NOT NULL AND e."scheduleId" IS NOT NULL ORDER BY e.id`,
+  );
+  const rows = await db.query(
+    `SELECT v.id, v."scheduleId" AS schedule_id, v.days, v.date::text AS date, v."startTime"::text AS start, v."endTime"::text AS "end"
+       FROM public."Availability" v WHERE v."scheduleId" = ANY($1::int[]) ORDER BY v.date NULLS FIRST, v."startTime"`,
+    [classes.rows.map((c) => c.schedule_id)],
+  );
+  return classes.rows.map((c) => ({ ...c, rows: rows.rows.filter((r) => r.schedule_id === c.schedule_id) }));
+}
+
+async function horairesPage(url) {
+  const classes = await horairesClasses();
+  const today = parisToday();
+  const flash = url.searchParams.has("saved")
+    ? tr("Enregistré. Le calendrier de réservation suit tout de suite.", "Saved. The booking calendar follows right away.")
+    : url.searchParams.has("closed")
+      ? tr(`${Number(url.searchParams.get("closed")) || 0} jour(s)-cours fermés.`, `${Number(url.searchParams.get("closed")) || 0} class-day(s) closed.`) +
+        (Number(url.searchParams.get("skipped")) ? ` ${tr(`${Number(url.searchParams.get("skipped"))} déjà occupés par une date, laissés tels quels.`, `${Number(url.searchParams.get("skipped"))} already had a date, left as they were.`)}` : "")
+      : "";
+  const removeButton = (id, label) =>
+    `<form method="post" action="/admin/horaires/remove" style="display:inline"><input type="hidden" name="id" value="${id}"><button class="plain small" type="submit">${label}</button></form>`;
+  const dayOptions = [1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}">${esc(weekdayName(d))}</option>`).join("");
+  const blocks = classes
+    .map((c) => {
+      const weekly = c.rows.filter((r) => !r.date).sort((a, b) => ((a.days[0] + 6) % 7) - ((b.days[0] + 6) % 7) || a.start.localeCompare(b.start));
+      const dated = c.rows.filter((r) => r.date && r.date >= today && r.start !== r.end);
+      const closed = c.rows.filter((r) => r.date && r.date >= today && r.start === r.end);
+      const past = c.rows.filter((r) => r.date && r.date < today).length;
+      const line = (label, action) => `<tr><td>${label}</td><td style="text-align:right">${action}</td></tr>`;
+      const lines = [
+        ...weekly.map((r) => line(`${esc(r.days.map(weekdayName).join(", "))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove")))),
+        ...dated.map((r) => line(`${esc(fmtDate(r.date))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove")))),
+        ...closed.map((r) => line(`<span class="off">${tr("Fermé le", "Closed on")} ${esc(fmtDate(r.date))}</span>`, removeButton(r.id, tr("Rouvrir", "Reopen")))),
+      ].join("");
+      const openStudio = c.slug === "atelier-libre-1h";
+      const endField = `<label>${tr("Fin", "End")}<input name="end" type="time" step="1800" ${openStudio ? "required" : `placeholder="${tr("auto", "auto")}"`}></label>`;
+      return `<div class="session" id="${esc(c.slug)}"><div class="head"><b>${esc(OFFERS[c.slug] ? offerLabel(c.slug) : c.title)}</b>
+          <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}</span></div>
+        ${lines ? `<table><tbody>${lines}</tbody></table>` : `<p class="muted" style="margin:0">${tr("Aucun horaire.", "No hours.")}</p>`}
+        ${past ? `<p class="muted small">${tr(`${past} date(s) passée(s) masquée(s).`, `${past} past date(s) hidden.`)}</p>` : ""}
+        <form class="box" method="post" action="/admin/horaires/add" style="margin-top:10px">
+          <input type="hidden" name="class" value="${c.id}">
+          <label>${tr("Chaque semaine le", "Every week on")}<select name="day"><option value="">—</option>${dayOptions}</select></label>
+          <label>${tr("ou une date", "or one date")}<input name="date" type="date" min="${today}"></label>
+          <label>${tr("Début", "Start")}<input name="start" type="time" step="1800" required></label>
+          ${endField}
+          <div><button type="submit">${tr("Ajouter", "Add")}</button></div>
+        </form>
+        ${openStudio ? `<p class="muted small">${tr("Atelier libre : une plage de début à fin, découpée en créneaux d’une heure.", "Open studio: a span from start to end, cut into one-hour slots.")}</p>` : `<p class="muted small">${tr(`Sans fin, le cours dure ${c.length} min.`, `Without an end, the class lasts ${c.length} min.`)}</p>`}
+      </div>`;
+    })
+    .join("");
+  const classBoxes = classes
+    .map((c) => `<label><input type="checkbox" name="classes" value="${c.id}"${c.rows.some((r) => !r.date) ? " checked" : ""}> ${esc(OFFERS[c.slug] ? offerLabel(c.slug) : c.title)}</label>`)
+    .join("");
+  return shell(
+    "horaires",
+    tr("Horaires", "Timetable"),
+    `<h1>${tr("Horaires", "Timetable")}</h1>
+     <p class="muted">${tr("Les horaires des cours, tels que Cal les propose à la réservation. Les réservations déjà faites ne bougent pas.", "The classes’ hours, as Cal offers them for booking. Bookings already made don’t move.")}</p>
+     ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
+     <h2>${tr("Fermer des jours (vacances, jours fériés)", "Close days (holidays)")}</h2>
+     <form class="box" method="post" action="/admin/horaires/close">
+       <label>${tr("Du", "From")}<input name="from" type="date" min="${today}" required></label>
+       <label>${tr("Au (inclus)", "To (included)")}<input name="to" type="date" min="${today}"></label>
+       <fieldset><legend>${tr("Cours fermés", "Classes closed")}</legend>${classBoxes}</fieldset>
+       <div><button type="submit">${tr("Fermer", "Close")}</button></div>
+     </form>
+     <h2>${tr("Par cours", "By class")}</h2>${blocks}`,
+  );
+}
+
+async function horairesAdd(form) {
+  const cls = (await horairesClasses()).find((c) => String(c.id) === String(form.get("class")));
+  if (!cls) throw refused("Cours inconnu.", "Unknown class.");
+  const day = form.get("day");
+  const date = String(form.get("date") ?? "");
+  const start = toMinutes(form.get("start"));
+  if (start === null) throw refused("Heure de début invalide.", "Invalid start time.");
+  const end = form.get("end") ? toMinutes(form.get("end")) : start + cls.length;
+  if (end === null || end <= start || end > 23 * 60 + 59) throw refused("Heure de fin invalide (après le début, avant minuit).", "Invalid end time (after the start, before midnight).");
+  if (end - start < cls.length) throw refused(`La plage doit durer au moins ${cls.length} min.`, `The span must last at least ${cls.length} min.`);
+  if (isDay(date)) {
+    if (date < parisToday()) throw refused("Cette date est passée.", "That date is past.");
+    // A dated row replaces the weekly hours that day: drop a closure first.
+    await db.query(`DELETE FROM public."Availability" WHERE "scheduleId" = $1 AND date = $2::date AND "startTime" = "endTime"`, [cls.schedule_id, date]);
+    await db.query(`INSERT INTO public."Availability" ("scheduleId", days, date, "startTime", "endTime") VALUES ($1, ARRAY[]::int[], $2::date, $3::time, $4::time)`, [cls.schedule_id, date, fromMinutes(start), fromMinutes(end)]);
+  } else if (/^[0-6]$/.test(String(day ?? ""))) {
+    await db.query(`INSERT INTO public."Availability" ("scheduleId", days, "startTime", "endTime") VALUES ($1, ARRAY[$2::int], $3::time, $4::time)`, [cls.schedule_id, Number(day), fromMinutes(start), fromMinutes(end)]);
+  } else {
+    throw refused("Choisissez un jour de la semaine ou une date.", "Pick a weekday or a date.");
+  }
+  return cls.slug;
+}
+
+async function horairesRemove(form) {
+  const classes = await horairesClasses();
+  const row = classes.flatMap((c) => c.rows.map((r) => ({ ...r, slug: c.slug }))).find((r) => String(r.id) === String(form.get("id")));
+  if (!row) throw refused("Horaire introuvable.", "Hours not found.");
+  await db.query(`DELETE FROM public."Availability" WHERE id = $1`, [row.id]);
+  return row.slug;
+}
+
+async function horairesClose(form) {
+  const from = String(form.get("from") ?? "");
+  const to = String(form.get("to") || from);
+  if (!isDay(from) || !isDay(to) || to < from) throw refused("Dates invalides.", "Invalid dates.");
+  if (from < parisToday()) throw refused("Ces dates sont passées.", "Those dates are past.");
+  if (addDays(from, 92) < to) throw refused("Trois mois au plus à la fois.", "Three months at most at a time.");
+  const chosen = new Set(form.getAll("classes").map(String));
+  const classes = (await horairesClasses()).filter((c) => chosen.has(String(c.id)));
+  if (!classes.length) throw refused("Choisissez au moins un cours.", "Pick at least one class.");
+  let closed = 0;
+  let skipped = 0;
+  for (let day = from; day <= to; day = addDays(day, 1)) {
+    for (const c of classes) {
+      if (c.rows.some((r) => r.date === day)) {
+        skipped += c.rows.some((r) => r.date === day && r.start !== r.end) ? 1 : 0;
+        continue;
+      }
+      await db.query(`INSERT INTO public."Availability" ("scheduleId", days, date, "startTime", "endTime") VALUES ($1, ARRAY[]::int[], $2::date, '00:00', '00:00')`, [c.schedule_id, day]);
+      closed += 1;
+    }
+  }
+  return { closed, skipped };
+}
+
+// ---------------------------------------------------------------- member accounts
+// The site's Connexion page (lib/auth.ts): sign up, sign in, the member's
+// space (membership, codes, bookings). Passwords are kept as scrypt hashes,
+// tokens as SHA-256; a token travels as "Authorization: Bearer …".
+
+const scryptKey = (password, salt) =>
+  new Promise((resolve, reject) => scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (error, key) => (error ? reject(error) : resolve(key))));
+async function hashPassword(password) {
+  const salt = randomBytes(16);
+  return `scrypt$${salt.toString("base64")}$${(await scryptKey(password, salt)).toString("base64")}`;
+}
+async function passwordMatches(password, stored) {
+  const [kind, salt, hash] = String(stored ?? "").split("$");
+  if (kind !== "scrypt" || !salt || !hash) return false;
+  const key = await scryptKey(password, Buffer.from(salt, "base64"));
+  const expected = Buffer.from(hash, "base64");
+  return key.length === expected.length && timingSafeEqual(key, expected);
+}
+const tokenHash = (token) => createHash("sha256").update(String(token)).digest("hex");
+async function newToken(accountId, kind, days) {
+  const token = randomBytes(32).toString("base64url");
+  await db.query(
+    "INSERT INTO rusc.account_tokens (hash, account_id, kind, expires_at) VALUES ($1, $2, $3, now() + $4 * interval '1 day')",
+    [tokenHash(token), accountId, kind, days],
+  );
+  return token;
+}
+async function signedInAccount(req) {
+  const token = String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token || token.length > 100) return null;
+  const { rows } = await db.query(
+    `SELECT a.*, t.hash FROM rusc.account_tokens t JOIN rusc.accounts a ON a.id = t.account_id
+      WHERE t.hash = $1 AND t.kind = 'session' AND t.expires_at > now()`,
+    [tokenHash(token)],
+  );
+  return rows[0] ?? null;
+}
+async function publicUser(account) {
+  const member = await db.query(
+    "SELECT 1 FROM rusc.members WHERE lower(email) = lower($1) AND until >= (now() AT TIME ZONE 'Europe/Paris')::date",
+    [account.email],
+  );
+  return { id: String(account.id), name: account.name, email: account.email, member: member.rowCount > 0 };
+}
+
+// The member's space: membership, codes (added to the account, or in their
+// name), coming bookings and past visits (Cal and Acuity's history).
+async function accountData(account) {
+  const email = account.email.toLowerCase();
+  const [member, codes, coming, past] = await Promise.all([
+    db.query("SELECT since, until FROM rusc.members WHERE lower(email) = $1", [email]),
+    db.query(
+      `SELECT display, label, unit, remaining, initial, expires_on, active FROM rusc.codes
+        WHERE account_id = $1 OR lower(coalesce(holder, '')) LIKE '%' || $2 || '%' ORDER BY created_at DESC`,
+      [account.id, email],
+    ),
+    db.query(
+      `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title
+         FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
+        WHERE lower(a.email) = $1 AND b.status IN ('accepted', 'pending') AND b."startTime" >= now() AT TIME ZONE 'UTC'
+        ORDER BY b."startTime"`,
+      [email],
+    ),
+    db.query(
+      `SELECT starts, slug, title FROM (
+         SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title
+           FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
+          WHERE lower(a.email) = $1 AND b.status IN ('accepted', 'pending') AND b."startTime" < now() AT TIME ZONE 'UTC'
+         UNION ALL
+         SELECT h.starts_at, h.offer, h.type FROM rusc.history h WHERE lower(h.email) = $1 AND NOT h.canceled AND h.starts_at < now()
+       ) x ORDER BY starts DESC LIMIT 60`,
+      [email],
+    ),
+  ]);
+  const visit = (b) => ({ start: new Date(b.starts).toISOString(), offer: OFFERS[b.slug] ? b.slug : null, title: b.title });
+  return {
+    user: await publicUser(account),
+    membership: member.rows[0] ? { since: isoDate(member.rows[0].since), until: isoDate(member.rows[0].until) } : null,
+    codes: codes.rows.map((c) => ({ code: c.display, label: c.label, unit: c.unit, remaining: num(c.remaining), initial: num(c.initial), expiresOn: isoDate(c.expires_on), active: c.active })),
+    coming: coming.rows.map(visit),
+    past: past.rows.map(visit),
+  };
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function authApi(req, url) {
+  const path = url.pathname.replace(/^\/api\/auth/, "").replace(/\/$/, "");
+  if (req.method === "GET" && (path === "/session" || path === "/account")) {
+    const account = await signedInAccount(req);
+    if (!account) return [401, { error: "signed_out" }];
+    return [200, path === "/session" ? { user: await publicUser(account) } : await accountData(account)];
+  }
+  if (req.method !== "POST") return [405, { error: "method" }];
+  if (limited(req, 20, "auth:")) return [429, { error: "too_many" }];
+  const input = JSON.parse((await readBody(req)) || "{}");
+  const days = input.remember === false ? 1 : 365;
+  const email = String(input.email ?? "").trim().toLowerCase();
+  const password = String(input.password ?? "");
+  const goodPassword = password.length >= 8 && password.length <= 200;
+
+  if (path === "/signup") {
+    const name = String(input.name ?? "").trim().slice(0, 80);
+    if (!name) return [400, { error: "name_required" }];
+    if (!EMAIL.test(email) || email.length > 200) return [400, { error: "email_invalid" }];
+    if (!goodPassword) return [400, { error: "password_short" }];
+    const created = await db.query(
+      "INSERT INTO rusc.accounts (email, name, password, last_login_at) VALUES ($1, $2, $3, now()) ON CONFLICT DO NOTHING RETURNING *",
+      [email, name, await hashPassword(password)],
+    );
+    if (!created.rowCount) return [409, { error: "email_taken" }];
+    return [200, { token: await newToken(created.rows[0].id, "session", days), user: await publicUser(created.rows[0]) }];
+  }
+  if (path === "/login") {
+    const account = (await db.query("SELECT * FROM rusc.accounts WHERE lower(email) = $1", [email])).rows[0];
+    // The same answer, in about the same time, whether the e-mail exists or not.
+    const ok = account ? await passwordMatches(password, account.password) : (await hashPassword(password), false);
+    if (!ok) return [401, { error: "wrong_login" }];
+    await db.query("UPDATE rusc.accounts SET last_login_at = now() WHERE id = $1", [account.id]);
+    return [200, { token: await newToken(account.id, "session", days), user: await publicUser(account) }];
+  }
+  if (path === "/logout") {
+    const account = await signedInAccount(req);
+    if (account) await db.query("DELETE FROM rusc.account_tokens WHERE hash = $1", [account.hash]);
+    return [204, {}];
+  }
+  if (path === "/reset") {
+    if (!goodPassword) return [400, { error: "password_short" }];
+    const account = (
+      await db.query(
+        `SELECT a.* FROM rusc.account_tokens t JOIN rusc.accounts a ON a.id = t.account_id
+          WHERE t.hash = $1 AND t.kind = 'reset' AND t.expires_at > now()`,
+        [tokenHash(input.token ?? "")],
+      )
+    ).rows[0];
+    if (!account) return [400, { error: "reset_expired" }];
+    await db.query("UPDATE rusc.accounts SET password = $2, last_login_at = now() WHERE id = $1", [account.id, await hashPassword(password)]);
+    // Every older sign-in and link ends with the new password.
+    await db.query("DELETE FROM rusc.account_tokens WHERE account_id = $1", [account.id]);
+    return [200, { token: await newToken(account.id, "session", days), user: await publicUser(account) }];
+  }
+  if (path === "/codes") {
+    const account = await signedInAccount(req);
+    if (!account) return [401, { error: "signed_out" }];
+    const code = (await db.query("SELECT key, account_id FROM rusc.codes WHERE key = $1", [normalize(input.code)])).rows[0];
+    if (!code) return [404, { error: "code_unknown" }];
+    if (code.account_id && String(code.account_id) !== String(account.id)) return [409, { error: "code_taken" }];
+    await db.query("UPDATE rusc.codes SET account_id = $2 WHERE key = $1", [code.key, account.id]);
+    return [200, await accountData(account)];
+  }
+  return [404, { error: "not_found" }];
+}
+
+// From a client's page: a link that lets them choose a new password (7 days).
+async function clientResetLink(id) {
+  const client = (await db.query("SELECT email FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  const account = client?.email ? (await db.query("SELECT id FROM rusc.accounts WHERE lower(email) = lower($1)", [client.email])).rows[0] : null;
+  if (!account) throw refused("Ce client n’a pas de compte.", "This client has no account.");
+  const token = await newToken(account.id, "reset", 7);
+  const links = [`${SITE_ORIGIN}/connexion/?reset=${token}`, `${SITE_ORIGIN}/en/login/?reset=${token}`];
+  return `<div class="flash" style="display:block"><p class="st">${icon("check-circle")}${tr("Lien valable 7 jours, à envoyer au client (un seul usage) :", "Link valid for 7 days, to send to the client (single use):")}</p>
+    ${links.map((l, i) => `<p class="linkbox"><span class="muted">${i ? "EN" : "FR"}</span><code>${esc(l)}</code></p>`).join("")}</div>`;
+}
+
+// From a client's page: their membership (Acuity had no export of members).
+async function clientMembership(id, form) {
+  const client = (await db.query("SELECT email, first_name, last_name FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  if (!client?.email) throw refused("Il faut un e-mail pour l’adhésion.", "Membership needs an e-mail.");
+  const until = String(form.get("until") ?? "");
+  if (!until) {
+    await db.query("DELETE FROM rusc.members WHERE lower(email) = lower($1)", [client.email]);
+    return;
+  }
+  if (!isDay(until)) throw refused("Date invalide.", "Invalid date.");
+  await db.query(
+    `INSERT INTO rusc.members (email, name, until, note) VALUES (lower($1), $2, $3::date, $4)
+     ON CONFLICT (email) DO UPDATE SET until = EXCLUDED.until, note = EXCLUDED.note`,
+    [client.email, [client.first_name, client.last_name].filter(Boolean).join(" ") || null, until, tr("saisi dans l’admin", "entered in the admin")],
   );
 }
 
@@ -768,9 +1149,161 @@ async function commandesPage() {
     `<h1>${tr("Commandes", "Orders")}</h1><p class="muted">${tr("Les paiements en ligne du panier. Les carnets et bons cadeaux achetés reçoivent leur code automatiquement (colonne Codes) ; les cours payés apparaissent « Payé en ligne » dans Cours.", "Online payments from the cart. Cards and gift vouchers bought get their code automatically (Codes column); paid classes show as “Paid online” in Classes.")}</p>
      ${notice}
      <table><thead><tr><th>Date</th><th>${tr("Client", "Customer")}</th><th>${tr("Achat", "Bought")}</th><th>Total</th><th>Codes</th></tr></thead>
-     <tbody>${rows || `<tr><td colspan="5" class="muted">${tr("Aucune commande pour l’instant.", "No orders yet.")}</td></tr>`}</tbody></table>`,
+     <tbody>${rows || `<tr><td colspan="5" class="muted">${tr("Aucune commande pour l’instant.", "No orders yet.")}</td></tr>`}</tbody></table>
+     ${await acuityOrdersTable()}`,
   );
 }
+
+// Orders from Acuity, before the switch (rusc.acuity_orders).
+async function acuityOrdersTable() {
+  const { rows } = await db.query(
+    `SELECT o.*, o.ordered_at AT TIME ZONE 'Europe/Paris' AS ordered, c.id AS client_id
+       FROM rusc.acuity_orders o LEFT JOIN rusc.clients c ON lower(c.email) = lower(o.email)
+      ORDER BY o.ordered_at DESC LIMIT 500`,
+  );
+  if (!rows.length) return "";
+  const body = rows
+    .map((o) => {
+      const who = esc([o.first_name, o.last_name].filter(Boolean).join(" ") || o.email || "—");
+      return `<tr><td>${esc(fmtDateTime(o.ordered))}</td><td>${o.client_id ? `<a href="/admin/clients/${o.client_id}">${who}</a>` : who}</td>
+        <td>${esc(o.products ?? "")}</td><td>${o.total !== null ? esc(fmtAmount("euros", num(o.total))) : "—"}</td><td class="muted">${esc(o.status ?? "")}</td></tr>`;
+    })
+    .join("");
+  return `<h2>${tr("Avant le site : commandes Acuity", "Before the site: Acuity orders")}</h2>
+    <p class="muted">${tr(`${rows.length} commandes de carnets et bons cadeaux passées sur Acuity.`, `${rows.length} card and gift-voucher orders placed on Acuity.`)}</p>
+    <table><thead><tr><th>Date</th><th>${tr("Client", "Customer")}</th><th>${tr("Achat", "Bought")}</th><th>Total</th><th>${tr("État", "Status")}</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// ---------------------------------------------------------------- Clients
+
+const clientName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || tr("Sans nom", "No name");
+const SOURCE_CLIENT = { acuity: ["Acuity", "Acuity"], cal: ["Réservation", "Booking"], online: ["Achat en ligne", "Online order"], account: ["Compte en ligne", "Online account"] };
+
+// Everyone the studio knows: Acuity's list and history, then bookings, orders
+// and accounts. Most recent visit first.
+async function clientsPage(url) {
+  const q = (url.searchParams.get("q") ?? "").trim();
+  const { rows } = await db.query(
+    `SELECT c.*, m.until AS member_until,
+            (SELECT count(*) FROM rusc.history h WHERE lower(h.email) = lower(c.email) AND NOT h.canceled) +
+            (SELECT count(*) FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId"
+              WHERE lower(a.email) = lower(c.email) AND b.status IN ('accepted', 'pending')) AS visits,
+            greatest((SELECT max(h.starts_at) FROM rusc.history h WHERE lower(h.email) = lower(c.email) AND NOT h.canceled AND h.starts_at < now()),
+                     (SELECT max(b."startTime" AT TIME ZONE 'UTC') FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId"
+                       WHERE lower(a.email) = lower(c.email) AND b.status IN ('accepted', 'pending') AND b."startTime" < now() AT TIME ZONE 'UTC')) AS last_visit
+       FROM rusc.clients c LEFT JOIN rusc.members m ON lower(m.email) = lower(c.email)
+      WHERE $1 = '' OR lower(concat_ws(' ', c.first_name, c.last_name, c.email, c.phone)) LIKE $2
+      ORDER BY last_visit DESC NULLS LAST, c.id DESC LIMIT 400`,
+    [q, `%${q.toLowerCase()}%`],
+  );
+  const total = (await db.query("SELECT count(*) FROM rusc.clients")).rows[0].count;
+  const today = parisToday();
+  const list = rows
+    .map((c) => {
+      const member = c.member_until && isoDate(c.member_until) >= today ? ` <span class="pill">${tr("membre", "member")}</span>` : "";
+      return `<tr><td><a href="/admin/clients/${c.id}"><b>${esc(clientName(c))}</b></a>${member}<br><span class="muted">${esc(c.email ?? "")}</span></td>
+        <td>${esc(c.phone ?? "")}</td><td>${num(c.visits)}</td><td>${c.last_visit ? esc(fmtDate(c.last_visit)) : "—"}</td><td class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))}</td></tr>`;
+    })
+    .join("");
+  return shell(
+    "clients",
+    tr("Clients", "Clients"),
+    `<h1>${tr("Clients", "Clients")}</h1><p class="muted">${tr(`${total} clients : la liste d’Acuity avec ses notes, puis chaque personne qui réserve, achète ou ouvre un compte.`, `${total} clients: Acuity’s list with its notes, then everyone who books, buys or opens an account.`)}</p>
+     <form class="search" method="get" action="/admin/clients"><span class="field">${icon("magnifying-glass")}<input name="q" type="search" value="${esc(q)}" placeholder="${tr("Nom, e-mail ou téléphone", "Name, e-mail or phone")}" aria-label="${tr("Chercher", "Search")}"></span><button class="plain">${tr("Chercher", "Search")}</button></form>
+     <table><thead><tr><th>${tr("Client", "Client")}</th><th>${tr("Téléphone", "Phone")}</th><th>${tr("Réservations", "Bookings")}</th><th>${tr("Dernière venue", "Last visit")}</th><th>${tr("Origine", "Source")}</th></tr></thead>
+     <tbody>${list || `<tr><td colspan="5" class="muted">${tr("Personne.", "Nobody.")}</td></tr>`}</tbody></table>
+     ${rows.length === 400 ? `<p class="muted">${tr("Les 400 plus récents : cherchez pour trouver les autres.", "The 400 most recent: search to find the others.")}</p>` : ""}`,
+  );
+}
+
+// One client: contact and notes, membership, online account, codes, every
+// booking (Acuity's history and Cal) and every order.
+async function clientPage(id, flash) {
+  const c = (await db.query("SELECT * FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  if (!c) return null;
+  const email = (c.email ?? "").toLowerCase();
+  const [member, account, codes, history, cal, acuityOrders, orders] = await Promise.all([
+    db.query("SELECT * FROM rusc.members WHERE lower(email) = $1", [email]),
+    db.query("SELECT id, name, created_at, last_login_at FROM rusc.accounts WHERE lower(email) = $1", [email]),
+    db.query(
+      `SELECT c.* FROM rusc.codes c LEFT JOIN rusc.accounts a ON a.id = c.account_id
+        WHERE $1 <> '' AND (lower(a.email) = $1 OR lower(coalesce(c.holder, '')) LIKE '%' || $1 || '%') ORDER BY c.created_at DESC`,
+      [email],
+    ),
+    db.query("SELECT * FROM rusc.history WHERE $1 <> '' AND lower(email) = $1 ORDER BY starts_at DESC", [email]),
+    db.query(
+      `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, b.status, e.slug, e.title, s."referenceUid" AS seat_uid,
+              k.display AS code, ps.order_id AS paid_order
+         FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
+         LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
+         LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
+         LEFT JOIN rusc.codes k ON k.key = u.key
+         LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
+        WHERE $1 <> '' AND lower(a.email) = $1 ORDER BY b."startTime" DESC`,
+      [email],
+    ),
+    db.query("SELECT *, ordered_at AT TIME ZONE 'Europe/Paris' AS ordered FROM rusc.acuity_orders WHERE $1 <> '' AND lower(email) = $1 ORDER BY ordered_at DESC", [email]),
+    db.query("SELECT * FROM rusc.orders WHERE $1 <> '' AND lower(email) = $1 ORDER BY created_at DESC", [email]),
+  ]);
+  const today = parisToday();
+  const m = member.rows[0];
+  const a = account.rows[0];
+
+  const visits = [
+    ...cal.rows.map((b) => ({
+      at: new Date(b.starts),
+      what: OFFERS[b.slug] ? offerLabel(b.slug) : b.title,
+      how: b.status !== "accepted" && b.status !== "pending"
+        ? `<span class="muted">${tr("annulée", "cancelled")}</span>`
+        : b.code ? `<span class="st ok">${icon("ticket")}<span>Code ${esc(b.code)}</span></span>`
+        : b.paid_order ? `<span class="st ok">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</span>`
+        : `<span class="muted">${tr("site", "site")}</span>`,
+    })),
+    ...history.rows.map((h) => ({
+      at: new Date(h.starts_at),
+      what: h.offer ? offerLabel(h.offer) : h.type,
+      how: h.canceled ? `<span class="muted">${tr("annulé sur Acuity", "cancelled on Acuity")}</span>` : payment({ ...h, history: true }),
+    })),
+  ].sort((x, y) => y.at - x.at);
+  const visitRows = visits
+    .map((v) => `<tr><td>${esc(fmtDateTime(v.at))}${v.at > new Date() ? ` <span class="pill">${tr("à venir", "coming")}</span>` : ""}</td><td>${esc(v.what)}</td><td>${v.how}</td></tr>`)
+    .join("");
+  const codeRows = codes.rows
+    .map((k) => `<tr><td><a href="/admin/codes/${esc(k.key)}"><b>${esc(k.display)}</b></a><br><span class="muted">${esc(k.label)}</span></td>
+      <td>${esc(fmtAmount(k.unit, k.remaining))} <span class="muted">${tr("sur", "of")} ${esc(fmtAmount(k.unit, k.initial))}</span></td><td>${esc(fmtDate(k.expires_on))}</td></tr>`)
+    .join("");
+  const orderRows = [
+    ...orders.rows.map((o) => `<tr><td>${esc(fmtDateTime(o.created_at))}</td><td><a href="/admin/commandes#${esc(o.id)}">${tr("En ligne", "Online")}</a></td><td>${esc(fmtAmount("euros", num(o.amount)))}</td></tr>`),
+    ...acuityOrders.rows.map((o) => `<tr><td>${esc(fmtDateTime(o.ordered))}</td><td>${esc(o.products ?? "")} <span class="muted">· Acuity</span></td><td>${o.total !== null ? esc(fmtAmount("euros", num(o.total))) : "—"}</td></tr>`),
+  ].join("");
+
+  const accountBlock = a
+    ? `<p>${tr("Compte créé le", "Account opened on")} ${esc(fmtDate(a.created_at))}${a.last_login_at ? ` · ${tr("dernière connexion", "last sign-in")} ${esc(fmtDate(a.last_login_at))}` : ""}</p>
+       <form method="post" action="/admin/clients/${c.id}/reset"><button class="plain" type="submit">${tr("Créer un lien pour changer son mot de passe", "Make a link to change their password")}</button></form>`
+    : `<p class="muted">${tr("Pas de compte sur le site. Il suffit de s’inscrire avec cet e-mail : ses réservations, codes et adhésion y apparaissent.", "No account on the site. Signing up with this e-mail is enough: their bookings, codes and membership show there.")}</p>`;
+
+  return shell(
+    "clients",
+    clientName(c),
+    `<p><a href="/admin/clients">${tr("← Tous les clients", "← All clients")}</a></p>
+     ${flash ?? ""}
+     <h1>${esc(clientName(c))}</h1>
+     <div class="contact" style="font-size:15px">${c.email ? `<a href="mailto:${esc(c.email)}">${icon("envelope")}${esc(c.email)}</a>` : ""}${c.phone ? `<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(c.phone)}</a>` : ""}</div>
+     <p class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))} · ${m ? (isoDate(m.until) >= today ? `<span class="ok">${tr("membre jusqu’au", "member until")} ${esc(fmtDate(m.until))}</span>` : `${tr("adhésion finie le", "membership ended on")} ${esc(fmtDate(m.until))}`) : tr("pas d’adhésion en ligne", "no online membership")}</p>
+     <form class="linkbox" method="post" action="/admin/clients/${c.id}/member" style="margin:0 0 8px">
+       <label style="display:flex;gap:8px;align-items:center">${tr("Membre jusqu’au", "Member until")}<input name="until" type="date" value="${m ? esc(isoDate(m.until)) : ""}"></label>
+       <button class="plain small" type="submit">${tr("Enregistrer", "Save")}</button><span class="muted small">${tr("vide = pas membre", "empty = not a member")}</span></form>
+     ${c.notes ? `<h2>${tr("Notes (Acuity)", "Notes (Acuity)")}</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
+     <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
+     <h2>${tr("Codes", "Codes")}</h2>
+     ${codeRows ? `<table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th></tr></thead><tbody>${codeRows}</tbody></table>` : `<p class="muted">${tr("Aucun code à son nom.", "No codes in their name.")}</p>`}
+     <h2>${tr("Réservations", "Bookings")} (${visits.length})</h2>
+     ${visitRows ? `<table><thead><tr><th>${tr("Quand", "When")}</th><th>${tr("Cours", "Class")}</th><th>${tr("Paiement", "Payment")}</th></tr></thead><tbody>${visitRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}
+     <h2>${tr("Commandes", "Orders")}</h2>
+     ${orderRows ? `<table><thead><tr><th>Date</th><th>${tr("Achat", "Bought")}</th><th>Total</th></tr></thead><tbody>${orderRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}`,
+  );
+}
+
 
 function offerBoxes(selected) {
   return `<fieldset><legend>${tr("Valable pour", "Valid for")}</legend>${Object.keys(OFFERS)
@@ -965,8 +1498,19 @@ async function handle(req, res, url) {
       if (req.method === "OPTIONS") return send(res, 204, {}, headers);
       if (req.method !== "POST" || !sameText(req.headers["x-import-token"] ?? "", IMPORT_TOKEN)) return send(res, 403, { ok: false }, headers);
       const payload = JSON.parse(await readBody(req, 5 * 1024 * 1024));
-      await db.query("INSERT INTO rusc.imports (source, payload) VALUES ('acuity', $1)", [payload]);
-      return send(res, 200, { ok: true, codes: payload.codes?.length ?? 0, appointments: payload.appointments?.length ?? 0 }, headers);
+      // "acuity": codes and upcoming bookings (acuity-extract.js); "acuity-history":
+      // every appointment, the orders and the client list (acuity-history.mjs).
+      const source = url.searchParams.get("source") === "acuity-history" ? "acuity-history" : "acuity";
+      await db.query("INSERT INTO rusc.imports (source, payload) VALUES ($1, $2)", [source, payload]);
+      const count = (key) => (Array.isArray(payload[key]) ? payload[key].length : 0);
+      return send(res, 200, { ok: true, source, codes: count("codes"), appointments: count("appointments"), orders: count("orders"), clients: count("clients") }, headers);
+    }
+
+    if (url.pathname.startsWith("/api/auth/")) {
+      const headers = cors(req);
+      if (req.method === "OPTIONS") return send(res, 204, {}, headers);
+      const [status, body] = await authApi(req, url);
+      return send(res, status, body, headers);
     }
 
     if (url.pathname.startsWith("/api/")) {
@@ -1015,6 +1559,26 @@ async function handle(req, res, url) {
         if (origin && origin !== `https://${req.headers.host}`) return send(res, 403, page(tr("Refusé", "Refused"), `<p>${tr("Refusé.", "Refused.")}</p>`));
         const form = new URLSearchParams(await readBody(req));
         const match = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)\/(adjust|active)$/);
+        const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member)$/);
+        if (clientAction && clientAction[2] === "reset") {
+          return send(res, 200, await clientPage(clientAction[1], await clientResetLink(clientAction[1])));
+        }
+        if (clientAction && clientAction[2] === "member") {
+          await clientMembership(clientAction[1], form);
+          return send(res, 303, "", { location: `/admin/clients/${clientAction[1]}?saved=1` });
+        }
+        if (url.pathname === "/admin/horaires/add") {
+          const slug = await horairesAdd(form);
+          return send(res, 303, "", { location: `/admin/horaires?saved=1#${slug}` });
+        }
+        if (url.pathname === "/admin/horaires/remove") {
+          const slug = await horairesRemove(form);
+          return send(res, 303, "", { location: `/admin/horaires?saved=1#${slug}` });
+        }
+        if (url.pathname === "/admin/horaires/close") {
+          const { closed, skipped } = await horairesClose(form);
+          return send(res, 303, "", { location: `/admin/horaires?closed=${closed}&skipped=${skipped}` });
+        }
         if (url.pathname === "/admin/codes") {
           const key = await adminCreate(form);
           return send(res, 303, "", { location: `/admin/codes/${key}?created=1` });
@@ -1033,6 +1597,13 @@ async function handle(req, res, url) {
       if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
       if (url.pathname === "/admin/codes") return send(res, 200, await adminHome(url));
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
+      if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
+      if (url.pathname === "/admin/horaires") return send(res, 200, await horairesPage(url));
+      const client = url.pathname.match(/^\/admin\/clients\/(\d+)$/);
+      if (client) {
+        const html = await clientPage(client[1], url.searchParams.has("saved") ? `<p class="flash">${icon("check-circle")}${tr("Enregistré.", "Saved.")}</p>` : "");
+        return html ? send(res, 200, html) : send(res, 404, shell("clients", tr("Introuvable", "Not found"), `<p>${tr("Client introuvable.", "Client not found.")}</p>`));
+      }
       const code = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)$/);
       if (code) {
         const flash = url.searchParams.has("created") ? tr("Code créé : donnez-le au client.", "Code created: give it to the customer.") : url.searchParams.has("saved") ? tr("Enregistré.", "Saved.") : "";
