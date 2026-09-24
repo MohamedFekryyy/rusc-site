@@ -27,7 +27,8 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
    `setup.sh` is safe to run again.
 2. **Right away**, open https://rusc-cal.fly.dev/auth/setup and create the studio's admin account. Cal.diy only allows this while no account exists.
 3. **The classes** (done 2026-09-24, account `raquel`): `node seed-classes.mjs > /tmp/classes.sql && sh db-run.sh /tmp/classes.sql` writes **one event type per class**. Its slug is the offer key (the sessions of `lib/cal.ts`), so French and English bookings fill the same places. Each has its timetable, duration, places (seats), a 30-minute slot step (60 for open studio) and the Europe/Paris time zone. It's hidden from Cal's public profile, and its French title and description carry an English translation (`EventTypeTranslation`).
-   - The seed script owns the event types: a new run puts its own values back.
+   - **Booking until 30 minutes after the start:** the classes have `minimumBookingNotice = -30`, a grace period that `patches/late-booking.patch` allows (stock Cal.diy needs 0 or more, and its default of 2 hours blocked same-day booking).
+   - The seed script owns the event types: a new run puts its own values back. The timetable is now edited in rūsc admin's Horaires; a new run of the seed replaces it with the one in the script.
    - `patches/parallel-classes.patch` lets classes at the same time run side by side (see `patches/README.md`).
    - Classes are **seated** (several people per slot) and **not** "requires confirmation": Cal doesn't allow both.
    - A booking holds its place at once. It's then paid in the site's cart or with a code (rūsc admin, `deploy/admin/`). A class booked but never paid has to be cancelled by the studio in Cal.
@@ -37,10 +38,7 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
 4. **Emails (Brevo).**
    - Create an SMTP key (SMTP & API → SMTP).
    - Authenticate studio-rusc.com (Senders & domains) with the DNS records Brevo gives, at Squarespace. Without them, booking emails land in spam.
-   - Then run this yourself, so the key never leaves your terminal:
-     ```bash
-     fly secrets set -a rusc-cal EMAIL_SERVER_USER=<Brevo SMTP login> EMAIL_SERVER_PASSWORD=<Brevo SMTP key>
-     ```
+   - Then run `sh deploy/cal/set-smtp.sh` yourself: it asks for the SMTP login and key (the key hidden) and saves them in rusc-cal's Fly secrets, so the key never lands in your shell history. **Not done yet (2026-09-24): until then Cal sends no e-mails.**
 5. **Own domain** (optional; can wait):
    - Run `fly certs add booking.studio-rusc.com -a rusc-cal`.
    - In Squarespace Domains → studio-rusc.com → DNS, add the records it prints: a `CNAME` for `booking` → `rusc-cal.fly.dev`.

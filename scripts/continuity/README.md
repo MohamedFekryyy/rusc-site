@@ -14,6 +14,8 @@ Codes become rūsc admin codes (`rusc.codes`, `source = 'acuity'`), usable on th
 |---|---|---|
 | `acuity-extract.js` | Page script, run **in the Acuity admin** (signed in as the studio). It reads every code of every package and gift certificate (all `products.php?action=viewCodes` pages, 15 codes each), the classes each is valid for, and the upcoming appointments (Acuity's CSV export, today to one year ahead). It posts them to rūsc admin's `POST /import/acuity`, which stores them as received in `rusc.imports`. | **The way in use** |
 | `acuity-apply.sql` | Turns the latest `rusc.imports` row into codes and Cal places, inside the database (`sh deploy/cal/db-run.sh scripts/continuity/acuity-apply.sql`). Safe to re-run. Prints counts only. | **The way in use** |
+| `acuity-history.mjs` | Local script: reads the owner's Acuity exports in `data/acuity/` (every appointment, the orders, the client list with the studio's notes) and posts them to the same import route, `?source=acuity-history`. | **The way in use** |
+| `acuity-history.sql` | Loads the latest history import into `rusc.history` (appointments), `rusc.acuity_orders` and `rusc.clients`. Safe to re-run with newer exports. People listed under a shared e-mail are kept together (`rusc.clients.others`), so no name is lost. | **The way in use** |
 | `acuity-classes.mjs` | Reads the class timetable from Acuity's public scheduling API (no client data), to rebuild it in Cal. | Used once (step 17) |
 | `acuity-export.mjs` | The same export through Acuity's API. | **Doesn't work:** the API answers 403 on the studio's plan (Powerhouse only). Kept for reference. |
 
@@ -52,14 +54,36 @@ Agents: the Acuity admin is the studio's account; only open it in the owner's br
 5. Close the import: `fly secrets unset IMPORT_TOKEN -a rusc-admin && rm .secrets/import-token`. `/import/acuity` then answers 404.
 6. Once the switch is final, delete the raw imports, which hold client details: `DELETE FROM rusc.imports;` (through `db-run.sh`).
 
+## History (every appointment, orders, clients)
+
+Export from Acuity (appointments over all dates, orders, the client list) into `data/acuity/`, then:
+
+```bash
+umask 077; openssl rand -hex 24 > .secrets/import-token
+printf 'IMPORT_TOKEN=%s\n' "$(cat .secrets/import-token)" | fly secrets import -a rusc-admin
+node scripts/continuity/acuity-history.mjs          # --dry-run first to see the counts
+sh deploy/cal/db-run.sh scripts/continuity/acuity-history.sql
+fly secrets unset IMPORT_TOKEN -a rusc-admin && rm .secrets/import-token
+```
+
+rūsc admin then shows it:
+- Cours: past days, grouped into classes, with how each was paid;
+- Clients: everyone, with contact, notes, visits and codes;
+- Commandes: Acuity's orders.
+
 ## Done so far
 
-**2026-09-24:**
+**2026-09-24, history:**
+- 1,616 appointments (February 2020 to 22 September 2026), 1,594 matched to one of our classes; the other 22 keep their Acuity type name.
+- 216 orders.
+- 730 clients (688 e-mails from the client list, 38 more from appointments and orders, 4 without an e-mail), plus 92 people kept under a shared e-mail.
+
+**2026-09-24, codes:**
 - 237 codes read. 46 carried over (27 never used): 115.5 classes, 91 open-studio hours and one 180 € voucher.
 - Skipped: 178 expired, 13 used up.
 - 1 upcoming booking copied into Cal.
 
 **Before switching off Acuity:**
-- re-run the import (above) on switch day, to catch the latest codes and bookings;
-- get the member list (Acuity has no membership export);
-- reset the Acuity API key, which isn't needed any more. It's in `.secrets/acuity.env`, and also in Vercel's environment (`ACUITY_USER_ID`, `ACUITY_API_KEY`), which the site doesn't use; remove it there.
+- re-run both imports on switch day (codes and bookings, then the history with fresh exports), to catch what changed since 22-24 September;
+- mark the current members: Acuity has no export of them, so the studio sets "Membre jusqu’au" on each one's page in rūsc admin (Clients);
+- reset the Acuity API key, which isn't needed any more (`.secrets/acuity.env`). Its copies in Vercel's environment were removed on 2026-09-24.

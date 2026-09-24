@@ -17,53 +17,77 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
   - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
-  - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): classes as a list or a month calendar (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio) and online orders, in French or English; the timetable comes next. The booking page takes a class off a code through its API instead of sending it to the cart.
+  - People can book a class until 30 minutes after it starts (`deploy/cal/patches/late-booking.patch`, step 28).
+  - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18, 20 and 29), in French or English:
+    - classes as a list, a month calendar or one day, with who's coming, how each paid, and Acuity's history;
+    - clients;
+    - codes (carnets, gift vouchers, codes issued for sales at the studio);
+    - orders;
+    - the timetable (Horaires).
+
+    The booking page takes a class off a code through its API instead of sending it to the cart.
+  - **Member accounts** (the site's Connexion page, step 31) are served by rūsc admin too (`/api/auth/*`).
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-09-24)
+## Where things stand (updated 2026-09-24, evening)
 
 Keep this section current; the migration log below keeps the history.
 
 **Live**
 - **Site:** https://rusc-preview.vercel.app (Vercel, built from `main`).
-- **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`), one event type per class, embedded in the booking pages.
+- **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`), one event type per class, embedded in the booking pages. Bookable until 30 minutes after a class starts (step 28).
 - **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`.
+- **Gift vouchers:** fixed ones, and one of any amount (10–1,000 €, step 32), which becomes a euro code for every class.
+- **Member accounts** (`/connexion/`, `/en/login/`): sign-up, sign-in, and the member's space (membership, coming classes, codes, past classes including Acuity's). The booking page fills in a signed-in member's name and e-mail (step 31).
 - **rūsc admin** (`rusc-admin` on Fly), in French and English:
-  - Cours (list, month calendar, day);
+  - Cours (list, month calendar, day, with Acuity's history on past days);
+  - Clients;
   - Codes;
-  - Commandes.
-- **Acuity continuity:** 46 codes still worth something and the 1 upcoming booking were imported on 2026-09-24 (`scripts/continuity/README.md`).
+  - Commandes (online and Acuity);
+  - Horaires (step 29).
+- **Acuity continuity:**
+  - 46 codes still worth something, and the 1 upcoming booking;
+  - the whole history: 1,616 appointments, 216 orders, 730 clients plus 92 people under shared e-mails (step 30, `scripts/continuity/README.md`);
+  - every URL of the old Squarespace site lands on a page of the new one (step 33).
 
 **Waiting on the owner (Fekry)**
-- **A small real purchase** in the live cart, then a refund in Stripe. It checks the whole chain: payment, webhook, Commandes, and the codes on the thank-you screen.
-- **Booking emails:** Brevo SMTP for Cal (`deploy/cal/README.md`, step 4). `rusc-cal` has no `EMAIL_SERVER_*` secrets yet, so Cal sends no emails.
-- **Domains, at switch time:** studio-rusc.com on Vercel; optionally `booking.` and `admin.` on Fly.
-- **Acuity key:** remove `ACUITY_USER_ID` and `ACUITY_API_KEY` from Vercel's environment (the site doesn't use them), and reset the key after the switch.
+- **A small real purchase** in the live cart (for example a 10 € gift voucher), then a refund in Stripe. It checks payment, webhook, Commandes and the code on the thank-you screen.
+- **Booking emails:** run `sh deploy/cal/set-smtp.sh` with the Brevo SMTP login and key, and authenticate studio-rusc.com in Brevo (DNS at Squarespace). Until then Cal sends no e-mails (no `EMAIL_SERVER_*` secrets on `rusc-cal`).
+- **Domains, at switch time:**
+  - studio-rusc.com on Vercel;
+  - optionally `booking.` and `admin.` on Fly;
+  - then `SITE_ORIGIN` in `deploy/admin/fly.toml`.
+- **Acuity key:** reset it in Acuity after the switch. Its copies in Vercel were removed (step 33).
 
 **Decisions for Raquel**
 - **Timetable:**
   - the children's class: 14:00–16:00 in Acuity, 13:30–15:30 on the site;
   - porcelain: 11:00 in Acuity, 10:00 on the site;
   - raw-glaze decoration on Thursdays or not;
-  - school holidays.
+  - school holidays (now closed from Horaires).
 - **2-day gift voucher:** 260 € in Acuity, 280 € on the site. An imported 260 € voucher can't fully pay a 280 € class.
-- **Member discount** (10%): not applied online.
+- **Member prices online:** the site shows them (10% off classes and carnets), but checkout still charges full price. Accounts now make it possible (next for agents), once Raquel confirms which items.
+- **Members:** Acuity had no export of them. The studio marks each current member on their page in rūsc admin (Clients → "Membre jusqu’au").
 - **2-hour carnets:** should the admin's 2-hour carnet presets also cover the children's class, as Acuity's carnets did?
-- **Deleted Acuity products:** codes of products since deleted in Acuity (for example old 50/100/150 € value vouchers) don't appear on its products page, so they weren't imported. If a customer shows one, create it by hand in rūsc admin.
+- **Deleted Acuity products:** codes of products since deleted in Acuity (for example old 50/100/150 € value vouchers) weren't imported. If a customer shows one, create it by hand in rūsc admin.
 
 **Next for agents**
-- **Horaires in rūsc admin:** edit Cal's timetable (stage dates, holidays).
-- **Switch day:** re-run the Acuity import (`scripts/continuity/README.md`), then follow "Bascule finale" in `README.md`.
+- **Member prices at checkout**, for signed-in members (after Raquel's answer). The checkout would ask rūsc admin who the buyer is, from their token.
+- **Codes for cart products:** a code field in the cart, with a Stripe coupon for the amount covered. Today a code (including an any-amount voucher) only pays for classes at booking.
+- **Password reset by e-mail**, once Brevo works. Today the studio makes a link from the client's page.
+- **Switch day:** re-run both Acuity imports (`scripts/continuity/README.md`), then follow "Bascule finale" in `README.md`.
 
 **How agents work here**
 - **Secrets:** never ask for, read or paste a key.
-  - Write a small script that asks for it hidden (`read -s`) and pipes it into `vercel env add` or `fly secrets import`.
+  - Write a small script that asks for it hidden (`read -s` or `stty -echo`) and pipes it into `vercel env add` or `fly secrets import`.
   - Open it in the owner's terminal, and let them paste.
-- **Client data** (names, emails, codes): never in chat or in the repo. Report counts only.
+- **Client data** (names, e-mails, codes): never in chat or in the repo. Report counts only.
+  - Profile a new file by its header and value shapes first. Acuity's client list has no clean header and uses `;`, and a naive read printed one row (2026-09-24).
 - **Studio accounts:** don't sign in to rūsc admin or Cal as the studio.
   - To see the admin, use its local preview (`deploy/admin/preview.mjs`).
   - The Acuity admin is the studio's account: only use it in the owner's browser, with their go-ahead.
+- **Tests on live systems:** clean up after yourself. For example, a throwaway member account made to test sign-in is deleted right after (step 31).
 
 ## Commands
 
@@ -494,3 +518,75 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - New `scripts/continuity/README.md`: the Acuity import, and how to run it again on switch day.
 - `deploy/cal/README.md`: one event type per class, and `db-run.sh` for SQL.
 - `README.md` (French) brought up to date: configuration, structure, services, switch-day steps.
+
+### 28. Booking until 30 minutes after a class starts (`de125f27`, 2026-09-24)
+- **Owner's request:** "people need to be able to book even 30 mins after the class starts; now I cannot book even same day".
+- **Cause:** every class had Cal's default minimum booking notice, 2 hours. At 16:04 the 17:00 classes were closed. Stock Cal.diy also refuses any time before now, and its notice can't go below 0.
+- **At once:** the notice was set to 0 on the 9 classes (same-day booking until the start). Checked: the 17:00 classes came back.
+- **Patch** (`deploy/cal/patches/late-booking.patch`, `packages/lib/isOutOfBounds.tsx`): a **negative** notice is a grace period after the start, in the one guard that refuses past times. Slots already start from "now + notice".
+  - The image built in 13 minutes and was deployed with `deploy.sh`.
+  - The classes then got `minimumBookingNotice = -30`, and `seed-classes.mjs` writes it too.
+- **Checked live at 16:26:** open studio's 16:00 slot, started 26 minutes earlier, was offered. The booking check goes through the same function.
+
+### 29. rūsc admin: Acuity history, Clients, Horaires, member accounts, centred menu (`ad8fe9c2`, `ff45729f`, `e66902bd`, 2026-09-24)
+- **Owner's requests:**
+  - historical bookings and data in the admin;
+  - Horaires, which was greyed out;
+  - member sign-in that works;
+  - the menu centred, not packed beside the logo.
+- **Cours:** past days also show Acuity's appointments (`rusc.history`), grouped into classes, with how each paid. Types no longer run keep their Acuity name.
+- **Clients** (new): Acuity's client list and history, then everyone who books, buys or opens an account (`reconcile()` adds them). A client's page has:
+  - contact, notes, and the other people under the same e-mail;
+  - membership, editable by hand;
+  - their online account, with a 7-day password link;
+  - codes, every booking (with Acuity's notes) and every order.
+- **Commandes:** Acuity's orders below the online ones.
+- **Horaires** (new): each class's weekly slots and dates, to add or remove; days to close (Cal date overrides, 00:00–00:00) or reopen. It writes Cal's `Availability`, with a grant in `schema.sql`.
+- **`/api/auth/*`:** see step 31.
+- **Header:** the logo on the left, the menu centred, language and sign-out on the right; on a phone the menu takes its own row.
+- **Mistake, fixed** (`e66902bd`): the new tables were created after `schema.sql`'s `RESET ROLE`, so the database owner kept them. rūsc admin got "permission denied" (sign-in answered 500). They were handed to `rusc_codes`, and that part of the schema now runs under that role.
+
+### 30. Acuity's history imported (`041bfe87`, `ff45729f`, 2026-09-24)
+- `scripts/continuity/acuity-history.mjs` read the owner's three Acuity exports in `data/acuity/` and posted them to the one-off import route (`?source=acuity-history`). The token was set, used and unset within minutes.
+- `acuity-history.sql` loaded them:
+  - **1,616 appointments** (Feb 2020 to 22 Sept 2026), 1,594 matched to our classes;
+  - **216 orders**;
+  - **730 clients**.
+- Acuity's client list has 688 e-mails for 780 people: 68 e-mails are shared (families). One row per e-mail would have dropped 92 names, so each client keeps the others under its e-mail (`rusc.clients.others`).
+- Re-run it on switch day with fresh exports.
+
+### 31. Member accounts on the site (`06be878d`, 2026-09-24)
+- **Owner's report:** member login and sign-up didn't work. The page, written earlier by Rrose, was a preview with no backend.
+- **Backend** (rūsc admin, `/api/auth/*`):
+  - signup, login, logout, session, account, codes, reset;
+  - scrypt password hashes and SHA-256 tokens, sent as `Authorization: Bearer …`;
+  - a year with "rester connecté·e", otherwise a day; rate-limited;
+  - CORS for the site's origins.
+- **Site** (`lib/auth.ts`, `AuthForm`, `AccountArea`):
+  - sign-up and sign-in, with errors in FR and EN;
+  - the member's space: membership, coming classes, codes with "add a code", past classes;
+  - `?reset=` links from the studio;
+  - the header says "Mon compte" when signed in;
+  - the booking page fills in the member's name and e-mail in Cal.
+- **Checked live** with a throwaway account (deleted right after):
+  - wrong login, short password, duplicate e-mail, e-mail in capitals;
+  - session, account and unknown code;
+  - logout ends only that token.
+
+### 32. Gift voucher of any amount (`146c089a`, `94a13d27`, `b3cc7482`, 2026-09-24)
+- **Owner's request:** "buy X amount of money gift card that can be used for whatever".
+- **The offer:** `bon-cadeau-montant` in the gifts tab, with an amount field: 10–1,000 €, whole euros, 50 € shown first. The cart keeps one line per amount.
+- **Checkout:** checks the amount again on the server, charges it, and writes `<key>:<cents>x<qty>` in the order.
+- **rūsc admin:** turns each voucher into a euro code, valid for every class for 6 months (the "montant" preset). It's labelled "Bon cadeau · 120 €" or "Gift voucher · €120", and shown on the thank-you screen.
+- **Checked:**
+  - in the browser: the card adds `{amount: 12000}` and the cart shows "Bon cadeau · 120,00 €";
+  - with a fake database: the codes created;
+  - live: 9.99 € and 1,000.50 € are refused (`bad_amount`).
+- **Mistake, fixed** (`b3cc7482`): the checkout route imported `lib/cart.ts`, which uses React hooks, so the production build failed. My build command piped through `grep | head`, which hid the failure, and the commit was pushed; Vercel kept the previous deployment live. The amount helpers moved to `lib/cal.ts`. **Check the build's exit status before pushing** (`set -o pipefail`).
+- **Not yet:** a code can't pay for a cart product (see "Next for agents").
+
+### 33. Nothing lost from the old setup (2026-09-24)
+- **Old Squarespace URLs:** its sitemap lists 8 pages (`/`, `/about`, `/appointments-1-2`, `/atelier-cramique-2h`, `/contact`, `/membre`, `/rserver`, `/workshop`), and each lands on a live page of the new site.
+- **Acuity:** codes, upcoming bookings, the whole history and the client list are in rūsc admin (steps 23 and 30). Members are marked by hand, since Acuity has no export of them.
+- **Vercel:** the unused `ACUITY_USER_ID` and `ACUITY_API_KEY` were removed.
+- **Booking emails:** `deploy/cal/set-smtp.sh` saves the Brevo SMTP login in rusc-cal, the key typed hidden. The owner runs it.

@@ -13,9 +13,15 @@ The menu:
   - **List** (`/admin/cours`): the coming 14 or 30 days.
   - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. A green edge means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
   - **Day** (`?jour=YYYY-MM-DD`): one day's classes and everyone booked, past or coming. The calendar opens it.
+- **Clients:** everyone the studio knows. That's Acuity's client list and history, then everyone who books, buys or opens an account (added every few minutes). A client's page shows:
+  - contact, and the studio's notes from Acuity;
+  - other people listed under the same e-mail (a parent booking for their children…);
+  - membership, which can be set by hand ("Membre jusqu’au"), since Acuity had no export of members;
+  - their account on the site, with a button making a 7-day password link to send them;
+  - their codes, every booking (Acuity's and Cal's, with Acuity's notes), and every order.
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).
 - **Commandes / Orders:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
-- **Horaires / Timetable** (next, greyed out): add a stage date, block a holiday, move a class, without opening Cal. Cours already follows Cal's date overrides: an override replaces the weekly hours that day, and 00:00–00:00 closes it.
+- **Horaires / Timetable:** each class's weekly slots and coming dates, to add or remove, and days to close (holidays) or reopen, for all or some classes. It writes Cal's `Availability` rows directly (a date override from 00:00 to 00:00 closes a class that day), so the booking calendar and Cours follow at once. Bookings already made don't move. Open studio takes a span (start and end), cut into 1-hour slots; other classes last their length unless an end is given.
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
 
@@ -23,9 +29,20 @@ Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings
 |---|---|
 | Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
 | Address | https://rusc-admin.fly.dev |
-| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It can only *read* Cal's bookings, seats, event types, attendees and timetables. |
+| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It reads Cal's bookings, seats, event types and attendees, and writes only the classes' timetable (`Availability`, for Horaires). |
 | Code | `server.mjs`: Node, one dependency (`pg`), server-rendered HTML with inline CSS, no build step. `logo.webp` is a copy of the site's `assets/logo-rusc-trim.webp`. |
 | Secrets (Fly) | `DATABASE_URL`, `CODES_ADMIN_PASSWORD` (the studio's), `STRIPE_WEBHOOK_SECRET`. `IMPORT_TOKEN` only during an Acuity import. |
+| Tables | Schema `rusc`, all owned by `rusc_codes`: codes, uses, orders, paid_seats, members, imports, acuity_seats, history, acuity_orders, clients, accounts, account_tokens. `schema.sql` also grants it write access to Cal's `Availability` (Horaires). |
+
+Cours also shows Acuity's appointments on past days (`rusc.history`), grouped into classes with how each person paid.
+
+**Member accounts (the site's Connexion page)** are served here too: `/api/auth/*` (signup, login, logout, session, account, codes, reset), called by `lib/auth.ts`.
+- Passwords are stored as scrypt hashes and tokens as SHA-256 (`rusc.accounts`, `rusc.account_tokens`).
+- A token travels as `Authorization: Bearer …`. It lasts a year with "rester connecté·e", otherwise a day.
+- Sign-ins are rate-limited per visitor.
+- A member's space shows their membership, coming classes, codes (added to the account, or in their name), and past classes including Acuity's.
+- A forgotten password: the studio makes a link from the client's page. There's no e-mail reset yet; Cal's Brevo login could send one later.
+- `SITE_ORIGIN` (default `https://rusc-preview.vercel.app`) is the address used in those links. Set it in `fly.toml` when the site moves to studio-rusc.com.
 
 **Agents:** don't sign in to the live admin; the password is the studio's. To see a page, use the local preview (below). Its pages hold client data, so only ever report counts from them.
 
@@ -61,7 +78,7 @@ Visitors are rate-limited (40 requests per 10 minutes each), so codes can't be g
 
 ### Codes from Acuity
 
-The 46 Acuity codes still worth something were imported on 2026-09-24 (`source = 'acuity'`), and the one upcoming Acuity booking became a place in Cal. `POST /import/acuity` receives the data from the Acuity admin page; it only exists while the Fly secret `IMPORT_TOKEN` is set, and answers 404 otherwise. The whole procedure, to repeat on switch day, is in `scripts/continuity/README.md`.
+The 46 Acuity codes still worth something were imported on 2026-09-24 (`source = 'acuity'`), and the one upcoming Acuity booking became a place in Cal. The same day, Acuity's whole history came in: 1,616 appointments, 216 orders, 730 clients (plus 92 people under shared e-mails). `POST /import/acuity` receives the data from the Acuity admin page; it only exists while the Fly secret `IMPORT_TOKEN` is set, and answers 404 otherwise. The whole procedure, to repeat on switch day, is in `scripts/continuity/README.md`.
 
 ## Preview locally
 
@@ -117,7 +134,8 @@ The list of classes (`OFFERS` in `server.mjs`) must match the sessions in `lib/c
 
 ## Still to do
 
-- **Horaires:** edit the timetable from here (writes Cal's `Availability`, including date overrides for stage dates and holidays).
+- **Gift cards and codes for cart products:** codes (including the any-amount gift voucher, in euros) pay for classes at booking. They can't yet pay for a cart product (a carnet, the membership). That would need a code field in the cart, and a Stripe coupon for the amount covered.
+- **Member prices online:** the site shows member prices (10% off classes and carnets). With accounts, the checkout could apply them for signed-in members once Raquel confirms the rule.
 - **Own address:** `admin.studio-rusc.com` (Fly certificate plus a DNS record at Squarespace), then update `ALLOWED_ORIGINS` in `fly.toml` if the site's domain changes.
 - **Decisions for Raquel:**
   - Should the 2-hour carnet presets (`TWO_HOUR`) also cover the children's class, as Acuity's carnets did? Imported Acuity cards already do.
