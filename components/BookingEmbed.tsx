@@ -13,6 +13,7 @@ import {
   type OfferKey,
 } from "@/lib/cal";
 import { cart } from "@/lib/cart";
+import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { CART, PAGES, bookingHref, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
@@ -29,6 +30,22 @@ const TEXT = {
     keepBrowsing: "Continuer",
     slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
     slotPaid: "Votre réservation est confirmée.",
+    codeAsk: "Carnet, bon cadeau ou code de l’atelier ?",
+    codePlaceholder: "Votre code",
+    codeUse: "Utiliser",
+    codeRemove: "Retirer",
+    codeOk: (label: string, left: string) => `${label} · reste ${left}. La réservation sera déduite de votre code.`,
+    codeErrors: {
+      unknown: "Code inconnu.",
+      expired: "Ce code a expiré.",
+      not_for_this_class: "Ce code n’est pas valable pour ce cours.",
+      insufficient: "Le solde de ce code ne suffit pas pour ce cours.",
+      empty: "Ce code est épuisé.",
+      too_many: "Trop d’essais : réessayez dans quelques minutes.",
+      error: "Vérification impossible pour le moment, réessayez.",
+    } as Record<string, string>,
+    slotCode: (left: string) => `Réservé avec votre code : il vous reste ${left}.`,
+    slotCodeFailed: "Votre code n’a pas pu être utilisé : la séance est dans votre panier.",
   },
   en: {
     tabs:{ schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
@@ -42,6 +59,22 @@ const TEXT = {
     keepBrowsing: "Keep browsing",
     slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
     slotPaid: "Your booking is confirmed.",
+    codeAsk: "Got a class card, gift voucher or studio code?",
+    codePlaceholder: "Your code",
+    codeUse: "Use",
+    codeRemove: "Remove",
+    codeOk: (label: string, left: string) => `${label} · ${left} left. The booking will be taken off your code.`,
+    codeErrors: {
+      unknown: "Unknown code.",
+      expired: "This code has expired.",
+      not_for_this_class: "This code isn’t valid for this class.",
+      insufficient: "This code’s balance doesn’t cover this class.",
+      empty: "This code is used up.",
+      too_many: "Too many tries: please try again in a few minutes.",
+      error: "Can’t check codes right now, please try again.",
+    } as Record<string, string>,
+    slotCode: (left: string) => `Booked with your code: ${left} left.`,
+    slotCodeFailed: "Your code couldn’t be used: the class is in your cart.",
   },
 };
 
@@ -75,8 +108,26 @@ const toastBox: CSSProperties = {
   letterSpacing: ".03em", boxShadow: "0 10px 30px rgba(20,20,21,.18)", maxWidth: "calc(100vw - 32px)",
 };
 const toastLink: CSSProperties = { color: "var(--bg)", marginLeft: "10px", textDecoration: "underline" };
+// A <form>: undo the contact form's global form{} rule (styles/home.css).
+const codeBar: CSSProperties = {
+  display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", maxWidth: "none", margin: 0,
+  padding: "12px 18px", borderBottom: "1px solid var(--line)", fontSize: "14px",
+};
+const codeInputStyle: CSSProperties = {
+  font: "inherit", padding: "7px 10px", border: "1px solid var(--line)", background: "#fff",
+  minWidth: "0", width: "170px", textTransform: "uppercase", letterSpacing: ".06em",
+};
+const smallButton: CSSProperties = { padding: "8px 16px", fontSize: "11px", cursor: "pointer" };
+const linkButton: CSSProperties = {
+  background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--muted)",
+  fontSize: "12px", textDecoration: "underline",
+};
 
 type CalBooking = { uid?: string; startTime?: string; endTime?: string; paymentRequired?: boolean };
+// Cal's older bookingSuccessful event carries the whole booking, including
+// the attendee's own seat reference in a class (several people per slot).
+type CalBookingV1 = { booking?: CalBooking & { seatReferenceUid?: string | null } };
+type Booked = { kind: "cart" | "paid" | "code" | "codeFailed"; left?: string };
 
 type CalQueue = ((...args: unknown[]) => void) & {
   q: unknown[];
@@ -140,8 +191,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const [view, setView] = useState<BookingView>("schedule");
   const [offerKey, setOfferKey] = useState<OfferKey | null>(null);
   const [unavailable, setUnavailable] = useState(false);
-  // A slot was booked in the Cal booker: added to the cart, or paid in Cal.
-  const [booked, setBooked] = useState<"cart" | "paid" | null>(null);
+  // A slot was booked in the Cal booker: added to the cart, paid in Cal, or
+  // taken off a code.
+  const [booked, setBooked] = useState<Booked | null>(null);
+  // A carnet / voucher / studio code, checked for the chosen class.
+  const [codeInput, setCodeInput] = useState("");
+  const [code, setCode] = useState<CodeResult | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
+  // The code as the Cal callbacks see it, and the booking it was used for.
+  const codeRef = useRef<string | null>(null);
+  const codeBookingRef = useRef<string | null>(null);
   // Title of the offer just added to the cart (confirmation toast).
   const [toast, setToast] = useState<string | null>(null);
   const offer = offerKey ? offerByKey(offerKey) : undefined;
@@ -153,6 +213,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       setOfferKey(target);
       setUnavailable(false);
       setBooked(null);
+      setCode(null);
+      setCodeError(null);
+      codeRef.current = null;
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -208,6 +271,27 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         if (activeNs.current === ns) setUnavailable(true);
       },
     });
+    // A slot was booked with a code: take it off the code (this event comes
+    // first and carries the attendee's seat). If that fails, fall back to the cart.
+    cal.ns[ns]("on", {
+      action: "bookingSuccessful",
+      callback: (event: CustomEvent<{ data?: CalBookingV1 }>) => {
+        const booking = event.detail?.data?.booking;
+        const usedCode = codeRef.current;
+        if (activeNs.current !== ns || !usedCode || !booking?.uid || !booking.seatReferenceUid) return;
+        codeBookingRef.current = booking.uid;
+        redeemCode(usedCode, booking.seatReferenceUid).then((result) => {
+          if (activeNs.current !== ns) return;
+          if (result.ok) {
+            setBooked({ kind: "code", left: formatBalance(result, lang) });
+            setCode(result);
+          } else if (booking.startTime) {
+            cart.addBooking(offer.key, { uid: booking.uid!, start: booking.startTime, end: booking.endTime });
+            setBooked({ kind: "codeFailed" });
+          }
+        });
+      },
+    });
     // A slot was booked. With no payment in Cal (the setup the cart needs),
     // it goes to the cart and is confirmed once the cart is paid.
     cal.ns[ns]("on", {
@@ -215,10 +299,11 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       callback: (event: CustomEvent<{ data?: CalBooking }>) => {
         const data = event.detail?.data;
         if (activeNs.current !== ns || !data?.uid || !data.startTime) return;
+        if (codeBookingRef.current === data.uid) return; // handled with the code
         if (!data.paymentRequired) {
           cart.addBooking(offer.key, { uid: data.uid, start: data.startTime, end: data.endTime });
         }
-        setBooked(data.paymentRequired ? "paid" : "cart");
+        setBooked({ kind: data.paymentRequired ? "paid" : "cart" });
       },
     });
     cal.ns[ns]("inline", {
@@ -250,10 +335,73 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               {t.back}
             </a>
           </div>
+          {offer.kind === "session" && !unavailable && !booked && (
+            <form
+              style={codeBar}
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const value = codeInput.trim();
+                if (!value || codeBusy) return;
+                setCodeBusy(true);
+                setCodeError(null);
+                const result = await checkCode(value, offer.key);
+                setCodeBusy(false);
+                if (result.ok) {
+                  setCode(result);
+                  codeRef.current = value;
+                } else {
+                  setCode(null);
+                  codeRef.current = null;
+                  setCodeError(t.codeErrors[result.reason ?? "error"] ?? t.codeErrors.error);
+                }
+              }}
+            >
+              {code?.ok ? (
+                <>
+                  <span style={{ color: "var(--accent)" }}>✓ {t.codeOk(code.label ?? "", formatBalance(code, lang))}</span>
+                  <button
+                    type="button"
+                    style={linkButton}
+                    onClick={() => {
+                      setCode(null);
+                      codeRef.current = null;
+                    }}
+                  >
+                    {t.codeRemove}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <label htmlFor="rusc-code" style={{ color: "var(--muted)" }}>{t.codeAsk}</label>
+                  <input
+                    id="rusc-code"
+                    value={codeInput}
+                    onChange={(event) => setCodeInput(event.target.value)}
+                    placeholder={t.codePlaceholder}
+                    autoComplete="off"
+                    spellCheck={false}
+                    style={codeInputStyle}
+                  />
+                  <button type="submit" className="btn guest" style={smallButton} disabled={codeBusy}>
+                    {t.codeUse}
+                  </button>
+                  {codeError && <span role="alert" style={{ color: "var(--ochre)" }}>{codeError}</span>}
+                </>
+              )}
+            </form>
+          )}
           {booked && (
             <div style={bookedBar} role="status">
-              <span>{booked === "cart" ? t.slotAdded : t.slotPaid}</span>
-              {booked === "cart" && (
+              <span>
+                {booked.kind === "cart"
+                  ? t.slotAdded
+                  : booked.kind === "code"
+                    ? t.slotCode(booked.left ?? "")
+                    : booked.kind === "codeFailed"
+                      ? t.slotCodeFailed
+                      : t.slotPaid}
+              </span>
+              {(booked.kind === "cart" || booked.kind === "codeFailed") && (
                 <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
                   {t.viewCart}
                 </a>
