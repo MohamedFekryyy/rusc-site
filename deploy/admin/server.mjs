@@ -2,7 +2,8 @@
 // Runs on Fly as rusc-admin (deploy/admin/README.md).
 //
 // Studio pages (sign in at /login with CODES_ADMIN_PASSWORD):
-//   /admin/cours   the coming classes: who's coming, places left, how each paid
+//   /admin/cours   the classes: who's coming, places left, how each paid; as a
+//                  list of the coming days, a month calendar, or one day
 //   /admin/codes   carnets, gift vouchers and codes the studio issues itself (a
 //                  carnet paid in cash at the studio…): create, adjust, pause
 //   /admin/commandes  online orders; carnets and vouchers bought get their code
@@ -428,6 +429,17 @@ const STYLE = `
   .soon{color:var(--muted);opacity:.6}.login{max-width:360px;margin:12vh auto 0}.login form.box{grid-template-columns:1fr}
   .session{background:#fff;border:1px solid var(--line);padding:12px 14px;margin:0 0 12px}.session .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
   .session table td{font-size:14px}.ok{color:var(--accent)}.day{margin:28px 0 10px}.day::first-letter{text-transform:uppercase}
+  .session:target{box-shadow:0 0 0 2px var(--accent)}.cap::first-letter{text-transform:uppercase}.small{font-size:13px}
+  nav.tabs{display:flex;gap:6px;margin:12px 0 18px}nav.tabs a{padding:6px 14px;border:1px solid var(--line);background:#fff;text-decoration:none}nav.tabs a[aria-current]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .calnav{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 0 10px}.calnav h2{margin:0}.calnav a{text-decoration:none}.calnav .muted{margin-left:auto}
+  main:has(.cal){max-width:1240px}.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+  .cal .dow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cal .cell{min-height:104px;min-width:0;padding:4px;display:flex;flex-direction:column;gap:3px;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cal .cell.out{background:transparent}.cal .out .date,.cal .past .date{color:var(--muted)}.cal .cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+  .cal .date{align-self:flex-start;padding:0 3px;font-size:13px;color:var(--ink);text-decoration:none}.cal .w{display:none}.cal .past .chip{opacity:.6}
+  .chip{display:flex;gap:4px;align-items:baseline;min-width:0;padding:2px 4px;font-size:12px;line-height:1.35;color:var(--ink);text-decoration:none;background:var(--bg);border-left:3px solid var(--line)}
+  .chip .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chip.some{border-left-color:var(--accent)}.chip.full{border-left-color:var(--warn);background:#f3e3da}
+  @media (max-width:700px){.cal{display:block;border:0}.cal .dow,.cal .cell.empty,.cal .cell.out{display:none}.cal .cell{min-height:0;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--line)}.cal .cell.today{box-shadow:none}.cal .n{display:none}.cal .w{display:block;font-weight:600;margin-bottom:4px}.chip{padding:6px 8px;font-size:14px}}
 `;
 const page = (title, body) =>
   `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
@@ -474,15 +486,24 @@ const parisParts = (date) => {
   const [day, time] = f.format(date).split(" ");
   return { day, time: time.slice(0, 5) };
 };
+// Days as "YYYY-MM-DD" (Paris), moved by whole days; noon UTC keeps clear of DST.
+const noon = (day) => new Date(`${day}T12:00:00Z`);
+const addDays = (day, n) => {
+  const date = noon(day);
+  date.setUTCDate(date.getUTCDate() + n);
+  return date.toISOString().slice(0, 10);
+};
+const isDay = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") && !Number.isNaN(noon(value).getTime()) && noon(value).toISOString().startsWith(value);
 
-// The coming days: each class that takes place (from its Cal schedule, or
-// from its bookings), who's coming, and how each person paid.
-async function coursPage(url) {
-  const days = Math.min(Math.max(Number(url.searchParams.get("jours")) || 14, 1), 60);
+// The classes from one day (included) to another (excluded): each one that
+// takes place (from its Cal timetable, or from its bookings), who's coming,
+// and how each person paid. A past class only shows if someone was booked.
+// Returns a Map "YYYY-MM-DD" → that day's classes, in order.
+async function loadSessions(from, to) {
   const bookings = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
-            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order, x.pay AS acuity_pay
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
@@ -490,78 +511,169 @@ async function coursPage(url) {
        LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
        LEFT JOIN rusc.codes c ON c.key = u.key
        LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
+       LEFT JOIN rusc.acuity_seats x ON x.seat_uid = s."referenceUid"
       WHERE b.status IN ('accepted', 'pending')
-        AND b."startTime" AT TIME ZONE 'UTC' >= date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris'
-        AND b."startTime" AT TIME ZONE 'UTC' < (date_trunc('day', now() AT TIME ZONE 'Europe/Paris') + $1::int * interval '1 day') AT TIME ZONE 'Europe/Paris'
+        AND b."startTime" AT TIME ZONE 'UTC' >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
+        AND b."startTime" AT TIME ZONE 'UTC' < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
       ORDER BY 1, e.slug, a.name`,
-    [days],
+    [from, to],
   );
-  // The timetable, so classes with nobody booked yet show too (not open-studio hours).
+  // The timetable, so classes nobody has booked yet show too (not open-studio
+  // hours). As in Cal, a date override replaces the weekly hours that day, and
+  // one from 00:00 to 00:00 means closed.
   const schedule = await db.query(
-    `SELECT e.slug, e.title, e."seatsPerTimeSlot" AS seats, v.days, v.date::text AS date, v."startTime"::text AS start
+    `SELECT e.slug, e.title, e."seatsPerTimeSlot" AS seats, v.days, v.date::text AS date,
+            v."startTime"::text AS start, v."endTime"::text AS "end"
        FROM public."EventType" e JOIN public."Availability" v ON v."scheduleId" = e."scheduleId"
       WHERE e."seatsPerTimeSlot" IS NOT NULL AND e.slug <> 'atelier-libre-1h'`,
   );
+  const timetable = new Map(); // slug → its timetable rows
+  for (const row of schedule.rows) timetable.set(row.slug, [...(timetable.get(row.slug) ?? []), row]);
 
-  const sessions = new Map(); // "YYYY-MM-DD HH:MM|slug" → session
+  const sessions = new Map(); // "YYYY-MM-DD HH:MM|slug" → class
   const at = (day, time, slug, title, seats) => {
     const key = `${day} ${time}|${slug}`;
     if (!sessions.has(key)) sessions.set(key, { day, time, slug, title, seats, people: [] });
     return sessions.get(key);
   };
-  const today = parisToday();
-  for (let i = 0; i < days; i++) {
-    const date = new Date(`${today}T12:00:00Z`);
-    date.setUTCDate(date.getUTCDate() + i);
-    const day = date.toISOString().slice(0, 10);
-    const weekday = date.getUTCDay();
-    for (const row of schedule.rows) {
-      const matches = row.date ? row.date === day : row.days.includes(weekday);
-      if (matches) at(day, row.start.slice(0, 5), row.slug, row.title, row.seats);
+  for (let day = from; day < to; day = addDays(day, 1)) {
+    const dow = noon(day).getUTCDay();
+    for (const rows of timetable.values()) {
+      const overrides = rows.filter((row) => row.date === day);
+      for (const row of overrides.length ? overrides : rows.filter((r) => !r.date && r.days.includes(dow))) {
+        if (row.start !== row.end) at(day, row.start.slice(0, 5), row.slug, row.title, row.seats);
+      }
     }
   }
-  const now = parisParts(new Date());
   for (const row of bookings.rows) {
     const { day, time } = parisParts(new Date(row.starts));
     at(day, time, row.slug, row.title, row.seats).people.push(row);
   }
 
+  const now = parisParts(new Date());
   const byDay = new Map();
   for (const session of [...sessions.values()].sort((a, b) => `${a.day} ${a.time}`.localeCompare(`${b.day} ${b.time}`) || a.title.localeCompare(b.title))) {
-    if (session.day === now.day && session.time < now.time && !session.people.length) continue;
+    if (!session.people.length && (session.day < now.day || (session.day === now.day && session.time < now.time))) continue;
     if (!byDay.has(session.day)) byDay.set(session.day, []);
     byDay.get(session.day).push(session);
   }
+  return byDay;
+}
 
-  const people = (list) =>
-    list.length
-      ? `<table><tbody>${list
-          .map((p) => {
-            const paid = p.code
-              ? `<span class="ok">Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span>`
-              : p.paid_order
-                ? `<a class="ok" href="/admin/commandes#${esc(p.paid_order)}">${tr("Payé en ligne", "Paid online")}</a>`
-                : WEBHOOK_SECRET
-                  ? `<span class="off">${tr("à régler (panier non payé, ou sur place)", "to pay (cart not paid, or at the studio)")}</span>`
-                  : `<span class="muted">${tr("à vérifier (paiement en ligne pas encore relié)", "to check (online payment not linked yet)")}</span>`;
-            const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : "", p.phone ? esc(p.phone) : ""].filter(Boolean).join(" · ");
-            return `<tr><td><b>${esc(p.name)}</b><br><span class="muted">${contact}</span></td><td>${paid}</td></tr>`;
-          })
-          .join("")}</tbody></table>`
-      : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
+// How one person paid for their place.
+function payment(p) {
+  if (p.code) return `<span class="ok">Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span>`;
+  if (p.paid_order) return `<a class="ok" href="/admin/commandes#${esc(p.paid_order)}">${tr("Payé en ligne", "Paid online")}</a>`;
+  if (p.acuity_pay) {
+    // Booked on Acuity before the switch: "code XXXX", "payé 50.00" or "à régler".
+    const code = p.acuity_pay.match(/^code (.+)$/)?.[1];
+    if (code) return `<span class="ok">Code ${esc(code)} · ${tr("réservé sur Acuity", "booked on Acuity")}</span>`;
+    if (p.acuity_pay.startsWith("payé")) {
+      const amount = Number(p.acuity_pay.replace(/[^0-9.,]/g, "").replace(",", "."));
+      return `<span class="ok">${tr("Payé sur Acuity", "Paid on Acuity")}${amount > 0 ? ` (${esc(fmtAmount("euros", amount))})` : ""}</span>`;
+    }
+    return `<span class="off">${tr("à régler (réservé sur Acuity)", "to pay (booked on Acuity)")}</span>`;
+  }
+  return WEBHOOK_SECRET
+    ? `<span class="off">${tr("à régler (panier non payé, ou sur place)", "to pay (cart not paid, or at the studio)")}</span>`
+    : `<span class="muted">${tr("à vérifier (paiement en ligne pas encore relié)", "to check (online payment not linked yet)")}</span>`;
+}
 
+const people = (list) =>
+  list.length
+    ? `<table><tbody>${list
+        .map((p) => {
+          const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : "", p.phone ? esc(p.phone) : ""].filter(Boolean).join(" · ");
+          return `<tr><td><b>${esc(p.name)}</b><br><span class="muted">${contact}</span></td><td>${payment(p)}</td></tr>`;
+        })
+        .join("")}</tbody></table>`
+    : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
+
+// One class, with its people; the calendar links to it by its id.
+const sessionId = (s) => `c${s.time.replace(":", "")}-${s.slug}`;
+const sessionBox = (s) =>
+  `<div class="session" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(offerLabel(s.slug))}</b>
+     <span class="pill">${s.people.length} / ${s.seats ?? "?"} ${tr("places", "places")}</span></div>${people(s.people)}</div>`;
+
+// List · Calendar, at the top of Cours.
+function coursTabs(active) {
+  const tabs = [["liste", tr("Liste", "List"), "/admin/cours"], ["calendrier", tr("Calendrier", "Calendar"), "/admin/cours?vue=calendrier"]];
+  return `<nav class="tabs">${tabs.map(([key, label, href]) => `<a href="${href}"${key === active ? ' aria-current="page"' : ""}>${label}</a>`).join("")}</nav>`;
+}
+
+async function coursPage(url) {
+  const day = url.searchParams.get("jour");
+  if (isDay(day)) return coursDay(day);
+  if (url.searchParams.get("vue") === "calendrier") return coursCalendar(url.searchParams.get("mois"));
+  return coursList(url);
+}
+
+// The coming days, class by class.
+async function coursList(url) {
+  const days = Math.min(Math.max(Number(url.searchParams.get("jours")) || 14, 1), 60);
+  const today = parisToday();
+  const byDay = await loadSessions(today, addDays(today, days));
   const body = [...byDay.entries()]
-    .map(([day, list]) => `<h2 class="day">${esc(weekday(new Date(`${day}T12:00:00Z`)))}</h2>${list
-      .map((s) => `<div class="session"><div class="head"><b>${esc(s.time)} · ${esc(offerLabel(s.slug))}</b>
-          <span class="pill">${s.people.length} / ${s.seats ?? "?"} ${tr("places", "places")}</span></div>${people(s.people)}</div>`)
-      .join("")}`)
+    .map(([day, list]) => `<h2 class="day">${esc(weekday(noon(day)))}</h2>${list.map(sessionBox).join("")}`)
     .join("");
   return shell(
     "cours",
     tr("Cours", "Classes"),
-    `<h1>${tr("Cours", "Classes")}</h1><p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
+    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("liste")}<p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
        ${days < 30 ? `<a href="?jours=30">${tr("Voir 30 jours", "Show 30 days")}</a>` : `<a href="?jours=14">${tr("Voir 14 jours", "Show 14 days")}</a>`}</p>
      ${body || `<p class="muted">${tr("Aucun cours sur cette période.", "No classes in this period.")}</p>`}`,
+  );
+}
+
+// A month at a glance: every class and its places taken. A class, or a day,
+// opens that day's lists.
+async function coursCalendar(month) {
+  const today = parisToday();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month ?? "")) month = today.slice(0, 7);
+  const [year, mm] = month.split("-").map(Number);
+  const previous = new Date(Date.UTC(year, mm - 2, 1)).toISOString().slice(0, 7);
+  const next = new Date(Date.UTC(year, mm, 1)).toISOString().slice(0, 7);
+  // Whole weeks, Monday to Sunday.
+  const monday = (day) => addDays(day, -((noon(day).getUTCDay() + 6) % 7));
+  const from = monday(`${month}-01`);
+  const to = addDays(monday(addDays(`${next}-01`, -1)), 7);
+  const byDay = await loadSessions(from, to);
+
+  const chip = (s) => {
+    const taken = s.people.length;
+    const state = s.seats && taken >= s.seats ? " full" : taken ? " some" : "";
+    return `<a class="chip${state}" href="?jour=${s.day}#${esc(sessionId(s))}" title="${esc(`${s.time} · ${offerLabel(s.slug)} · ${taken} / ${s.seats ?? "?"}`)}"><span>${esc(s.time)}</span><span class="l">${esc(offerLabel(s.slug).replace(/ [12]h$/, ""))}</span><b>${taken}/${s.seats ?? "?"}</b></a>`;
+  };
+  const cells = [];
+  for (let day = from; day < to; day = addDays(day, 1)) {
+    const list = byDay.get(day) ?? [];
+    const kind = [day.slice(0, 7) !== month && "out", day < today && "past", day === today && "today", !list.length && "empty"].filter(Boolean).join(" ");
+    cells.push(`<div class="cell ${kind}"><a class="date" href="?jour=${day}"><span class="n">${noon(day).getUTCDate()}</span><span class="w cap">${esc(weekday(noon(day)))}</span></a>${list.map(chip).join("")}</div>`);
+  }
+  const dows = [0, 1, 2, 3, 4, 5, 6].map((i) => new Intl.DateTimeFormat(LOCALE(), { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 0, 5 + i, 12))));
+  const title = new Intl.DateTimeFormat(LOCALE(), { month: "long", year: "numeric", timeZone: "UTC" }).format(noon(`${month}-01`));
+  const booked = [...byDay.entries()].filter(([day]) => day.startsWith(month)).reduce((n, [, list]) => n + list.reduce((m, s) => m + s.people.length, 0), 0);
+  return shell(
+    "cours",
+    `${tr("Cours", "Classes")} · ${title}`,
+    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("calendrier")}
+     <div class="calnav"><a href="?vue=calendrier&mois=${previous}" aria-label="${tr("Mois précédent", "Previous month")}">←</a><h2 class="cap">${esc(title)}</h2><a href="?vue=calendrier&mois=${next}" aria-label="${tr("Mois suivant", "Next month")}">→</a>
+       ${month !== today.slice(0, 7) ? `<a class="small" href="?vue=calendrier">${tr("Aujourd’hui", "Today")}</a>` : ""}<span class="muted small">${booked} ${tr(booked > 1 ? "places réservées" : "place réservée", booked === 1 ? "place booked" : "places booked")}</span></div>
+     <div class="cal">${dows.map((d) => `<div class="dow">${esc(d)}</div>`).join("")}${cells.join("")}</div>
+     <p class="muted small">${tr("3/7 : places prises sur 7. Liseré vert : déjà des inscrits ; orange : complet. Un jour ou un cours ouvre la liste des personnes.", "3/7: 3 of 7 places taken. Green edge: people booked; orange: full. A day or a class opens its list of people.")}</p>`,
+  );
+}
+
+// One day: its classes and everyone booked, past or coming.
+async function coursDay(day) {
+  const list = (await loadSessions(day, addDays(day, 1))).get(day) ?? [];
+  const long = new Intl.DateTimeFormat(LOCALE(), { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(noon(day));
+  return shell(
+    "cours",
+    `${tr("Cours", "Classes")} · ${long}`,
+    `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}
+     <p class="muted"><a href="?jour=${addDays(day, -1)}">← ${tr("Veille", "Previous day")}</a> · <a href="?vue=calendrier&mois=${day.slice(0, 7)}">${tr("Le mois", "The month")}</a> · <a href="?jour=${addDays(day, 1)}">${tr("Lendemain", "Next day")} →</a></p>
+     ${list.length ? list.map(sessionBox).join("") : `<p class="muted">${tr("Aucun cours ce jour-là.", "No classes that day.")}</p>`}`,
   );
 }
 
