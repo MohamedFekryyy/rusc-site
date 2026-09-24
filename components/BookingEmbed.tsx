@@ -12,6 +12,7 @@ import {
   type BookingView,
   type OfferKey,
 } from "@/lib/cal";
+import { getSession, type AuthUser } from "@/lib/auth";
 import { cart } from "@/lib/cart";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { CART, PAGES, bookingHref, type Lang } from "@/lib/routes";
@@ -198,6 +199,20 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const [codeInput, setCodeInput] = useState("");
   const [code, setCode] = useState<CodeResult | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
+  // A signed-in member (Connexion page): their name and e-mail are filled in
+  // Cal's booker, so the booking shows in their space.
+  const [member, setMember] = useState<AuthUser | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getSession()
+      .then((user) => {
+        if (alive && user) setMember(user);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [codeBusy, setCodeBusy] = useState(false);
   // The code as the Cal callbacks see it, and the booking the first success
   // event already handled (Cal then sends a second one for the same booking).
@@ -322,14 +337,14 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     cal.ns[ns]("inline", {
       elementOrSelector: el,
       calLink: offerCalLink(offer),
-      config: { layout: "month_view", theme: "light" },
+      config: { layout: "month_view", theme: "light", ...(member ? { name: member.name, email: member.email } : {}) },
     });
     return () => {
       activeNs.current = null;
       // Only remove what this effect added: React may reuse the host's node.
       el.remove();
     };
-  }, [offer, lang, unavailable]);
+  }, [offer, lang, unavailable, member]);
 
   return (
     <div ref={shellRef} style={{ scrollMarginTop: "70px" }}>

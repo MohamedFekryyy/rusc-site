@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
+import { AUTH_EVENT, getToken } from "@/lib/auth";
 import { cartCount, useCart } from "@/lib/cart";
 import { BOOKING, CART, HOME, LOGIN, PAGES, type Lang, type PageKey } from "@/lib/routes";
 
@@ -50,6 +51,19 @@ const CTA = {
 };
 
 const AUTH_LABEL = { fr: "Connexion", en: "Log in" };
+const ACCOUNT_LABEL = { fr: "Mon compte", en: "My account" };
+
+// Signed in on this browser (lib/auth.ts keeps the token): the header says
+// "Mon compte". Follows sign-ins in this tab and in others.
+function subscribeAuth(notify: () => void) {
+  window.addEventListener(AUTH_EVENT, notify);
+  window.addEventListener("storage", notify);
+  return () => {
+    window.removeEventListener(AUTH_EVENT, notify);
+    window.removeEventListener("storage", notify);
+  };
+}
+const useSignedIn = () => useSyncExternalStore(subscribeAuth, () => Boolean(getToken()), () => false);
 const CART_LABEL = { fr: "Panier", en: "Cart" };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
 // Tagline shown as the center brand mark in the header (in place of the logo).
@@ -62,6 +76,7 @@ type Props = {
 
 export default function Header({ lang, page }: Props) {
   const [open, setOpen] = useState(false);
+  const signedIn = useSignedIn();
   const labels = LABELS[lang];
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
@@ -105,9 +120,9 @@ export default function Header({ lang, page }: Props) {
           <a className="cta" href={cta.href}>
             {cta.label}
           </a>
-          {/* Login / account: leads to the sign-in & sign-up page. */}
+          {/* Login / account: the sign-in page, or the member's space once signed in. */}
           <a className="auth" href={LOGIN[lang]}>
-            {AUTH_LABEL[lang]}
+            {signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}
           </a>
           {/* Cart (lib/cart.ts): its item count, live across the site. */}
           <a className="cart" href={CART[lang]}>

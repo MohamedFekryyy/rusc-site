@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import SitePage from "@/components/SitePage";
-import AuthForm from "@/components/AuthForm";
+import AccountArea from "@/components/AccountArea";
 
 export const metadata: Metadata = {
   title: "Connexion — espace client rūsc, Chamonix",
@@ -13,24 +13,7 @@ export const metadata: Metadata = {
 export default function Connexion() {
   return (
     <SitePage lang="fr" page="connexion" title="connexion" sub="Votre espace rūsc">
-      <AuthForm
-        title="connexion"
-        subtitle="Votre espace rūsc"
-        signInTitle="Connexion"
-        signUpTitle="Inscription"
-        name="Nom complet"
-        email="Email"
-        password="Mot de passe (8 caractères minimum)"
-        stayLoggedIn="Rester connecté·e"
-        signIn="Se connecter"
-        signUp="Créer mon compte"
-        switchToSignUp="Créer un compte"
-        switchToSignIn="Se connecter"
-        haveAccount="Déjà un compte ?"
-        noAccount="Pas encore de compte ?"
-        errorGeneric="Une erreur est survenue, veuillez réessayer."
-        preview="Le service de connexion sera bientôt disponible — cet écran est en préparation."
-      />
+      <AccountArea lang="fr" />
     </SitePage>
   );
 }
