@@ -77,6 +77,24 @@ CREATE TABLE IF NOT EXISTS rusc.members (
   note text
 );
 
+-- One-off imports (Acuity's codes and upcoming bookings, sent from the
+-- Acuity admin page to POST /import/acuity), kept as received; the SQL in
+-- scripts/continuity/acuity-apply.sql turns the latest one into codes and
+-- Cal places.
+CREATE TABLE IF NOT EXISTS rusc.imports (
+  id bigserial PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  source text NOT NULL,
+  payload jsonb NOT NULL
+);
+
+-- Upcoming Acuity bookings copied into Cal, and how each was paid on Acuity.
+CREATE TABLE IF NOT EXISTS rusc.acuity_seats (
+  seat_uid text PRIMARY KEY,          -- the Cal seat ("acuity-<appointment id>")
+  acuity_id text NOT NULL,
+  pay text                            -- "payé 50 €", "code XXXX", "à régler"
+);
+
 -- The order a code was bought with (carnets and vouchers bought online).
 ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.orders (id);
 

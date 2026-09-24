@@ -289,6 +289,10 @@ async function apiRedeem(input) {
 // ---------------------------------------------------------------- online orders
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+// One-off import from the Acuity admin page (scripts/continuity/): only open
+// while the Fly secret IMPORT_TOKEN is set, and only from Acuity's admin.
+const IMPORT_TOKEN = process.env.IMPORT_TOKEN ?? "";
+const IMPORT_ORIGIN = "https://secure.acuityscheduling.com";
 
 // Stripe's signature: header "t=<time>,v1=<hex>…", HMAC-SHA256 of "<t>.<body>".
 function stripeEvent(body, header) {
@@ -764,6 +768,17 @@ async function handle(req, res, url) {
         await recordOrder(event.data.object);
       }
       return send(res, 200, { received: true });
+    }
+
+    if (url.pathname === "/import/acuity" && IMPORT_TOKEN) {
+      const headers = req.headers.origin === IMPORT_ORIGIN
+        ? { "access-control-allow-origin": IMPORT_ORIGIN, "access-control-allow-headers": "content-type, x-import-token", "access-control-allow-methods": "POST, OPTIONS", vary: "origin" }
+        : {};
+      if (req.method === "OPTIONS") return send(res, 204, {}, headers);
+      if (req.method !== "POST" || !sameText(req.headers["x-import-token"] ?? "", IMPORT_TOKEN)) return send(res, 403, { ok: false }, headers);
+      const payload = JSON.parse(await readBody(req, 5 * 1024 * 1024));
+      await db.query("INSERT INTO rusc.imports (source, payload) VALUES ('acuity', $1)", [payload]);
+      return send(res, 200, { ok: true, codes: payload.codes?.length ?? 0, appointments: payload.appointments?.length ?? 0 }, headers);
     }
 
     if (url.pathname.startsWith("/api/")) {
