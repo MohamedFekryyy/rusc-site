@@ -19,7 +19,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
   - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): class lists (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio), then online orders and the timetable. The booking page takes a class off a code through its API instead of sending it to the cart.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
-- **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (step 14). Until they're set, the cart says online payment opens soon.
+- **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; until they're set, the cart says online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
 ## Commands
 
@@ -360,3 +360,25 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Next:**
   - Stripe notifies rūsc admin, so card-paid classes show as paid and online carnets/vouchers get their code. The signing secret goes into rusc-admin's Fly secrets, and Vercel keeps only the two keys.
   - The cart must store each class's seat reference.
+
+### 21. Commandes: online orders in rūsc admin (2026-09-24)
+- **Seats in the cart:** a class line now remembers the person's Cal seat (`seatReferenceUid` from the V1 `bookingSuccessful` event, which now handles both the cart and codes; V2 is only a fallback). Two places in the same class are two lines. The checkout's order summary uses the seat (`<key>x1@<seat>`).
+- **Stripe → rūsc admin:** `POST /stripe/webhook` checks Stripe's signature itself (HMAC-SHA256 over `<t>.<body>`, 5-minute tolerance, no library). On `checkout.session.completed`, `recordOrder()`:
+  - records the order once (`rusc.orders`);
+  - marks paid seats (`rusc.paid_seats`);
+  - creates one code per carnet or gift voucher bought (presets, source `online`, holder = the buyer);
+  - records memberships (`rusc.members`, one year).
+- **The site's webhook route** (`app/api/stripe/webhook/`) was removed. Vercel now only needs the two Stripe keys.
+- **Thank-you screen:** the cart keeps the Checkout Session id and polls `GET /api/order?id=cs_…` (up to about 30 s) to show the new codes to the buyer.
+- **Admin pages:**
+  - **Commandes** lists orders: date, buyer, what was bought, total, codes created.
+  - **Cours** shows "Payé en ligne" for paid places, and "à régler" for unpaid ones once Stripe is linked.
+- **Checked locally with a fake database and a local-only test secret:**
+  - a valid signature is accepted, and forged, tampered or 1-hour-old ones are refused;
+  - a mixed order (carnet 10, 2 gift vouchers, membership, one class) created exactly 1 + 2 codes, the member and the paid seat;
+  - the Commandes page renders.
+- **Live:** the tables exist, and `/stripe/webhook` refuses unsigned calls.
+- **For the owner:**
+  - point the Stripe webhook endpoint (`we_1UIvjEBwkJn18YegcHTOBfMr`) at `https://rusc-admin.fly.dev/stripe/webhook`;
+  - save its signing secret in rusc-admin (`fly secrets set -a rusc-admin STRIPE_WEBHOOK_SECRET=…`);
+  - put the two keys in Vercel.
