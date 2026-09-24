@@ -13,7 +13,7 @@ import {
   type OfferKey,
 } from "@/lib/cal";
 import { getSession, type AuthUser } from "@/lib/auth";
-import { cart } from "@/lib/cart";
+import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { CART, PAGES, bookingHref, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
@@ -27,6 +27,7 @@ const TEXT = {
     contact: "Nous contacter",
     addToCart: "Ajouter au panier",
     added: (title: string) => `« ${title} » est dans votre panier.`,
+    amountRange: (min: number, max: number) => `Un montant entier entre ${min} et ${max} €.`,
     viewCart: "Voir le panier",
     keepBrowsing: "Continuer",
     slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
@@ -56,6 +57,7 @@ const TEXT = {
     contact: "Contact us",
     addToCart: "Add to cart",
     added: (title: string) => `“${title}” is in your cart.`,
+    amountRange: (min: number, max: number) => `A whole amount between €${min} and €${max}.`,
     viewCart: "View cart",
     keepBrowsing: "Keep browsing",
     slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
@@ -245,6 +247,22 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       const key = adder?.dataset.cart;
       if (adder && isOfferKey(key)) {
         event.preventDefault();
+        const bounds = amountBounds(key);
+        if (bounds) {
+          // A gift voucher of any amount: the field beside the button, in whole euros.
+          const field = adder.closest("article")?.querySelector<HTMLInputElement>("input[name=amount]");
+          const euros = Math.round(Number(field?.value));
+          const cents = validAmount(key, euros * 100);
+          if (cents === null) {
+            field?.setCustomValidity(t.amountRange(bounds.min / 100, bounds.max / 100));
+            field?.reportValidity();
+            return;
+          }
+          field?.setCustomValidity("");
+          cart.addAmount(key, cents);
+          setToast(`${offerByKey(key)![lang].tag} · ${euros} €`);
+          return;
+        }
         cart.add(key);
         setToast(offerByKey(key)![lang].title);
         return;
@@ -261,7 +279,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     }
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
-  }, [lang]);
+  }, [lang, t]);
 
   useEffect(() => {
     if (!toast) return;

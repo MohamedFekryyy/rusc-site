@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { offerByKey } from "@/lib/cal";
+import { amountBounds, validAmount } from "@/lib/cart";
 import { formatSlot } from "@/lib/format";
 import type { Lang } from "@/lib/routes";
 import { getStripe } from "@/lib/stripe";
@@ -8,7 +9,7 @@ import { getStripe } from "@/lib/stripe";
 // embedded in the cart page (nothing leaves the site). Every price comes
 // from OFFERS; the browser only says which offers and how many.
 
-type IncomingItem = { key?: unknown; qty?: unknown; booking?: { uid?: unknown; seat?: unknown; start?: unknown } };
+type IncomingItem = { key?: unknown; qty?: unknown; amount?: unknown; booking?: { uid?: unknown; seat?: unknown; start?: unknown } };
 
 const MAX_LINES = 20;
 
@@ -44,7 +45,15 @@ export async function POST(request: Request) {
     if (!offer) return bad("unknown_item");
 
     let name: string = offer[lang].title;
+    let unitAmount: number = offer.price;
     let qty = 1;
+    // A gift voucher of any amount: the buyer's choice, within the offer's bounds.
+    if (amountBounds(offer.key)) {
+      const cents = validAmount(offer.key, item.amount);
+      if (cents === null) return bad("bad_amount");
+      unitAmount = cents;
+      name = `${offer[lang].tag} · ${(cents / 100).toLocaleString(lang === "fr" ? "fr-FR" : "en-GB")} €`;
+    }
     let bookingUid = "";
     if (offer.kind === "session") {
       const uid = item.booking?.uid;
@@ -63,9 +72,10 @@ export async function POST(request: Request) {
 
     lineItems.push({
       quantity: qty,
-      price_data: { currency: "eur", unit_amount: offer.price, product_data: { name } },
+      price_data: { currency: "eur", unit_amount: unitAmount, product_data: { name } },
     });
-    summary.push(`${offer.key}x${qty}${bookingUid ? `@${bookingUid}` : ""}`);
+    // <key>[:<amount in cents>]x<qty>[@<seat>]: rūsc admin reads it from the metadata.
+    summary.push(`${offer.key}${amountBounds(offer.key) ? `:${unitAmount}` : ""}x${qty}${bookingUid ? `@${bookingUid}` : ""}`);
   }
 
   const session = await stripe.checkout.sessions.create({

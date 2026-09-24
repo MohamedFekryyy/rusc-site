@@ -47,6 +47,9 @@ type OfferSource = {
   // Price in euro cents, TTC. The cart and Stripe checkout charge this; the
   // server recomputes it (never trusts the browser).
   price: number;
+  // A gift voucher of any amount: the buyer picks it, in whole euros, between
+  // these bounds (euro cents); price is the amount first shown.
+  amount?: { min: number; max: number };
   fr: OfferText;
   en: OfferText;
 };
@@ -159,6 +162,12 @@ export const OFFERS = [
     key: "bon-cadeau-stage-2j", view: "gifts", tone: "guest", kind: "product", price: 28000,
     fr: { tag: "Bon cadeau", title: "un stage de 2 jours", unit: "280 €", cta: "Offrir" },
     en: { tag: "Gift voucher", title: "a 2-day intensive", unit: "€280", cta: "Give" },
+  },
+  {
+    // Owner's request (2026-09-24): a gift card of any amount, for any class.
+    key: "bon-cadeau-montant", view: "gifts", tone: "guest", kind: "product", price: 5000, amount: { min: 1000, max: 100000 },
+    fr: { tag: "Bon cadeau", title: "le montant de votre choix", unit: "De 10 à 1 000 €, pour n’importe quel cours ou stage · valable 6 mois", cta: "Offrir" },
+    en: { tag: "Gift voucher", title: "the amount you choose", unit: "€10 to €1,000, for any course or intensive · valid 6 months", cta: "Give" },
   },
 ] as const satisfies readonly OfferSource[];
 

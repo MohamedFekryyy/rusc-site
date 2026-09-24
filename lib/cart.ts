@@ -10,7 +10,26 @@ import { offerByKey, type OfferKey } from "@/lib/cal";
 // person's place in it (Cal's seat reference), which the payment is for.
 export type CartBooking = { uid: string; seat?: string; start: string; end?: string };
 
-export type CartItem = { id: string; key: OfferKey; qty: number; booking?: CartBooking };
+// amount: what the buyer chose for a gift voucher of any amount (euro cents).
+export type CartItem = { id: string; key: OfferKey; qty: number; amount?: number; booking?: CartBooking };
+
+// Bounds of a gift voucher of any amount, if the offer is one.
+export function amountBounds(key: string): { min: number; max: number } | undefined {
+  return (offerByKey(key) as { amount?: { min: number; max: number } } | undefined)?.amount;
+}
+
+// A chosen amount (euro cents), if valid for this offer: whole euros, within bounds.
+export function validAmount(key: string, cents: unknown): number | null {
+  const bounds = amountBounds(key);
+  const n = Number(cents);
+  if (!bounds || !Number.isInteger(n) || n % 100 !== 0 || n < bounds.min || n > bounds.max) return null;
+  return n;
+}
+
+// A line's unit price in euro cents.
+export function linePrice(item: CartItem) {
+  return item.amount ?? offerByKey(item.key)?.price ?? 0;
+}
 
 const STORAGE_KEY = "rusc-cart-v1";
 const MAX_QTY = 20;
@@ -24,7 +43,9 @@ function read(): CartItem[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
     if (!Array.isArray(parsed)) return EMPTY;
-    return parsed.filter((i): i is CartItem => !!i && !!offerByKey(i.key) && Number(i.qty) > 0);
+    return parsed.filter(
+      (i): i is CartItem => !!i && !!offerByKey(i.key) && Number(i.qty) > 0 && (!amountBounds(i.key) || validAmount(i.key, i.amount) !== null),
+    );
   } catch {
     return EMPTY;
   }
@@ -84,6 +105,19 @@ export const cart = {
         : [...items, { id: `${key}-${Date.now()}`, key, qty: 1 }],
     );
   },
+  // A gift voucher of any amount: one line per amount chosen.
+  addAmount(key: OfferKey, cents: number) {
+    load();
+    const amount = validAmount(key, cents);
+    if (amount === null) return;
+    const id = `${key}-${amount}`;
+    const line = items.find((i) => i.id === id);
+    write(
+      line
+        ? items.map((i) => (i === line ? { ...i, qty: Math.min(i.qty + 1, MAX_QTY) } : i))
+        : [...items, { id, key, qty: 1, amount }],
+    );
+  },
   // A dated booking: one line per place booked (two people in the same class
   // are two seats of the same Cal booking).
   addBooking(key: OfferKey, booking: CartBooking) {
@@ -110,5 +144,5 @@ export function cartCount(list: CartItem[]) {
 }
 
 export function cartTotal(list: CartItem[]) {
-  return list.reduce((sum, i) => sum + (offerByKey(i.key)?.price ?? 0) * i.qty, 0);
+  return list.reduce((sum, i) => sum + linePrice(i) * i.qty, 0);
 }

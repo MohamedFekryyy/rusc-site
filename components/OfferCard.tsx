@@ -43,7 +43,10 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
   "bon-cadeau-carnet-10": { image: us01, icon: Gift },
   "bon-cadeau-stage-1j": { image: ceramique1j, icon: Gift },
   "bon-cadeau-stage-2j": { image: stages, icon: Gift },
+  "bon-cadeau-montant": { image: bonCadeau, icon: Gift },
 };
+
+const AMOUNT_LABEL = { fr: "Montant en euros", en: "Amount in euros" };
 
 // One offer on the booking page, styled like the cards of the Cours and
 // Stages pages. Workshops open their booker; cards, membership and gift
@@ -60,7 +63,28 @@ export default function OfferCard({ offer, lang }: { offer: Offer; lang: Lang })
       </p>
       <h3>{t.title}</h3>
       <p className="price">{t.unit}</p>
-      {offer.kind === "product" ? (
+      {offer.kind === "product" && "amount" in offer ? (
+        // A gift voucher of any amount: BookingEmbed reads the field next to the button.
+        <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, fontSize: "15px" }}>
+            <input
+              type="number"
+              name="amount"
+              inputMode="numeric"
+              min={offer.amount.min / 100}
+              max={offer.amount.max / 100}
+              step={1}
+              defaultValue={offer.price / 100}
+              aria-label={AMOUNT_LABEL[lang]}
+              style={{ width: "100%", margin: 0 }}
+            />
+            €
+          </label>
+          <button type="button" className={`btn ${offer.tone}`} data-cart={offer.key} style={{ cursor: "pointer" }}>
+            {t.cta}
+          </button>
+        </div>
+      ) : offer.kind === "product" ? (
         // Added straight to the cart (BookingEmbed handles [data-cart]).
         <button type="button" className={`btn ${offer.tone}`} data-cart={offer.key} style={{ cursor: "pointer" }}>
           {t.cta}

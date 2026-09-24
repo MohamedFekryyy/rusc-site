@@ -3,7 +3,7 @@
 import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { offerByKey } from "@/lib/cal";
-import { cart, cartTotal, useCart } from "@/lib/cart";
+import { cart, cartTotal, linePrice, useCart } from "@/lib/cart";
 import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
 import { formatPrice, formatSlot } from "@/lib/format";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
@@ -14,6 +14,7 @@ const TEXT = {
     browse: "Voir les cours, carnets et bons cadeaux",
     more: "Continuer mes achats",
     remove: "Retirer",
+    anyClass: "Pour n’importe quel cours ou stage · valable 6 mois",
     less: "Un de moins",
     plus: "Un de plus",
     total: "Total",
@@ -35,6 +36,7 @@ const TEXT = {
     browse: "See courses, cards and gift vouchers",
     more: "Keep shopping",
     remove: "Remove",
+    anyClass: "For any course or intensive · valid 6 months",
     less: "One less",
     plus: "One more",
     total: "Total",
@@ -195,9 +197,9 @@ export default function CartView({ lang }: { lang: Lang }) {
           return (
             <div className="row" key={item.id} style={{ alignItems: "center" }}>
               <span className="lbl">
-                {offer[lang].title}
+                {item.amount ? `${offer[lang].tag} · ${formatPrice(item.amount, lang)}` : offer[lang].title}
                 <small>
-                  {item.booking ? formatSlot(item.booking.start, lang) : offer[lang].unit}
+                  {item.booking ? formatSlot(item.booking.start, lang) : item.amount ? t.anyClass : offer[lang].unit}
                 </small>
                 <button type="button" style={{ ...textButton, marginTop: "6px" }} onClick={() => cart.remove(item.id)}>
                   {t.remove}
@@ -213,7 +215,7 @@ export default function CartView({ lang }: { lang: Lang }) {
                 )}
                 {/* Fixed width keeps the steppers lined up from row to row. */}
                 <span className="val" style={{ minWidth: "4.6em", textAlign: "right" }}>
-                  {formatPrice(offer.price * item.qty, lang)}
+                  {formatPrice(linePrice(item) * item.qty, lang)}
                 </span>
               </span>
             </div>
