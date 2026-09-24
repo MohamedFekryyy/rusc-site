@@ -308,7 +308,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     });
     cal.ns[ns]("inline", {
       elementOrSelector: el,
-      calLink: offerCalLink(offer, lang),
+      calLink: offerCalLink(offer),
       config: { layout: "month_view", theme: "light" },
     });
     return () => {

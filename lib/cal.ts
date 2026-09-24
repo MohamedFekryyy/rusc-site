@@ -1,5 +1,3 @@
-import type { Lang } from "@/lib/routes";
-
 // Cal.com config: the source of truth behind every booking since the
 // Acuity -> Cal.com migration.
 //
@@ -57,10 +55,10 @@ type OfferSource = {
 // prices are the ones on the Cours, Stages and Espace membre pages (the
 // children's course, which shows no price there, was €50 on Acuity).
 //
-// Each offer is TWO Cal.com event types, `<key>-fr` and `<key>-en`: the embed
-// has no language parameter, so the FR page books the -fr type and the EN
-// page the -en type. This list is also the checklist of event types to
-// create in Cal.com.
+// Each session is ONE Cal event type, slug = its key (deploy/cal/seed-classes.mjs
+// creates them), so French and English visitors fill the same places. Its
+// French title and description have an English translation, which Cal's
+// booker shows to visitors whose browser is in English.
 export const OFFERS = [
   // Cours & stages
   {
@@ -179,7 +177,7 @@ export function offersIn(view: BookingView) {
   return OFFERS.filter((o) => o.view === view);
 }
 
-// The Cal event type for an offer in one language, e.g. "rusc-studio/porcelaine-fr".
-export function offerCalLink(offer: Offer, lang: Lang) {
-  return calLink(`${offer.key}-${lang}`);
+// The Cal event type of an offer, e.g. "raquel/porcelaine" (one for both languages).
+export function offerCalLink(offer: Offer) {
+  return calLink(offer.key);
 }

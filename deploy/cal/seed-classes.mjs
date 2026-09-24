@@ -1,6 +1,13 @@
 // rūsc's classes as Cal.diy event types, with their timetable: one schedule
-// per class, and two event types per class (`<key>-fr`, `<key>-en`, the keys
-// of the sessions in lib/cal.ts), all hosted by the studio account.
+// and ONE event type per class (slug = the session's key in lib/cal.ts), all
+// hosted by the studio account. French title and description, plus an English
+// translation that Cal's booker shows to English-speaking visitors. One event
+// type per class means one set of places: French and English bookings fill
+// the same class.
+//
+// Earlier runs made two event types per class (`<key>-fr`, `<key>-en`), which
+// let each language fill the class separately. A run now keeps the -fr one
+// under the plain key, moves the -en one's bookings onto it, and removes it.
 //
 //   node deploy/cal/seed-classes.mjs > /tmp/classes.sql && sh deploy/cal/db-run.sh /tmp/classes.sql
 //
@@ -78,7 +85,7 @@ const CLASSES = [
 ];
 
 const q = (s) => `'${String(s).replaceAll("'", "''")}'`;
-const lines = ["\\set ON_ERROR_STOP on", "BEGIN;", "DO $rusc$", "DECLARE uid int; sid int; eid int;", "BEGIN"];
+const lines = ["\\set ON_ERROR_STOP on", "BEGIN;", "DO $rusc$", "DECLARE uid int; sid int; eid int; tid int;", "BEGIN"];
 lines.push(`  SELECT id INTO uid FROM users WHERE username = ${q(HOST)};`);
 lines.push(`  IF uid IS NULL THEN RAISE EXCEPTION 'no user ${HOST}'; END IF;`);
 
@@ -95,22 +102,37 @@ CLASSES.forEach((c, index) => {
   for (const [date, start, end] of c.dates ?? []) {
     lines.push(`  INSERT INTO "Availability" ("scheduleId", days, date, "startTime", "endTime") VALUES (sid, ARRAY[]::int[], ${q(date)}, ${q(start)}, ${q(end)});`);
   }
-  for (const lang of ["fr", "en"]) {
-    const [title, description] = c[lang];
-    const slug = `${c.key}-${lang}`;
-    const locations = JSON.stringify([{ type: "inPerson", address: ADDRESS, displayLocationPublicly: true }]);
-    lines.push(`  SELECT id INTO eid FROM "EventType" WHERE "userId" = uid AND slug = ${q(slug)};`);
-    lines.push(`  IF eid IS NULL THEN INSERT INTO "EventType" (title, slug, length, "userId") VALUES (${q(title)}, ${q(slug)}, ${c.minutes}, uid) RETURNING id INTO eid; END IF;`);
+  const [title, description] = c.fr;
+  const [titleEn, descriptionEn] = c.en;
+  const locations = JSON.stringify([{ type: "inPerson", address: ADDRESS, displayLocationPublicly: true }]);
+  // The event type: the plain key, else the old -fr twin (renamed below), else a new one.
+  lines.push(`  SELECT id INTO eid FROM "EventType" WHERE "userId" = uid AND slug = ${q(c.key)};`);
+  lines.push(`  IF eid IS NULL THEN SELECT id INTO eid FROM "EventType" WHERE "userId" = uid AND slug = ${q(`${c.key}-fr`)}; END IF;`);
+  lines.push(`  IF eid IS NULL THEN INSERT INTO "EventType" (title, slug, length, "userId") VALUES (${q(title)}, ${q(c.key)}, ${c.minutes}, uid) RETURNING id INTO eid; END IF;`);
+  lines.push(
+    `  UPDATE "EventType" SET slug = ${q(c.key)}, title = ${q(title)}, description = ${q(description)}, length = ${c.minutes},` +
+      ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
+      ` locations = ${q(locations)}::jsonb, "interfaceLanguage" = NULL,` +
+      ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = true,` +
+      ` "requiresConfirmation" = false, hidden = true, "slotInterval" = ${c.interval ?? 30},` +
+      ` position = ${CLASSES.length - index}` +
+      ` WHERE id = eid;`,
+  );
+  lines.push(`  INSERT INTO "_user_eventtype" ("A", "B") VALUES (eid, uid) ON CONFLICT DO NOTHING;`);
+  // The old English twin: its bookings join this class, then it goes.
+  lines.push(`  SELECT id INTO tid FROM "EventType" WHERE "userId" = uid AND slug = ${q(`${c.key}-en`)};`);
+  lines.push(`  IF tid IS NOT NULL THEN`);
+  lines.push(`    UPDATE "Booking" SET "eventTypeId" = eid WHERE "eventTypeId" = tid;`);
+  lines.push(`    DELETE FROM "_user_eventtype" WHERE "A" = tid;`);
+  lines.push(`    DELETE FROM "EventType" WHERE id = tid;`);
+  lines.push(`  END IF;`);
+  // English title and description for English-speaking visitors.
+  lines.push(`  DELETE FROM "EventTypeTranslation" WHERE "eventTypeId" = eid;`);
+  for (const [field, text] of [["TITLE", titleEn], ["DESCRIPTION", descriptionEn]]) {
     lines.push(
-      `  UPDATE "EventType" SET title = ${q(title)}, description = ${q(description)}, length = ${c.minutes},` +
-        ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
-        ` locations = ${q(locations)}::jsonb, "interfaceLanguage" = ${q(lang)},` +
-        ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = true,` +
-        ` "requiresConfirmation" = false, hidden = true, "slotInterval" = ${c.interval ?? 30},` +
-        ` position = ${(CLASSES.length - index) * 2 - (lang === "fr" ? 0 : 1)}` +
-        ` WHERE id = eid;`,
+      `  INSERT INTO "EventTypeTranslation" (uid, "eventTypeId", field, "sourceLocale", "targetLocale", "translatedText", "createdBy", "updatedAt")` +
+        ` VALUES (${q(`rusc-${c.key}-${field.toLowerCase()}-en`)}, eid, ${q(field)}, 'fr', 'en', ${q(text)}, uid, now());`,
     );
-    lines.push(`  INSERT INTO "_user_eventtype" ("A", "B") VALUES (eid, uid) ON CONFLICT DO NOTHING;`);
   }
 });
 // Cal creates sample event types with a new account; keep them off the
@@ -121,5 +143,5 @@ lines.push(`  UPDATE users SET "timeFormat" = 24 WHERE id = uid;`);
 // A default schedule for the account (Cal's availability page expects one).
 lines.push(`  UPDATE users SET "defaultScheduleId" = (SELECT min(id) FROM "Schedule" WHERE "userId" = uid) WHERE id = uid AND "defaultScheduleId" IS NULL;`);
 lines.push("END", "$rusc$;", "COMMIT;");
-lines.push(`SELECT slug, length, "seatsPerTimeSlot", "interfaceLanguage" FROM "EventType" WHERE "userId" = (SELECT id FROM users WHERE username = ${q(HOST)}) ORDER BY position DESC;`);
+lines.push(`SELECT e.slug, e.length, e."seatsPerTimeSlot" AS seats, (SELECT count(*) FROM "EventTypeTranslation" t WHERE t."eventTypeId" = e.id) AS translations, (SELECT count(*) FROM "Booking" b WHERE b."eventTypeId" = e.id) AS bookings FROM "EventType" e WHERE e."userId" = (SELECT id FROM users WHERE username = ${q(HOST)}) ORDER BY e.position DESC;`);
 console.log(lines.join("\n"));
