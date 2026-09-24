@@ -4,6 +4,7 @@ import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { offerByKey } from "@/lib/cal";
 import { cart, cartTotal, useCart } from "@/lib/cart";
+import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
 import { formatPrice, formatSlot } from "@/lib/format";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
 
@@ -24,6 +25,10 @@ const TEXT = {
     thanks: "Merci, votre paiement est confirmé.",
     thanksNext: "Vous recevez un reçu par e-mail. Pour les bons cadeaux et les carnets, l’atelier vous écrit avec votre code.",
     home: "Retour au site",
+    codesTitle: "Vos codes",
+    codesNext: "Gardez-les : sur la page Réserver, ils règlent vos cours (ou offrez-les).",
+    codesWait: "Vos codes arrivent…",
+    validUntil: (date: string) => `valable jusqu’au ${date}`,
   },
   en: {
     empty: "Your cart is empty.",
@@ -41,6 +46,10 @@ const TEXT = {
     thanks: "Thank you, your payment is confirmed.",
     thanksNext: "A receipt is on its way by email. For gift vouchers and cards, the studio will email you your code.",
     home: "Back to the site",
+    codesTitle: "Your codes",
+    codesNext: "Keep them: on the booking page they pay for your classes (or give them as a gift).",
+    codesWait: "Your codes are on their way…",
+    validUntil: (date: string) => `valid until ${date}`,
   },
 };
 
@@ -66,6 +75,10 @@ export default function CartView({ lang }: { lang: Lang }) {
   const items = useCart();
   const [stage, setStage] = useState<Stage>("cart");
   const checkoutRef = useRef<HTMLDivElement>(null);
+  // The Stripe order being paid, then the codes it created (if any).
+  const orderRef = useRef<string | null>(null);
+  const [order, setOrder] = useState<OrderCodes | null>(null);
+  const [waiting, setWaiting] = useState(false);
 
   useEffect(() => {
     const host = checkoutRef.current;
@@ -85,11 +98,32 @@ export default function CartView({ lang }: { lang: Lang }) {
               body: JSON.stringify({ lang, items: cart.items() }),
             });
             if (!res.ok) throw new Error(`checkout ${res.status}`);
-            return (await res.json()).clientSecret as string;
+            const data = (await res.json()) as { clientSecret: string; id: string };
+            orderRef.current = data.id;
+            return data.clientSecret;
           },
           onComplete: () => {
+            // Carnets and vouchers bought: rūsc admin creates their codes when
+            // Stripe confirms the payment. Ask for them for up to ~30 s.
+            const hasCodes = cart.items().some((i) => offerByKey(i.key)?.kind === "product" && i.key !== "adhesion");
             cart.clear();
             setStage("done");
+            const id = orderRef.current;
+            if (!id || !hasCodes) return;
+            setWaiting(true);
+            let tries = 0;
+            const poll = async () => {
+              const result = await orderCodes(id);
+              if (result?.paid && (result.codes.length || tries > 4)) {
+                setOrder(result);
+                setWaiting(false);
+              } else if (++tries < 15) {
+                setTimeout(poll, 2000);
+              } else {
+                setWaiting(false);
+              }
+            };
+            poll();
           },
         });
         if (cancelled) embedded.destroy();
@@ -108,7 +142,25 @@ export default function CartView({ lang }: { lang: Lang }) {
     return (
       <div style={{ ...panel, textAlign: "center" }}>
         <p style={{ fontSize: "19px", marginBottom: "8px" }}>{t.thanks}</p>
-        <p style={{ color: "var(--muted)", marginBottom: "28px" }}>{t.thanksNext}</p>
+        {order?.codes.length ? (
+          <div style={{ margin: "22px auto 30px", maxWidth: "520px", textAlign: "left" }}>
+            <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>
+              {t.codesTitle}
+            </p>
+            {order.codes.map((c) => (
+              <div key={c.code} style={{ border: "1px solid var(--line)", background: "rgba(255,255,255,.6)", padding: "12px 16px", marginBottom: "10px" }}>
+                <div style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: "20px", letterSpacing: ".06em" }}>{c.code}</div>
+                <div style={{ color: "var(--muted)", fontSize: "14px" }}>
+                  {c.label} · {formatBalance({ ok: true, unit: c.unit, remaining: c.remaining }, lang)}
+                  {c.expiresOn ? ` · ${t.validUntil(new Date(`${c.expiresOn}T12:00:00Z`).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-GB", { dateStyle: "long" }))}` : ""}
+                </div>
+              </div>
+            ))}
+            <p style={{ color: "var(--muted)", fontSize: "14px" }}>{t.codesNext}</p>
+          </div>
+        ) : (
+          <p style={{ color: "var(--muted)", marginBottom: "28px" }}>{waiting ? t.codesWait : t.thanksNext}</p>
+        )}
         <a className="btn" href={lang === "fr" ? "/" : "/en/"}>{t.home}</a>
       </div>
     );

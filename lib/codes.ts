@@ -48,3 +48,19 @@ export function formatBalance(result: CodeResult, lang: Lang) {
   const [one, many] = UNITS[lang][unit];
   return unit === "euros" ? `${value} €` : `${value} ${n === 1 ? one : many}`;
 }
+
+// The codes an online order created (carnets, gift vouchers), for the cart's
+// thank-you screen. rūsc admin makes them when Stripe confirms the payment,
+// a few seconds after it; `paid` is false until then.
+export type OrderCodes = {
+  paid: boolean;
+  codes: Array<{ code: string; label: string; unit: CodeUnit; remaining: number; expiresOn: string | null }>;
+};
+export async function orderCodes(orderId: string): Promise<OrderCodes | null> {
+  try {
+    const res = await fetch(`${CODES_ORIGIN}/api/order?id=${encodeURIComponent(orderId)}`);
+    return res.ok ? ((await res.json()) as OrderCodes) : null;
+  } catch {
+    return null;
+  }
+}
