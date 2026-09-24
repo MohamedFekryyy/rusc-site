@@ -48,7 +48,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Buttons that name a workshop or offer are `BookingButton`s. They link to our booking page with `?workshop=<key>` or `?view=catalog|gifts` (`bookingHref` in `lib/routes.ts`).
   - On the booking page, `BookingEmbed` lists the offers of each tab as cards. A session opens Cal's inline booker in place; a product (card, membership, gift voucher) goes straight into the cart. The tabs and the chosen offer update the URL.
   - If an event type doesn't exist yet, the booking page says it opens soon, with a contact link (Cal's `linkFailed` event).
-  - Each session has two event types, `<key>-fr` and `<key>-en` (`OFFERS` in `lib/cal.ts`, `kind: "session"`), because the embed has no language parameter. Products need none.
+  - Each session is **one** Cal event type, slug = its key (`OFFERS` in `lib/cal.ts`, `kind: "session"`), so French and English bookings fill the same places. Its French title and description carry an English translation (Cal's `EventTypeTranslation`), shown to visitors whose browser is in English; Cal's own labels follow the browser too. Products need no event type.
   - Prices live in `OFFERS` (euro cents, TTC). The checkout route recomputes every total from them; never trust a price from the browser.
 - **Keep secrets and client data out of the repo, which is public on GitHub.**
   - Keys go in `.secrets/`, which is git-ignored (the Cal.com key is `.secrets/cal.env`).
@@ -343,3 +343,9 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - the studio sets the admin password;
   - import the Acuity codes with their balances (needs the codes list);
   - carnets and vouchers bought online could create their code from the Stripe webhook; for now the studio creates them in `/admin`.
+
+### 19. One event type per class (`7fa2ebc4`, 2026-09-24)
+- **Bug:** step 17 made two event types per class (`-fr`, `-en`), each with its own seats. With the parallel-classes patch, 7 French and 7 English bookings could fill a class with 7 wheels.
+- **Fix:** `deploy/cal/seed-classes.mjs` now makes one event type per class (slug = the offer key), with the French title and description and English `TITLE`/`DESCRIPTION` rows in `EventTypeTranslation`. The booker picks the translation from `navigator.language` (`apps/web/modules/bookings/components/EventMeta.tsx`); `interfaceLanguage` is left empty so Cal's labels follow the browser.
+- **Migration:** each `-fr` type was kept under the plain key, the bookings of the `-en` one moved onto it (one real booking: tournage 2h, Tue 29 Sept 18:30), and the `-en` types were removed. The site books `raquel/<key>` from both languages.
+- **Checked live:** an English browser sees "wheel throwing 2h", and Tue 29 at 18:30 shows 6 places left out of 7.

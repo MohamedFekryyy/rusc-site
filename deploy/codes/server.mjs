@@ -25,7 +25,7 @@ const db = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 pg.types.setTypeParser(1082, (value) => value);
 
 // The classes a code can be used for: the offers of kind "session" in the
-// site's lib/cal.ts (same keys; Cal's event types are "<key>-fr"/"<key>-en").
+// site's lib/cal.ts (same keys; each is one Cal event type, slug = key).
 // Keep in sync with it. Prices (TTC, euros) matter for codes worth an amount.
 const OFFERS = {
   "atelier-ceramique-2h": { label: "tournage 2h", price: 50 },
