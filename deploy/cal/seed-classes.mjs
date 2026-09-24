@@ -19,6 +19,9 @@
 // afterwards, but a new run of this script puts these values back.
 
 const HOST = "raquel";
+// Bookable until 30 minutes after a class starts: a negative notice is a grace
+// period with patches/late-booking.patch (stock Cal.diy needs 0 or more).
+const NOTICE = -30;
 const TZ = "Europe/Paris";
 const ADDRESS = "rūsc, 99 Promenade Marie Paradis, 74400 Chamonix-Mont-Blanc";
 
@@ -111,7 +114,7 @@ CLASSES.forEach((c, index) => {
   lines.push(`  IF eid IS NULL THEN INSERT INTO "EventType" (title, slug, length, "userId") VALUES (${q(title)}, ${q(c.key)}, ${c.minutes}, uid) RETURNING id INTO eid; END IF;`);
   lines.push(
     `  UPDATE "EventType" SET slug = ${q(c.key)}, title = ${q(title)}, description = ${q(description)}, length = ${c.minutes},` +
-      ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
+      ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "minimumBookingNotice" = ${NOTICE}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
       ` locations = ${q(locations)}::jsonb, "interfaceLanguage" = NULL,` +
       ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = true,` +
       ` "requiresConfirmation" = false, hidden = true, "slotInterval" = ${c.interval ?? 30},` +

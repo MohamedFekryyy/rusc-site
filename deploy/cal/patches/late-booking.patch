@@ -1,0 +1,28 @@
+diff --git a/packages/lib/isOutOfBounds.tsx b/packages/lib/isOutOfBounds.tsx
+index f1aa944..c485623 100644
+--- a/packages/lib/isOutOfBounds.tsx
++++ b/packages/lib/isOutOfBounds.tsx
+@@ -12,9 +12,11 @@ export class BookingDateInPastError extends Error {
+   }
+ }
+ 
+-function guardAgainstBookingInThePast(date: Date) {
+-  if (date >= new Date()) {
+-    // Date is in the future.
++// rūsc: a negative minimum booking notice is a grace period, in minutes, after
++// a slot starts: a class can still be booked until that long after it began.
++function guardAgainstBookingInThePast(date: Date, graceMinutes = 0) {
++  if (date.getTime() >= Date.now() - graceMinutes * 60_000) {
++    // Date is in the future, or within the grace period.
+     return;
+   }
+   throw new BookingDateInPastError();
+@@ -249,7 +251,7 @@ export function isTimeOutOfBounds({
+ }) {
+   const date = dayjs(time);
+ 
+-  guardAgainstBookingInThePast(date.toDate());
++  guardAgainstBookingInThePast(date.toDate(), Math.max(0, -(minimumBookingNotice ?? 0)));
+ 
+   if (minimumBookingNotice) {
+     const minimumBookingStartDate = dayjs().add(minimumBookingNotice, "minutes");
