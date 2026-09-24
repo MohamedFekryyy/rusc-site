@@ -27,7 +27,7 @@ const LABELS: Record<Lang, Record<PageKey, string>> = {
     us: "Ūs",
     membres: "Member area",
     cours: "Courses",
-    stages: "Intensives",
+    stages: "Workshops",
     privatisation: "Space hire",
     residence: "Artist residency",
     event: "Event",

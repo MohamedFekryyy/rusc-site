@@ -50,7 +50,7 @@ const TEXT = {
     slotCodeFailed: "Votre code n’a pas pu être utilisé : la séance est dans votre panier.",
   },
   en: {
-    tabs:{ schedule: "Courses & intensives", catalog: "Membership & cards", gifts: "Gift vouchers" },
+    tabs:{ schedule: "Courses & workshops", catalog: "Membership & cards", gifts: "Gift vouchers" },
     back: "← All offers",
     soon: (title: string) => `Online booking for “${title}” opens soon.`,
     soonNext: "In the meantime, write to us and we’ll book it for you.",

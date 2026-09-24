@@ -36,7 +36,7 @@ const TEXT = {
     browse: "See courses, cards and gift vouchers",
     more: "Keep shopping",
     remove: "Remove",
-    anyClass: "For any course or intensive · valid 6 months",
+    anyClass: "For any course or workshop · valid 6 months",
     less: "One less",
     plus: "One more",
     total: "Total",

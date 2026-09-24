@@ -87,17 +87,17 @@ export const OFFERS = [
   {
     key: "atelier-ceramique-1j", view: "schedule", tone: "guest", kind: "session", price: 18000,
     fr: { tag: "Stage · 10h – 17h", title: "céramique 1j", unit: "180 €", cta: "Réserver" },
-    en: { tag: "Intensive · 10am – 5pm", title: "ceramics 1 day", unit: "€180", cta: "Book" },
+    en: { tag: "Workshop · 10am – 5pm", title: "ceramics 1 day", unit: "€180", cta: "Book" },
   },
   {
     key: "atelier-ceramique-2j", view: "schedule", tone: "guest", kind: "session", price: 28000,
     fr: { tag: "Stage · 2 jours", title: "céramique 2j", unit: "280 €", cta: "Réserver" },
-    en: { tag: "Intensive · 2 days", title: "ceramics 2 days", unit: "€280", cta: "Book" },
+    en: { tag: "Workshop · 2 days", title: "ceramics 2 days", unit: "€280", cta: "Book" },
   },
   {
     key: "porcelaine", view: "schedule", tone: "guest", kind: "session", price: 23000,
     fr: { tag: "Stage · 10h – 17h", title: "porcelaine 1j", unit: "230 €", cta: "Réserver" },
-    en: { tag: "Intensive · 10am – 5pm", title: "porcelain 1 day", unit: "€230", cta: "Book" },
+    en: { tag: "Workshop · 10am – 5pm", title: "porcelain 1 day", unit: "€230", cta: "Book" },
   },
   {
     key: "pot-and-wine", view: "schedule", tone: "guest", kind: "session", price: 7500,
@@ -156,18 +156,18 @@ export const OFFERS = [
   {
     key: "bon-cadeau-stage-1j", view: "gifts", tone: "guest", kind: "product", price: 18000,
     fr: { tag: "Bon cadeau", title: "un stage d’1 jour", unit: "180 €", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "a 1-day intensive", unit: "€180", cta: "Give" },
+    en: { tag: "Gift voucher", title: "a 1-day workshop", unit: "€180", cta: "Give" },
   },
   {
     key: "bon-cadeau-stage-2j", view: "gifts", tone: "guest", kind: "product", price: 28000,
     fr: { tag: "Bon cadeau", title: "un stage de 2 jours", unit: "280 €", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "a 2-day intensive", unit: "€280", cta: "Give" },
+    en: { tag: "Gift voucher", title: "a 2-day workshop", unit: "€280", cta: "Give" },
   },
   {
     // Owner's request (2026-09-24): a gift card of any amount, for any class.
     key: "bon-cadeau-montant", view: "gifts", tone: "guest", kind: "product", price: 5000, amount: { min: 1000, max: 100000 },
-    fr: { tag: "Bon cadeau", title: "le montant de votre choix", unit: "De 10 à 1 000 €, pour n’importe quel cours ou stage · valable 6 mois", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "the amount you choose", unit: "€10 to €1,000, for any course or intensive · valid 6 months", cta: "Give" },
+    fr: { tag: "Bon cadeau", title: "le montant de votre choix", unit: "valable 6 mois", cta: "Offrir" },
+    en: { tag: "Gift voucher", title: "the amount you choose", unit: "valid 6 months", cta: "Give" },
   },
 ] as const satisfies readonly OfferSource[];
 

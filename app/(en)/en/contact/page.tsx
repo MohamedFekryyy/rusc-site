@@ -25,7 +25,7 @@ export default function Contact() {
         placeholders={{ firstName: "First name", lastName: "Last name", email: "Email", phone: "Phone", message: "Your message" }}
         subjects={{
           placeholder: "Subject…",
-          options: ["Courses", "Membership", "Intensives", "Artist residency", "Space hire", "Other"],
+          options: ["Courses", "Membership", "Workshops", "Artist residency", "Space hire", "Other"],
         }}
         send="Send"
         sent="Thank you — your message has been sent."

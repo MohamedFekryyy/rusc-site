@@ -20,12 +20,12 @@ import "@/styles/home.css";
 export const metadata: Metadata = {
   title: "rūsc — ceramics studio in Chamonix · dare art",
   description:
-    "rūsc, a ceramics studio in Chamonix: courses, intensives, space hire, artist residency. A place open to all, no prerequisites. Dare art.",
+    "rūsc, a ceramics studio in Chamonix: courses, workshops, space hire, artist residency. A place open to all, no prerequisites. Dare art.",
   alternates: { canonical: "/en/", languages: { fr: "/", en: "/en/", "x-default": "/" } },
   openGraph: {
     type: "website",
     title: "rūsc — dare art",
-    description: "Ceramics studio in Chamonix. Courses, intensives, space hire, artist residency.",
+    description: "Ceramics studio in Chamonix. Courses, workshops, space hire, artist residency.",
     url: "/en/",
     locale: "en_GB",
     alternateLocale: "fr_FR",
@@ -38,7 +38,7 @@ const jsonLd = {
   ...STUDIO_JSON_LD,
   slogan: "dare art",
   description:
-    "Ceramics studio in Chamonix: courses, intensives, space hire, artist residency. Dare art.",
+    "Ceramics studio in Chamonix: courses, workshops, space hire, artist residency. Dare art.",
   url: `${SITE_URL}/en/`,
   inLanguage: "en",
 };
@@ -49,7 +49,7 @@ const CARDS: { href: string; img: typeof hero; tag: string; title: string; text:
   { href: PAGES.membres.en, img: membre, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates.", drawing: true },
   { href: PAGES.event.en, img: event, tag: "Past · present · future", title: "rūsc event", text: "Closet sale, pot & wine, exhibitions: the events that bring the studio to life." },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single or by card." },
-  { href: PAGES.stages.en, img: stages, tag: "Immersion · 10am – 5pm", title: "intensives", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
+  { href: PAGES.stages.en, img: stages, tag: "Immersion · 10am – 5pm", title: "workshops", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
   { href: "/en/contact/", img: residence, tag: "Tailor-made", title: "residency & space hire", text: "Artist residency, team building, hen parties, events. A programme shaped to your project — quote on request." },
   { href: bookGifts("en"), img: boncadeau, tag: "To give", title: "gift voucher", text: "Want to treat someone? Offer a gift voucher of your chosen amount, valid for 1 year." },
 ];

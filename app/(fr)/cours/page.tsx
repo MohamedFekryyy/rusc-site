@@ -32,7 +32,7 @@ export default function Cours() {
           <Image className="thumb" src={modelage2h} alt="Cours de modelage de l’argile à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>modelage 2h</h3>
-          <p>Que vous soyez débutants ou expérimentés, venez vous essayez au modelage et conceptualisez vos propres créations.</p>
+          <p>Que vous soyez débutants ou expérimentés, venez vous essayer au modelage et concevez vos propres créations.</p>
           <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€<br />Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€<br />Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
           <BookingButton lang="fr" workshop="atelier-modelage-2h" tone="guest">S&rsquo;inscrire</BookingButton>
