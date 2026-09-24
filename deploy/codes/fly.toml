@@ -1,0 +1,32 @@
+# rūsc codes: carnets, gift vouchers and studio-issued codes, used when
+# booking on the site. See README.md. Secrets: DATABASE_URL (setup.sh) and
+# CODES_ADMIN_PASSWORD (set by the studio).
+
+app = "rusc-codes"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Sites allowed to call the API from the browser.
+  ALLOWED_ORIGINS = "https://rusc-preview.vercel.app,https://studio-rusc.com,https://www.studio-rusc.com,http://localhost:3000,http://localhost:3001"
+
+# Sleeps when nobody uses it (costs almost nothing), wakes in about a second.
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "60s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

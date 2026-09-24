@@ -1,0 +1,12 @@
+{
+  "name": "rusc-codes",
+  "private": true,
+  "type": "module",
+  "description": "rūsc codes: carnets, gift vouchers and studio-issued codes (deploy/codes/README.md)",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
