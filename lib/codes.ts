@@ -1,10 +1,10 @@
 import type { Lang } from "@/lib/routes";
 
 // The studio's codes: carnets, gift vouchers and codes issued at the studio
-// (for example a carnet paid in cash). The codes service on Fly
-// (deploy/codes/) keeps their balances; the booking page checks a code, then
-// takes each class booked with it off the balance.
-export const CODES_ORIGIN = process.env.NEXT_PUBLIC_CODES_ORIGIN ?? "https://rusc-codes.fly.dev";
+// (for example a carnet paid in cash). rūsc admin on Fly (deploy/admin/)
+// keeps their balances; the booking page checks a code, then takes each
+// class booked with it off the balance.
+export const CODES_ORIGIN = process.env.NEXT_PUBLIC_CODES_ORIGIN ?? "https://rusc-admin.fly.dev";
 
 export type CodeUnit = "sessions" | "hours" | "euros";
 export type CodeResult = {

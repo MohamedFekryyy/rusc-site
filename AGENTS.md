@@ -17,7 +17,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - rselavy.com, the old static site's test domain on Cloudflare Pages, is no longer used.
 - **Bookings:** Cal.com, embedded in the booking pages (`components/BookingEmbed.tsx`; config in `lib/cal.ts`).
   - The embed loads from the studio's self-hosted **Cal.diy** (the MIT fork of Cal.com) on Fly.io, account `raquel`: apps `rusc-cal` and `rusc-cal-db`, at https://rusc-cal.fly.dev until `booking.studio-rusc.com` is attached. Setup lives in `deploy/cal/` (steps 16–17).
-  - **Codes** (carnets, gift vouchers, codes the studio issues for sales at the studio) live in a small service on Fly, `rusc-codes` (`deploy/codes/`, step 18). The booking page takes a class off a code instead of sending it to the cart.
+  - **The studio's back office is one web app, rūsc admin** (`rusc-admin` on Fly, `deploy/admin/`, steps 18 and 20): class lists (who's coming, how each paid), codes (carnets, gift vouchers, codes issued for sales at the studio), then online orders and the timetable. The booking page takes a class off a code through its API instead of sending it to the cart.
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Vercel needs `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` (step 14). Until they're set, the cart says online payment opens soon.
 
@@ -349,3 +349,14 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Fix:** `deploy/cal/seed-classes.mjs` now makes one event type per class (slug = the offer key), with the French title and description and English `TITLE`/`DESCRIPTION` rows in `EventTypeTranslation`. The booker picks the translation from `navigator.language` (`apps/web/modules/bookings/components/EventMeta.tsx`); `interfaceLanguage` is left empty so Cal's labels follow the browser.
 - **Migration:** each `-fr` type was kept under the plain key, the bookings of the `-en` one moved onto it (one real booking: tournage 2h, Tue 29 Sept 18:30), and the `-en` types were removed. The site books `raquel/<key>` from both languages.
 - **Checked live:** an English browser sees "wheel throwing 2h", and Tue 29 at 18:30 shows 6 places left out of 7.
+
+### 20. One admin app: rūsc admin (2026-09-24)
+- **Owner's decision:** "all admin should be one web app". The codes service became rūsc admin: `deploy/codes/` moved to `deploy/admin/`, and the Fly app `rusc-codes` was replaced by `rusc-admin`, which has a new database password for the same role `rusc_codes`. The site's `CODES_ORIGIN` now defaults to `https://rusc-admin.fly.dev`.
+- **Sign-in:** a `/login` page (one password, `CODES_ADMIN_PASSWORD`) sets a signed HttpOnly cookie for 30 days, keyed on the password, so changing the password signs everyone out. It replaces HTTP Basic. Login attempts are rate-limited.
+- **Menu:**
+  - **Cours:** each class of the coming 14 (or 30) days, from Cal's schedules plus its bookings, with attendees (name, email, phone), places taken and payment. A code payment shows the code; others show "à vérifier" until card payments are recorded.
+  - **Codes:** as in step 18.
+  - **Commandes** and **Horaires:** coming next.
+- **Next:**
+  - Stripe notifies rūsc admin, so card-paid classes show as paid and online carnets/vouchers get their code. The signing secret goes into rusc-admin's Fly secrets, and Vercel keeps only the two keys.
+  - The cart must store each class's seat reference.
