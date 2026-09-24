@@ -7,15 +7,14 @@ import type { Lang } from "@/lib/routes";
 // booking pages (components/BookingEmbed.tsx). Nothing on the site links to
 // cal.com.
 
-// The Cal.com server behind the embed. cal.com's hosted app for now; set
-// NEXT_PUBLIC_CAL_ORIGIN to the self-hosted instance's URL once it runs.
-export const CAL_ORIGIN = process.env.NEXT_PUBLIC_CAL_ORIGIN ?? "https://app.cal.com";
+// The Cal server behind the embed: the studio's self-hosted Cal.diy on Fly
+// (deploy/cal/). Switch to https://booking.studio-rusc.com once that domain
+// is attached. NEXT_PUBLIC_CAL_ORIGIN overrides it.
+export const CAL_ORIGIN = process.env.NEXT_PUBLIC_CAL_ORIGIN ?? "https://rusc-cal.fly.dev";
 
-// Live Cal.com account. It was created as `fekry-aiad-qijijq` and renamed to
-// `rusc-studio` in the Cal.com UI. Checked 2026-09-23: cal.com/rusc-studio
-// answers 200 and cal.com/fekry-aiad-qijijq 404. Before changing this, check
-// that the new username's page loads. Set NEXT_PUBLIC_CAL_USERNAME to override.
-export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "rusc-studio";
+// The studio's account on it, host of every class (deploy/cal/seed-classes.mjs
+// creates the event types). NEXT_PUBLIC_CAL_USERNAME overrides it.
+export const CAL_USERNAME = process.env.NEXT_PUBLIC_CAL_USERNAME ?? "raquel";
 
 // Cal link for the embed: "<username>/<event-slug>".
 export function calLink(eventSlug: string) {
@@ -98,6 +97,11 @@ export const OFFERS = [
     key: "porcelaine", view: "schedule", tone: "guest", kind: "session", price: 23000,
     fr: { tag: "Stage · 10h – 17h", title: "porcelaine 1j", unit: "230 €", cta: "Réserver" },
     en: { tag: "Intensive · 10am – 5pm", title: "porcelain 1 day", unit: "€230", cta: "Book" },
+  },
+  {
+    key: "pot-and-wine", view: "schedule", tone: "guest", kind: "session", price: 7500,
+    fr: { tag: "Soirée · 18h – 20h30", title: "pot & wine", unit: "75 € · apéro et modelage", cta: "Réserver" },
+    en: { tag: "Evening · 6pm – 8.30pm", title: "pot & wine", unit: "€75 · drinks and hand-building", cta: "Book" },
   },
 
   // Adhésion & carnets

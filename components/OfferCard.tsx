@@ -1,10 +1,11 @@
 import Image, { type StaticImageData } from "next/image";
-import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, Wine, type LucideIcon } from "lucide-react";
 import type { Offer, OfferKey } from "@/lib/cal";
 import { bookingHref, type Lang } from "@/lib/routes";
 import atelier01 from "@/assets/photos/atelier-01.jpg";
 import atelier03 from "@/assets/photos/atelier-03.jpg";
 import atelier04 from "@/assets/photos/atelier-04.jpg";
+import atelier05 from "@/assets/photos/atelier-05.jpg";
 import atelier07 from "@/assets/photos/atelier-07.jpg";
 import atelier08 from "@/assets/photos/atelier-08.jpg";
 import atelier10 from "@/assets/photos/atelier-10.jpg";
@@ -30,6 +31,7 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
   "atelier-ceramique-1j": { image: ceramique1j, icon: CalendarDays },
   "atelier-ceramique-2j": { image: ceramique2j, icon: CalendarDays },
   porcelaine: { image: porcelaine, icon: CalendarDays },
+  "pot-and-wine": { image: atelier05, icon: Wine },
   adhesion: { image: atelier04, icon: KeyRound },
   "carnet-5-cours": { image: atelier01, icon: Ticket },
   "carnet-10-cours": { image: atelier10, icon: Ticket },
