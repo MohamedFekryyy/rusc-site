@@ -25,7 +25,7 @@ export default function Cours() {
           <h3>tournage 2h</h3>
           <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
           <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€<br />Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€<br />Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
-          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
+          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson dès 7&nbsp;€ membre · dès 8&nbsp;€ non-membre</p>
           <BookingButton lang="fr" workshop="atelier-ceramique-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
         <article className="card">
@@ -34,7 +34,7 @@ export default function Cours() {
           <h3>modelage 2h</h3>
           <p>Que vous soyez débutants ou expérimentés, venez vous essayer au modelage et concevez vos propres créations.</p>
           <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€<br />Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€<br />Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
-          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
+          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson dès 7&nbsp;€ membre · dès 8&nbsp;€ non-membre</p>
           <BookingButton lang="fr" workshop="atelier-modelage-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
         <article className="card">
@@ -43,7 +43,7 @@ export default function Cours() {
           <h3>décor à cru 1h</h3>
           <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
           <p className="price">Cours d&rsquo;1h&nbsp;: 20&nbsp;€ · membre 18&nbsp;€</p>
-          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
+          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson dès 7&nbsp;€ membre · dès 8&nbsp;€ non-membre</p>
           <details style={{ marginTop: "10px", fontSize: "14.5px" }}>
             <summary style={{ cursor: "pointer", color: "var(--muted)" }}>Horaires des créneaux</summary>
             <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", color: "var(--muted)" }}>
