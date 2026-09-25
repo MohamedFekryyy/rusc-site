@@ -69,7 +69,6 @@ export default function Cours() {
           <h3>model vivant 3h</h3>
           <p>Un cours de trois heures autour du modèle vivant&nbsp;: observer, dessiner, façonner d&rsquo;après le corps en mouvement.</p>
           <p className="price">Cours de 3h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€<br />Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€<br />Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
-          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson à partir de 6&nbsp;€ la pièce · tarif réduit membre</p>
           <a className="btn" href="/contact/">+ info</a>
         </article>
       </div>

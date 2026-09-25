@@ -69,7 +69,6 @@ export default function Cours() {
           <h3>life drawing 3h</h3>
           <p>A three-hour course around the life model: observe, draw, shape from the moving body.</p>
           <p className="price">3h course: €50 · member €45<br />5-course card: €210 · member €189<br />10-course card: €350 · member €315</p>
-          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €6 per piece · reduced rate for members</p>
           <a className="btn" href="/en/contact/">+ info</a>
         </article>
       </div>
