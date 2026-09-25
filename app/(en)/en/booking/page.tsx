@@ -10,7 +10,7 @@ import "@/styles/home.css";
 export const metadata: Metadata = {
   title: "Book a workshop — rūsc, ceramics in Chamonix",
   description:
-    "Book ceramics workshops, short courses and open studio slots at rūsc in Chamonix online. Class cards, membership and gift vouchers.",
+    "Book ceramics workshops, short courses and open studio slots at rūsc in Chamonix online. class passes, membership and gift vouchers.",
   alternates: {
     canonical: "/en/booking/",
     languages: { fr: "/reserver/", en: "/en/booking/", "x-default": "/reserver/" },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     title: "Booking — rūsc",
-    description: "Ceramics workshops, short courses, open studio, class cards and gift vouchers in Chamonix.",
+    description: "Ceramics workshops, short courses, open studio, class passes and gift vouchers in Chamonix.",
     url: "/en/booking/",
     locale: "en_GB",
     alternateLocale: "fr_FR",
@@ -41,7 +41,7 @@ export default function Booking() {
           </div>
 
           <BookingEmbed lang="en" />
-          <p className="bk-note">Bought a class card or gift voucher before our new booking system? It stays valid until it expires: <a href={PAGES.contact.en} style={{ color: "var(--accent)" }}>write to us</a> with your code and we&rsquo;ll book it for you.</p>
+          <p className="bk-note">Bought a class pass or gift voucher before our new booking system? It stays valid until it expires: <a href={PAGES.contact.en} style={{ color: "var(--accent)" }}>write to us</a> with your code and we&rsquo;ll book it for you.</p>
           <p style={{ textAlign: "center", marginTop: "30px", fontSize: "14px", color: "var(--muted)" }}>
             <a href={TERMS.en} style={{ color: "var(--accent)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}>Terms &amp; cancellation</a>
           </p>

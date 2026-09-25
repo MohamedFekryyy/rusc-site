@@ -31,8 +31,8 @@ export default function Terms() {
         <p>No partial refund outside these conditions.</p>
       </div>
 
-      <h2>subscriptions and class cards</h2>
-      <p>All subscriptions and class cards are valid for <strong>one year</strong> from the date of purchase.</p>
+      <h2>subscriptions and class passes</h2>
+      <p>All subscriptions and class passes are valid for <strong>one year</strong> from the date of purchase.</p>
 
       <h2>membership</h2>
       <p>The annual membership (€50) is reserved for students who have taken at least two hours of classes at rūsc and received an introduction to how the studio works. It gives access to open studio slots.</p>

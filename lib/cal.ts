@@ -114,12 +114,12 @@ export const OFFERS = [
   {
     key: "carnet-5-cours", view: "catalog", tone: "guest", kind: "product", price: 21000,
     fr: { tag: "Carnet · cours de 2 h", title: "carnet 5 cours", unit: "210 € · membre 189 €", cta: "Acheter" },
-    en: { tag: "Card · 2-hour courses", title: "5-course card", unit: "€210 · member €189", cta: "Buy" },
+    en: { tag: "Class pass · 2-hour courses", title: "5-course pass", unit: "€210 · member €189", cta: "Buy" },
   },
   {
     key: "carnet-10-cours", view: "catalog", tone: "guest", kind: "product", price: 35000,
     fr: { tag: "Carnet · cours de 2 h", title: "carnet 10 cours", unit: "350 € · membre 315 €", cta: "Acheter" },
-    en: { tag: "Card · 2-hour courses", title: "10-course card", unit: "€350 · member €315", cta: "Buy" },
+    en: { tag: "Class pass · 2-hour courses", title: "10-course pass", unit: "€350 · member €315", cta: "Buy" },
   },
   {
     key: "atelier-libre-1h", view: "catalog", tone: "member", kind: "session", price: 2250,
@@ -129,12 +129,12 @@ export const OFFERS = [
   {
     key: "atelier-libre-10h", view: "catalog", tone: "member", kind: "product", price: 15000,
     fr: { tag: "Atelier libre · membres", title: "carnet atelier libre 10h", unit: "150 € · 15 € / heure · valable 6 mois", cta: "Acheter" },
-    en: { tag: "Open studio · members", title: "open studio 10h card", unit: "€150 · €15 / hour · valid 6 months", cta: "Buy" },
+    en: { tag: "Open studio · members", title: "open studio 10h pass", unit: "€150 · €15 / hour · valid 6 months", cta: "Buy" },
   },
   {
     key: "atelier-libre-20h", view: "catalog", tone: "member", kind: "product", price: 24000,
     fr: { tag: "Atelier libre · membres", title: "carnet atelier libre 20h", unit: "240 € · 12 € / heure · valable 1 an", cta: "Acheter" },
-    en: { tag: "Open studio · members", title: "open studio 20h card", unit: "€240 · €12 / hour · valid 1 year", cta: "Buy" },
+    en: { tag: "Open studio · members", title: "open studio 20h pass", unit: "€240 · €12 / hour · valid 1 year", cta: "Buy" },
   },
 
   // Bons cadeaux
@@ -146,12 +146,12 @@ export const OFFERS = [
   {
     key: "bon-cadeau-carnet-5", view: "gifts", tone: "guest", kind: "product", price: 21000,
     fr: { tag: "Bon cadeau", title: "carnet 5 cours", unit: "210 €", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "5-course card", unit: "€210", cta: "Give" },
+    en: { tag: "Gift voucher", title: "5-course pass", unit: "€210", cta: "Give" },
   },
   {
     key: "bon-cadeau-carnet-10", view: "gifts", tone: "guest", kind: "product", price: 35000,
     fr: { tag: "Bon cadeau", title: "carnet 10 cours", unit: "350 €", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "10-course card", unit: "€350", cta: "Give" },
+    en: { tag: "Gift voucher", title: "10-course pass", unit: "€350", cta: "Give" },
   },
   {
     key: "bon-cadeau-stage-1j", view: "gifts", tone: "guest", kind: "product", price: 18000,

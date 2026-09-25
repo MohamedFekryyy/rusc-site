@@ -5,7 +5,7 @@ import AccountArea from "@/components/AccountArea";
 export const metadata: Metadata = {
   title: "Log in — rūsc client area, Chamonix",
   description:
-    "Create your account or log in to your rūsc area. Track your bookings, your course cards and your membership status.",
+    "Create your account or log in to your rūsc area. Track your bookings, your course passes and your membership status.",
   alternates: { canonical: "/en/login/", languages: { fr: "/connexion/", en: "/en/login/" } },
   robots: { index: false },
 };
