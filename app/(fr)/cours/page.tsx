@@ -61,6 +61,7 @@ export default function Cours() {
           <h3>cours enfant 2h</h3>
           <p>Pour les 7–12 ans. Tous les mercredis de 13h30 à 15h30 (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
           <p className="price">Cours de 2h&nbsp;: 50&nbsp;€ · membre 45&nbsp;€<br />Carnet de 5 cours&nbsp;: 210&nbsp;€ · membre 189&nbsp;€<br />Carnet de 10 cours&nbsp;: 350&nbsp;€ · membre 315&nbsp;€</p>
+          <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson 6&nbsp;€ la pièce</p>
           <BookingButton lang="fr" workshop="modelage-enfant" tone="guest">Réserver</BookingButton>
         </article>
         <article className="card">
