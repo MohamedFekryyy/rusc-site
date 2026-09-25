@@ -48,7 +48,7 @@ const bookGifts = (lang: "fr" | "en") => bookingHref(lang, "gifts");
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
   { href: PAGES.membres.en, img: membre, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates.", drawing: true },
   { href: PAGES.event.en, img: event, tag: "Past · present · future", title: "rūsc event", text: "Closet sale, pot & wine, exhibitions: the events that bring the studio to life." },
-  { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single session or by class pass." },
+  { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single session, or with a class pass." },
   { href: PAGES.stages.en, img: stages, tag: "Immersion · 10am – 5pm", title: "workshops", text: "Ceramics 1 and 2 days, porcelain, traditional upholstery." },
   { href: "/en/contact/", img: residence, tag: "Tailor-made", title: "residency & space hire", text: "Artist residency, team building, hen parties, events. A programme shaped to your project — quote on request." },
   { href: bookGifts("en"), img: boncadeau, tag: "To give", title: "gift voucher", text: "Want to treat someone? Offer a gift voucher of your chosen amount, valid for 1 year." },
