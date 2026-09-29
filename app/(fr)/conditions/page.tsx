@@ -40,7 +40,7 @@ export default function Conditions() {
       <p>Si ces conditions ne sont pas remplies, nous nous réservons le droit de refuser l&rsquo;accès.</p>
 
       <h2>cuissons</h2>
-      <p>Les cuissons des pièces et l&rsquo;utilisation des fours haute température sont exclusivement gérées par l&rsquo;équipe de rūsc. Les pièces peuvent être cuites pour un montant de 6&nbsp;€ par pièce, à régler avant la cuisson.</p>
+      <p>Les cuissons des pièces et l&rsquo;utilisation des fours haute température sont exclusivement gérées par l&rsquo;équipe de rūsc. Chaque pièce reçoit un émail transparent posé par nos soins. Le tarif dépend de la matière, de la taille et de l&rsquo;émail choisi. À titre indicatif&nbsp;: <strong>6&nbsp;€ par pièce pour les enfants</strong>, et pour les membres <strong>7&nbsp;€ les petites pièces</strong> et <strong>10&nbsp;€ les grandes</strong>. Le détail des tarifs par matière est disponible sur la page <a href="/cuisson/">cuisson</a>, à régler avant la cuisson.</p>
 
       <h2>bons cadeaux</h2>
       <p>Nos bons cadeaux sont valables sur l&rsquo;ensemble des ateliers, pour une durée d&rsquo;un an.</p>

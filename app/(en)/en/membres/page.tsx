@@ -33,7 +33,7 @@ export default function Membres() {
             <p className="price" style={{ marginBottom: "12px" }}><strong>Membership: €50 / year</strong> — preferential rates and open studio access.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               <li style={rateRow}><span>Open studio — single hour</span><span><strong>€22.50</strong> / hour</span></li>
-              <li style={rateRow}><span>Open studio — 10h pass</span><span><strong>€15</strong> / hour · valid 6 months</span></li>
+              <li style={rateRow}><span>Open studio — 10h pass</span><span><strong>€15</strong> / hour · valid 1 year</span></li>
               <li style={rateRow}><span>Open studio — 20h pass</span><span><strong>€12</strong> / hour · valid 1 year</span></li>
             </ul>
             <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Members get <strong>–10%</strong> on the 2-hour course (throwing or hand-building), hourly raw-glaze decoration, and the 5- and 10-course passes. Strictly personal benefit: for the member, non-transferable. Open studio is for members only.</p>

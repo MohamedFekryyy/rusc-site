@@ -33,7 +33,7 @@ export default function Membres() {
             <p className="price" style={{ marginBottom: "12px" }}><strong>Adhésion membre&nbsp;: 50&nbsp;€ / an</strong> — tarifs préférentiels et accès aux ateliers libres.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               <li style={rateRow}><span>Atelier libre — cours à l&rsquo;unité</span><span><strong>22,50&nbsp;€</strong> / heure</span></li>
-              <li style={rateRow}><span>Atelier libre — carnet 10&nbsp;h</span><span><strong>15&nbsp;€</strong> / heure · valable 6 mois</span></li>
+              <li style={rateRow}><span>Atelier libre — carnet 10&nbsp;h</span><span><strong>15&nbsp;€</strong> / heure · valable 1 an</span></li>
               <li style={rateRow}><span>Atelier libre — carnet 20&nbsp;h</span><span><strong>12&nbsp;€</strong> / heure · valable 1 an</span></li>
             </ul>
             <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Les membres bénéficient de <strong>–10&nbsp;%</strong> sur le cours de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 cours et le carnet 10 cours. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>

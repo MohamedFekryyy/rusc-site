@@ -24,7 +24,7 @@ export default function Event() {
           <div className="txt">
             <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>À venir</p>
             <h2>rūsc pot &amp; wine</h2>
-            <p>Une soirée apéro modelage : la terre d&rsquo;un côté, un verre de l&rsquo;autre. Repartez avec votre pièce et le sourire.</p>
+            <p>Une soirée apéro modelage : la terre d&rsquo;un côté, un verre de l&rsquo;autre. Repartez avec le sourire — votre pièce vous attend après cuisson.</p>
             <p><strong>Vendredi 9 octobre · 18h – 20h30</strong></p>
             <p>75 € · apéro et modelage inclus.</p>
             <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>

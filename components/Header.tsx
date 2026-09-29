@@ -83,8 +83,11 @@ export default function Header({ lang, page }: Props) {
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
   const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : page === "connexion" ? LOGIN : PAGES[page];
-  const frHref = same.fr;
-  const enHref = same.en;
+  // On the booking page, keep the selected tab or offer across the switch
+  // (?view=… / ?workshop=…), so the customer lands on the same product.
+  const bookingQuery = typeof window !== "undefined" && page === "booking" ? window.location.search : "";
+  const frHref = same.fr + bookingQuery;
+  const enHref = same.en + bookingQuery;
   const count = cartCount(useCart());
   const close = () => setOpen(false);
 

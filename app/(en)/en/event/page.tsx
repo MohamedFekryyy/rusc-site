@@ -24,7 +24,7 @@ export default function Event() {
           <div className="txt">
             <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>Upcoming</p>
             <h2>rūsc pot &amp; wine</h2>
-            <p>An evening of hand-building with a drink in hand — clay on one side, a glass on the other. Leave with your piece and a smile.</p>
+            <p>An evening of hand-building with a drink in hand — clay on one side, a glass on the other. Leave with a smile — your piece will be waiting for you after firing.</p>
             <p><strong>Friday 9 October · 6pm – 8.30pm</strong></p>
             <p>€75 · drinks and hand-building included.</p>
             <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>

@@ -128,8 +128,8 @@ export const OFFERS = [
   },
   {
     key: "atelier-libre-10h", view: "catalog", tone: "member", kind: "product", price: 15000,
-    fr: { tag: "Atelier libre · membres", title: "carnet atelier libre 10h", unit: "150 € · 15 € / heure · valable 6 mois", cta: "Acheter" },
-    en: { tag: "Open studio · members", title: "open studio 10h pass", unit: "€150 · €15 / hour · valid 6 months", cta: "Buy" },
+    fr: { tag: "Atelier libre · membres", title: "carnet atelier libre 10h", unit: "150 € · 15 € / heure · valable 1 an", cta: "Acheter" },
+    en: { tag: "Open studio · members", title: "open studio 10h pass", unit: "€150 · €15 / hour · valid 1 year", cta: "Buy" },
   },
   {
     key: "atelier-libre-20h", view: "catalog", tone: "member", kind: "product", price: 24000,

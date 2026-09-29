@@ -39,7 +39,7 @@ export default function Terms() {
       <p>If these conditions are not met, we reserve the right to refuse access.</p>
 
       <h2>firing</h2>
-      <p>Firing of pieces and use of the high-temperature kilns are handled exclusively by the rūsc team. Pieces can be fired for €6 per piece, paid before firing.</p>
+      <p>Firing of pieces and use of the high-temperature kilns are handled exclusively by the rūsc team. Each piece receives a transparent glaze applied by us. The rate depends on the material, size and chosen glaze; as a guide: <strong>€6 per piece for children</strong>, and for members <strong>€7 for small pieces</strong> and <strong>€10 for large ones</strong>. Full rates by material are on the <a href="/en/cuisson/">firing</a> page, paid before firing.</p>
 
       <h2>gift vouchers</h2>
       <p>Our gift vouchers are valid across all workshops, for one year.</p>
