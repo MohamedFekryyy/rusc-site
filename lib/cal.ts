@@ -166,8 +166,8 @@ export const OFFERS = [
   {
     // Owner's request (2026-09-24): a gift card of any amount, for any class.
     key: "bon-cadeau-montant", view: "gifts", tone: "guest", kind: "product", price: 5000, amount: { min: 1000, max: 100000 },
-    fr: { tag: "Bon cadeau", title: "le montant de votre choix", unit: "valable 6 mois", cta: "Offrir" },
-    en: { tag: "Gift voucher", title: "the amount you choose", unit: "valid 6 months", cta: "Give" },
+    fr: { tag: "Bon cadeau", title: "le montant de votre choix", unit: "valable 1 an", cta: "Offrir" },
+    en: { tag: "Gift voucher", title: "the amount you choose", unit: "valid 1 year", cta: "Give" },
   },
 ] as const satisfies readonly OfferSource[];
 
