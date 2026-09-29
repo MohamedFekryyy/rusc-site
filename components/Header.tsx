@@ -66,6 +66,18 @@ function subscribeAuth(notify: () => void) {
   };
 }
 const useSignedIn = () => useSyncExternalStore(subscribeAuth, () => Boolean(getToken()), () => false);
+// Follow <a data-booking> clicks that rewrite the URL's query with history.replaceState
+// (see BookingEmbed): re-read the query when it changes, so FR/EN keeps the offer.
+function subscribeSearch(notify: () => void) {
+  window.addEventListener("popstate", notify);
+  window.addEventListener("pushstate", notify);
+  window.addEventListener("replacestate", notify);
+  return () => {
+    window.removeEventListener("popstate", notify);
+    window.removeEventListener("pushstate", notify);
+    window.removeEventListener("replacestate", notify);
+  };
+}
 const CART_LABEL = { fr: "Panier", en: "Cart" };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
 // Tagline shown as the center brand mark in the header (in place of the logo).
@@ -85,7 +97,14 @@ export default function Header({ lang, page }: Props) {
   const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : page === "connexion" ? LOGIN : PAGES[page];
   // On the booking page, keep the selected tab or offer across the switch
   // (?view=… / ?workshop=…), so the customer lands on the same product.
-  const bookingQuery = typeof window !== "undefined" && page === "booking" ? window.location.search : "";
+  // Read reactively from the URL (SSR has no window; client reads after hydration).
+  const search = useSyncExternalStore(
+    subscribeSearch,
+    () => window.location.search,
+    () => ""
+  );
+  // Only the booking page carries the offer/tab in the URL query.
+  const bookingQuery = page === "booking" ? search : "";
   const frHref = same.fr + bookingQuery;
   const enHref = same.en + bookingQuery;
   const count = cartCount(useCart());
