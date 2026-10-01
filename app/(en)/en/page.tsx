@@ -75,6 +75,20 @@ export default function Home() {
         <Image src={hero} alt="Potter's hands shaping clay at rūsc studio, Chamonix" loading="eager" fetchPriority="high" />
       </figure>
 
+      <section className="event-banner wrap">
+        <div className="event-banner-inner">
+          <div className="txt">
+            <p className="k">Next event · Friday 9 October</p>
+            <h2>rūsc pot &amp; wine</h2>
+            <p>An aperitif hand-building evening: clay on one side, a glass on the other. Leave with a smile — your piece will be waiting after firing.</p>
+            <p className="meta">6 – 8.30pm · €75 · aperitif and hand-building included</p>
+          </div>
+          <div className="actions">
+            <BookingButton lang="en" workshop="pot-and-wine" tone="guest">Book now</BookingButton>
+          </div>
+        </div>
+      </section>
+
       <section id="discover">
         <div className="wrap">
           <SectionHead title="the studio" sub="What you'll find here" />
