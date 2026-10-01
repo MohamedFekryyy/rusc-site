@@ -68,7 +68,7 @@ const paths = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const [scheduleFile, ordersFile, clientsFile] = [
   paths[0] ?? newest(/^schedule.*\.csv$/i),
   paths[1] ?? newest(/^orders.*\.csv$/i),
-  paths[2] ?? newest(/client list.*\.csv$/i),
+  paths[2] ?? newest(/client[_ ]list.*\.csv$/i),
 ];
 
 const appointments = parse(read(scheduleFile)).map((r) => ({

@@ -6,6 +6,7 @@ import { offerByKey } from "@/lib/cal";
 import { cart, cartTotal, linePrice, useCart } from "@/lib/cart";
 import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
 import { formatPrice, formatSlot } from "@/lib/format";
+import { getToken } from "@/lib/auth";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
 
 const TEXT = {
@@ -97,7 +98,9 @@ export default function CartView({ lang }: { lang: Lang }) {
             const res = await fetch("/api/checkout/", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ lang, items: cart.items() }),
+              // The bearer token lets checkout resolve membership server-side
+              // (rusc-admin /session) for the member discount; nothing else.
+              body: JSON.stringify({ lang, items: cart.items(), token: getToken() }),
             });
             if (!res.ok) throw new Error(`checkout ${res.status}`);
             const data = (await res.json()) as { clientSecret: string; id: string };
