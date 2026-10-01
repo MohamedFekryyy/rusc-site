@@ -200,4 +200,14 @@ CREATE TABLE IF NOT EXISTS rusc.account_tokens (
 -- A code a member added to their account (shown in their space).
 ALTER TABLE rusc.codes ADD COLUMN IF NOT EXISTS account_id bigint REFERENCES rusc.accounts (id) ON DELETE SET NULL;
 
+-- Code payment for cart products (W3): a monetary hold on a euro-valued code.
+-- A pending use reserves part of the code while a Stripe checkout is open; it
+-- is finalized on checkout.session.completed and rolled back if the session
+-- expires or the payment fails (the code's balance is returned).
+ALTER TABLE rusc.uses ADD COLUMN IF NOT EXISTS pending boolean NOT NULL DEFAULT false;
+ALTER TABLE rusc.uses ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.orders (id) ON DELETE SET NULL;
+-- The code (and how much it covered) applied to an online order.
+ALTER TABLE rusc.orders ADD COLUMN IF NOT EXISTS code_key text;
+ALTER TABLE rusc.orders ADD COLUMN IF NOT EXISTS code_covered_cents integer;
+
 RESET ROLE;

@@ -1,6 +1,8 @@
 import type Stripe from "stripe";
 import { resolveMember } from "@/lib/auth-server";
 import { amountBounds, offerByKey, validAmount } from "@/lib/cal";
+import { coverCode, releaseCodeHold } from "@/lib/codes";
+import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatSlot } from "@/lib/format";
 import { memberDiscountEnabled, memberDiscountable, memberPrice, MEMBER_DISCOUNT_PERCENT } from "@/lib/pricing";
 import type { Lang } from "@/lib/routes";
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
   const stripe = getStripe();
   if (!stripe) return bad("checkout_unavailable", 503);
 
-  let body: { lang?: unknown; items?: unknown; token?: unknown };
+  let body: { lang?: unknown; items?: unknown; token?: unknown; code?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -106,16 +108,69 @@ export async function POST(request: Request) {
     summary.push(`${offer.key}${amountBounds(offer.key) ? `:${unitAmount}` : ""}x${qty}${bookingUid ? `@${bookingUid}` : ""}`);
   }
 
-  const session = await stripe.checkout.sessions.create({
-    ui_mode: "embedded_page",
-    redirect_on_completion: "never",
-    mode: "payment",
-    locale: lang,
-    line_items: lineItems,
-    metadata: { lang, ...chunks(summary.join(" ")) },
-  });
+  // A code the customer entered on the cart page (W3): a euro-valued code that
+  // covers part of the total. Server-side only — the browser supplies the code
+  // string, but the coverage and the price are recomputed here and by rusc-admin.
+  // When no code is present (or the feature is off), this path is untouched.
+  const totalCents = lineItems.reduce((sum, li) => sum + (li.price_data?.unit_amount ?? 0) * (li.quantity ?? 0), 0);
+  const rawCode = typeof body.code === "string" ? body.code.trim() : "";
+  let coupon: Stripe.Coupon | null = null;
+  let holdId = 0;
+  let codeCovered: { code: string; cents: number } | null = null;
+  const metadata: Record<string, string> = { lang, ...chunks(summary.join(" ")) };
 
-  return Response.json({ clientSecret: session.client_secret, id: session.id });
+  if (CODE_PAYMENT_ENABLED && rawCode) {
+    const cover = await coverCode(rawCode, totalCents);
+    if (!cover.ok) {
+      // Map rusc-admin's reason to a clear checkout error.
+      const error = cover.reason === "not_euros" ? "code_not_euros" : cover.reason === "unknown" ? "code_unknown" : cover.reason ?? "code_unavailable";
+      return bad(error);
+    }
+    const coveredCents = cover.coveredCents ?? 0;
+    holdId = cover.holdId ?? 0;
+    // A code cannot cover the whole cart: Stripe payment mode needs a positive
+    // amount, and the remainder is paid by card.
+    if (coveredCents >= totalCents) {
+      await releaseCodeHold(holdId);
+      return bad("code_covers_full");
+    }
+    if (coveredCents > 0) {
+      try {
+        coupon = await stripe.coupons.create({
+          amount_off: coveredCents,
+          currency: "eur",
+          duration: "once",
+          name: "Code rūsc",
+        });
+      } catch {
+        await releaseCodeHold(holdId);
+        return bad("checkout_unavailable", 503);
+      }
+    }
+    codeCovered = { code: cover.code ?? rawCode, cents: coveredCents };
+    metadata.code_key = cover.code ?? rawCode;
+    metadata.code_covered_cents = String(coveredCents);
+    metadata.hold_id = String(holdId);
+  }
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded_page",
+      redirect_on_completion: "never",
+      mode: "payment",
+      locale: lang,
+      line_items: lineItems,
+      discounts: coupon ? [{ coupon: coupon.id }] : undefined,
+      metadata,
+    });
+  } catch (error) {
+    // If the session can't be created, give back the reserved code balance.
+    if (holdId > 0) await releaseCodeHold(holdId).catch(() => {});
+    throw error;
+  }
+
+  return Response.json({ clientSecret: session.client_secret, id: session.id, codeCovered });
 }
 
 // Status of a finished checkout, for the confirmation shown in the cart page.

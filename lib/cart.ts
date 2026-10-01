@@ -21,12 +21,26 @@ export function linePrice(item: CartItem) {
 }
 
 const STORAGE_KEY = "rusc-cart-v1";
+const CODE_KEY = "rusc-cart-code-v1";
 const MAX_QTY = 20;
 const EMPTY: CartItem[] = [];
 
 let items: CartItem[] = EMPTY;
 let loaded = false;
 const listeners = new Set<() => void>();
+
+// The code applied to the cart (W3): a euro-valued code that pays for part of
+// the total. Persisted so it survives a reload; cleared when the cart empties.
+let appliedCode: string = "";
+const codeListeners = new Set<() => void>();
+
+function readCode(): string {
+  try {
+    return localStorage.getItem(CODE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 function read(): CartItem[] {
   try {
@@ -81,6 +95,42 @@ function getSnapshot() {
 export function useCart() {
   return useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
 }
+
+// The code applied to the cart (W3). A euro-valued code that covers part of
+// the total at checkout. Kept in localStorage, cleared with the cart.
+function subscribeCode(listener: () => void) {
+  codeListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    codeListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+export function useAppliedCode() {
+  return useSyncExternalStore<string>(
+    subscribeCode,
+    () => {
+      if (typeof window !== "undefined") appliedCode = readCode();
+      return appliedCode;
+    },
+    () => "",
+  );
+}
+
+function setAppliedCode(code: string) {
+  appliedCode = code;
+  try {
+    if (code) localStorage.setItem(CODE_KEY, code);
+    else localStorage.removeItem(CODE_KEY);
+  } catch {
+    // ignore
+  }
+  codeListeners.forEach((l) => l());
+}
+
+export const applyCode = (code: string) => setAppliedCode((code ?? "").trim());
+export const clearAppliedCode = () => setAppliedCode("");
 
 export const cart = {
   items: getSnapshot,

@@ -3,8 +3,9 @@
 import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { offerByKey } from "@/lib/cal";
-import { cart, cartTotal, linePrice, useCart } from "@/lib/cart";
+import { applyCode, cart, cartTotal, clearAppliedCode, linePrice, useAppliedCode, useCart } from "@/lib/cart";
 import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
+import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatPrice, formatSlot } from "@/lib/format";
 import { getToken } from "@/lib/auth";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
@@ -31,6 +32,11 @@ const TEXT = {
     codesNext: "Gardez-les : sur la page Réserver, ils règlent vos cours (ou offrez-les).",
     codesWait: "Vos codes arrivent…",
     validUntil: (date: string) => `valable jusqu’au ${date}`,
+    codeApplied: "Code appliqué :",
+    codeRemove: "Retirer",
+    codePlaceholder: "Vous avez un code ? Ex. RUSC-XXXX-XXXX",
+    codeApply: "Utiliser ce code",
+    codeHint: "Un bon cadeau d’un montant peut régler une partie de votre panier ; le reste est payé par carte.",
   },
   en: {
     empty: "Your cart is empty.",
@@ -53,6 +59,11 @@ const TEXT = {
     codesNext: "Keep them: on the booking page they pay for your classes (or give them as a gift).",
     codesWait: "Your codes are on their way…",
     validUntil: (date: string) => `valid until ${date}`,
+    codeApplied: "Code applied:",
+    codeRemove: "Remove",
+    codePlaceholder: "Have a code? e.g. RUSC-XXXX-XXXX",
+    codeApply: "Use this code",
+    codeHint: "A gift voucher of an amount can pay for part of your cart; the rest is paid by card.",
   },
 };
 
@@ -76,12 +87,21 @@ type Stage = "cart" | "checkout" | "done" | "unavailable";
 export default function CartView({ lang }: { lang: Lang }) {
   const t = TEXT[lang];
   const items = useCart();
+  const appliedCode = useAppliedCode();
+  const appliedCodeRef = useRef(appliedCode);
+  useEffect(() => {
+    appliedCodeRef.current = appliedCode;
+  }, [appliedCode]);
+  const [codeInput, setCodeInput] = useState("");
   const [stage, setStage] = useState<Stage>("cart");
   const checkoutRef = useRef<HTMLDivElement>(null);
   // The Stripe order being paid, then the codes it created (if any).
   const orderRef = useRef<string | null>(null);
   const [order, setOrder] = useState<OrderCodes | null>(null);
   const [waiting, setWaiting] = useState(false);
+  // How much the applied code covered (returned by checkout), shown on the
+  // thanks screen.
+  const [covered, setCovered] = useState<{ code: string; cents: number } | null>(null);
 
   useEffect(() => {
     const host = checkoutRef.current;
@@ -100,11 +120,13 @@ export default function CartView({ lang }: { lang: Lang }) {
               headers: { "content-type": "application/json" },
               // The bearer token lets checkout resolve membership server-side
               // (rusc-admin /session) for the member discount; nothing else.
-              body: JSON.stringify({ lang, items: cart.items(), token: getToken() }),
+              // The applied code (W3) pays for part of product totals.
+              body: JSON.stringify({ lang, items: cart.items(), token: getToken(), code: appliedCodeRef.current }),
             });
             if (!res.ok) throw new Error(`checkout ${res.status}`);
-            const data = (await res.json()) as { clientSecret: string; id: string };
+            const data = (await res.json()) as { clientSecret: string; id: string; codeCovered: { code: string; cents: number } | null };
             orderRef.current = data.id;
+            setCovered(data.codeCovered);
             return data.clientSecret;
           },
           onComplete: () => {
@@ -112,6 +134,7 @@ export default function CartView({ lang }: { lang: Lang }) {
             // Stripe confirms the payment. Ask for them for up to ~30 s.
             const hasCodes = cart.items().some((i) => offerByKey(i.key)?.kind === "product" && i.key !== "adhesion");
             cart.clear();
+            clearAppliedCode();
             setStage("done");
             const id = orderRef.current;
             if (!id || !hasCodes) return;
@@ -147,6 +170,11 @@ export default function CartView({ lang }: { lang: Lang }) {
     return (
       <div style={{ ...panel, textAlign: "center" }}>
         <p style={{ fontSize: "19px", marginBottom: "8px" }}>{t.thanks}</p>
+        {covered ? (
+          <p style={{ color: "var(--muted)", marginBottom: "16px" }}>
+            {t.codeApplied} <code style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{covered.code}</code> · {formatPrice(covered.cents, lang)}
+          </p>
+        ) : null}
         {order?.codes.length ? (
           <div style={{ margin: "22px auto 30px", maxWidth: "520px", textAlign: "left" }}>
             <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>
@@ -229,6 +257,36 @@ export default function CartView({ lang }: { lang: Lang }) {
           <span className="val">{formatPrice(total, lang)}</span>
         </div>
       </div>
+
+      {CODE_PAYMENT_ENABLED && (
+        <div style={{ marginTop: "18px" }}>
+          {appliedCode ? (
+            <div style={{ textAlign: "center" }}>
+              <span style={{ color: "var(--muted)", fontSize: "14px" }}>
+                {t.codeApplied} <code style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{appliedCode}</code>
+              </span>{" "}
+              <button type="button" style={textButton} onClick={clearAppliedCode}>{t.codeRemove}</button>
+            </div>
+          ) : (
+            <form
+              style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (codeInput.trim()) applyCode(codeInput);
+              }}
+            >
+              <input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                placeholder={t.codePlaceholder}
+                style={{ padding: "8px 12px", border: "1px solid var(--line)", background: "#fff", color: "var(--ink)", font: "inherit", minWidth: "220px" }}
+              />
+              <button type="submit" className="btn guest">{t.codeApply}</button>
+            </form>
+          )}
+          <p style={{ ...note, margin: "10px 0 0" }}>{t.codeHint}</p>
+        </div>
+      )}
 
       {stage === "unavailable" ? (
         <div style={{ textAlign: "center", marginTop: "26px" }}>

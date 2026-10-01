@@ -359,13 +359,23 @@ async function recordOrder(session) {
   try {
     await client.query("BEGIN");
     const inserted = await client.query(
-      `INSERT INTO rusc.orders (id, email, name, amount, lang, items, livemode) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO rusc.orders (id, email, name, amount, lang, items, livemode, code_key, code_covered_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO NOTHING RETURNING id`,
-      [session.id, email, name, (session.amount_total ?? 0) / 100, metadata.lang ?? null, items, Boolean(session.livemode)],
+      [session.id, email, name, (session.amount_total ?? 0) / 100, metadata.lang ?? null, items, Boolean(session.livemode), metadata.code_key ?? null, metadata.code_covered_cents ? Number(metadata.code_covered_cents) : null],
     );
     if (!inserted.rowCount) {
       await client.query("ROLLBACK");
       return;
+    }
+    // A code that paid for part of the cart: finalize its hold now that the
+    // payment is confirmed (the money is truly spent). The hold was created
+    // by /api/cover with pending = true.
+    const holdId = Number(metadata.hold_id);
+    if (Number.isFinite(holdId) && holdId > 0) {
+      await client.query(
+        "UPDATE rusc.uses SET pending = false, order_id = $2 WHERE id = $1 AND pending = true",
+        [holdId, session.id],
+      );
     }
     const holder = [name, email].filter(Boolean).join(" · ") || null;
     const note = `Commande en ligne du ${fmtDate(parisToday())}`;
@@ -416,12 +426,100 @@ async function recordOrder(session) {
   }
 }
 
+// Code payment for cart products (W3): a euro-valued code can cover part of a
+// cart's total. The cover reserves the amount immediately (a pending use that
+// lowers the balance), finalized when Stripe confirms payment, rolled back when
+// the checkout is abandoned or fails. Only euro codes cover (sessions/hours pay
+// for classes, not products); the checkout route never trusts the browser's
+// prices — it sends the server-computed total in cents.
+async function apiCover(input) {
+  const key = normalize(input.code);
+  const amountCents = Math.floor(Number(input.amountCents));
+  if (!key || !Number.isFinite(amountCents) || amountCents <= 0) return { ok: false, reason: "bad_amount" };
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT * FROM rusc.codes WHERE key = $1 FOR UPDATE", [key]);
+    const code = rows[0];
+    if (!code) { await client.query("ROLLBACK"); return { ok: false, reason: "unknown" }; }
+    if (!code.active) { await client.query("ROLLBACK"); return { ok: false, reason: "inactive" }; }
+    if (code.expires_on && isoDate(code.expires_on) < parisToday()) { await client.query("ROLLBACK"); return { ok: false, reason: "expired" }; }
+    if (code.unit !== "euros") { await client.query("ROLLBACK"); return { ok: false, reason: "not_euros", unit: code.unit }; }
+    // remaining is in euros (numeric); work in whole cents to avoid float drift.
+    const remainingCents = Math.round(num(code.remaining) * 100);
+    const coveredCents = Math.min(remainingCents, amountCents);
+    if (coveredCents <= 0) { await client.query("ROLLBACK"); return { ok: false, reason: "empty" }; }
+    const newRemaining = (remainingCents - coveredCents) / 100;
+    await client.query("UPDATE rusc.codes SET remaining = $2 WHERE key = $1", [key, newRemaining]);
+    const use = await client.query(
+      "INSERT INTO rusc.uses (key, amount, note, pending) VALUES ($1, $2, $3, true) RETURNING id",
+      [key, coveredCents / 100, "Paiement panier (code) — en attente"],
+    );
+    await client.query("COMMIT");
+    return { ok: true, coveredCents, holdId: Number(use.rows[0].id), code: code.display, remaining: newRemaining };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// Roll a pending hold back (the balance is returned). Only pending, non-cancelled
+// holds can be released: once finalized or cancelled it is a no-op.
+async function apiRelease(input) {
+  const holdId = Math.floor(Number(input.holdId));
+  if (!Number.isFinite(holdId) || holdId <= 0) return { ok: false, reason: "unknown" };
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT * FROM rusc.uses WHERE id = $1 FOR UPDATE", [holdId]);
+    const use = rows[0];
+    if (!use) { await client.query("ROLLBACK"); return { ok: false, reason: "unknown" }; }
+    if (!use.pending || use.cancelled_at) { await client.query("ROLLBACK"); return { ok: false, reason: "already_final" }; }
+    await client.query("UPDATE rusc.codes SET remaining = remaining + $2 WHERE key = $1", [use.key, num(use.amount)]);
+    await client.query("UPDATE rusc.uses SET cancelled_at = now(), pending = false WHERE id = $1", [holdId]);
+    await client.query("COMMIT");
+    return { ok: true };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function apiOrder(id) {
   if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return { paid: false, codes: [] };
   const order = await db.query("SELECT id FROM rusc.orders WHERE id = $1", [id]);
   if (!order.rowCount) return { paid: false, codes: [] };
   const { rows } = await db.query("SELECT * FROM rusc.codes WHERE order_id = $1 ORDER BY created_at, key", [id]);
   return { paid: true, codes: rows.map((c) => ({ code: c.display, label: c.label, unit: c.unit, remaining: num(c.remaining), expiresOn: isoDate(c.expires_on) })) };
+}
+
+// Rebuild the pending hold left by /api/cover when a checkout session is
+// abandoned (checkout.session.expired) or fails (async_payment_failed). The
+// metadata carries the hold id; released only if still pending and not yet
+// cancelled. Idempotent: a duplicate webhook is a no-op.
+async function releaseHold(session) {
+  const holdId = Number(session.metadata?.hold_id);
+  if (!Number.isFinite(holdId) || holdId <= 0) return;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT * FROM rusc.uses WHERE id = $1 FOR UPDATE", [holdId]);
+    const use = rows[0];
+    if (use && use.pending && !use.cancelled_at) {
+      await client.query("UPDATE rusc.codes SET remaining = remaining + $2 WHERE key = $1", [use.key, num(use.amount)]);
+      await client.query("UPDATE rusc.uses SET cancelled_at = now(), pending = false WHERE id = $1", [holdId]);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("releaseHold", holdId, error.message);
+  } finally {
+    client.release();
+  }
 }
 
 // ---------------------------------------------------------------- studio admin
@@ -1499,6 +1597,8 @@ async function handle(req, res, url) {
       if (!event) return send(res, 400, { ok: false });
       if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
         await recordOrder(event.data.object);
+      } else if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+        await releaseHold(event.data.object);
       }
       return send(res, 200, { received: true });
     }
@@ -1537,6 +1637,8 @@ async function handle(req, res, url) {
       reconcile().catch((e) => console.error("reconcile", e.message));
       const input = JSON.parse((await readBody(req)) || "{}");
       if (url.pathname === "/api/check") return send(res, 200, await apiCheck(input), headers);
+      if (url.pathname === "/api/cover") return send(res, 200, await apiCover(input), headers);
+      if (url.pathname === "/api/release") return send(res, 200, await apiRelease(input), headers);
       if (url.pathname === "/api/redeem") {
         const result = await apiRedeem(input);
         if (result.ok) console.log("code used", result.code, input.seatUid?.slice(0, 8));

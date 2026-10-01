@@ -35,6 +35,24 @@ export const checkCode = (code: string, offer: string) => post("/api/check", { c
 // Take the class just booked (Cal's seat reference) off the code.
 export const redeemCode = (code: string, seatUid: string) => post("/api/redeem", { code, seatUid });
 
+// Code payment for cart products (W3): a euro-valued code covers part of a
+// cart's total. These call rusc-admin's /api/cover (reserve the amount) and
+// /api/release (roll the hold back if the checkout is abandoned). The actual
+// debit happens only when Stripe confirms payment (server-side webhook).
+export type CoverResult = {
+  ok: boolean;
+  reason?: string;
+  unit?: CodeUnit;
+  code?: string;
+  coveredCents?: number;
+  holdId?: number;
+  remaining?: number;
+};
+export const coverCode = (code: string, amountCents: number): Promise<CoverResult> =>
+  post("/api/cover", { code, amountCents }) as Promise<CoverResult>;
+export const releaseCodeHold = (holdId: number): Promise<CoverResult> =>
+  post("/api/release", { holdId }) as Promise<CoverResult>;
+
 const UNITS: Record<Lang, Record<CodeUnit, [string, string]>> = {
   fr: { sessions: ["séance", "séances"], hours: ["heure", "heures"], euros: ["€", "€"] },
   en: { sessions: ["session", "sessions"], hours: ["hour", "hours"], euros: ["€", "€"] },
