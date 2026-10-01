@@ -118,10 +118,9 @@ export default function Home() {
       </section>
 
       <section id="cta">
-        <div className="wrap" style={{ textAlign: "center", paddingBottom: "60px" }}>
+        <div className="wrap actions" style={{ justifyContent: "center" }}>
           <BookingButton lang="en" workshop="adhesion" tone="member">Become a member</BookingButton>
-          <span style={{ display: "inline-block", width: "12px" }}></span>
-          <BookingButton lang="en" view="gifts" tone="guest">&nbsp;Gift voucher</BookingButton>
+          <BookingButton lang="en" view="gifts" tone="guest">Gift voucher</BookingButton>
         </div>
       </section>
 

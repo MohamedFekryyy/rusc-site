@@ -65,6 +65,11 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 
 /* SECTION */
 section{padding:clamp(48px,7vw,84px) 0}
+/* Consistent vertical padding across sections: hero, event banner, cards and
+   CTA all share the same rhythm, and every section uses the same clamp. */
+.hero,
+.event-banner,
+#cta{padding-top:clamp(48px,7vw,84px);padding-bottom:clamp(48px,7vw,84px)}
 .head{text-align:center;margin-bottom:46px}
 .head h2{font-size:clamp(30px,4.4vw,44px)}
 .head .sub{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-top:10px}
@@ -190,6 +195,14 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 }
 @media(max-width:600px){
   .grid .card{width:100%}
+  /* Buttons stack vertically, full width, on phones — consistent on every
+     section (hero, event banner, CTA), instead of wrapping side by side. */
+  .hero .actions,
+  .actions{flex-direction:column;align-items:stretch;gap:12px}
+  .hero .actions .btn,
+  .actions .btn{display:block;width:100%;text-align:center}
+  .event-banner .actions{flex-direction:column;align-items:stretch}
+  .event-banner .actions .btn{width:100%}
 }
 
 /* Nav responsiveness: keep the right cluster from overflowing on small screens. */
