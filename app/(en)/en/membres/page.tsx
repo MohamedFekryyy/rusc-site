@@ -38,7 +38,7 @@ export default function Membres() {
             </ul>
             <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Members get <strong>–10%</strong> on the 2-hour course (throwing or hand-building), hourly raw-glaze decoration, and the 5- and 10-course passes. Strictly personal benefit: for the member, non-transferable. Open studio is for members only.</p>
           </div>
-          <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+          <div className="actions">
             <BookingButton lang="en" workshop="adhesion" tone="member">Join</BookingButton>
             <BookingButton lang="en" workshop="atelier-libre-1h" tone="guest">Book a slot</BookingButton>
           </div>

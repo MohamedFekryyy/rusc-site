@@ -27,7 +27,7 @@ export default function Event() {
             <p>An evening of hand-building with a drink in hand — clay on one side, a glass on the other. Leave with a smile — your piece will be waiting for you after firing.</p>
             <p><strong>Friday 9 October · 6pm – 8.30pm</strong></p>
             <p>€75 · drinks and hand-building included.</p>
-            <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+            <div className="actions">
               <BookingButton lang="en" workshop="pot-and-wine" tone="guest">Book now</BookingButton>
             </div>
           </div>

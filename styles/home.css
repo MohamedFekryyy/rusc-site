@@ -52,7 +52,11 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .hero .rule{width:52px;height:1px;background:var(--ink);opacity:.35;margin:28px auto}
 .hero p{max-width:620px;margin:0 auto;color:var(--muted);font-size:19px}
 .hero .tagline{font-family:var(--sans);font-weight:300;font-size:19px;color:var(--ink);letter-spacing:0;text-transform:none;text-align:center;max-width:620px;margin:0 auto 16px;line-height:1.7}
-.hero .actions{margin-top:34px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+/* One button row shared by every section: hero, event banner, interior pages,
+   and the CTA. Layout only — colours and type stay in .btn. */
+.actions{display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
+.actions .btn{white-space:nowrap}
+.hero .actions{margin-top:34px}
 .btn{display:inline-block;font-family:var(--sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;padding:15px 34px;text-decoration:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);transition:all .2s}
 .btn:hover{background:transparent;color:var(--ink)}
 .btn.ghost{background:transparent;color:var(--ink)}
@@ -195,14 +199,10 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 }
 @media(max-width:600px){
   .grid .card{width:100%}
-  /* Buttons stack vertically, full width, on phones — consistent on every
-     section (hero, event banner, CTA), instead of wrapping side by side. */
-  .hero .actions,
+  /* Buttons stack vertically, full width, on phones (≤600px) — one consistent
+     rule for every action cluster: hero, event banner, interior pages, CTA. */
   .actions{flex-direction:column;align-items:stretch;gap:12px}
-  .hero .actions .btn,
-  .actions .btn{display:block;width:100%;text-align:center}
-  .event-banner .actions{flex-direction:column;align-items:stretch}
-  .event-banner .actions .btn{width:100%}
+  .actions .btn{display:block;width:100%;text-align:center;box-sizing:border-box}
 }
 
 /* Nav responsiveness: keep the right cluster from overflowing on small screens. */

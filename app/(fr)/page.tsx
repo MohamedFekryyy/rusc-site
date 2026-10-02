@@ -149,7 +149,7 @@ export default function Home() {
               </article>
             ))}
           </div>
-          <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center", marginTop: "34px" }}>
+          <div className="actions">
             <a className="btn ghost" href={PAGES.us.fr}>Ūs</a>
           </div>
         </div>

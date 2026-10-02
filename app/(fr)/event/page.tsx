@@ -27,7 +27,7 @@ export default function Event() {
             <p>Une soirée apéro modelage : la terre d&rsquo;un côté, un verre de l&rsquo;autre. Repartez avec le sourire — votre pièce vous attend après cuisson.</p>
             <p><strong>Vendredi 9 octobre · 18h – 20h30</strong></p>
             <p>75 € · apéro et modelage inclus.</p>
-            <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+            <div className="actions">
               <BookingButton lang="fr" workshop="pot-and-wine" tone="guest">Je réserve</BookingButton>
             </div>
           </div>

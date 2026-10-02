@@ -19,7 +19,7 @@ export default function Residence() {
           <p>Artisans, artistes peintres, plasticiens, photographes… Vous cherchez un lieu pour vous exprimer&nbsp;? Vous avez besoin de matériel ou d&rsquo;un équipement spécifique à la poterie&nbsp;? L&rsquo;inspiration vous manque&nbsp;? Cette formule sur mesure est pour vous.</p>
           <p>Nous vous encadrons dans votre projet personnel jusqu&rsquo;au jour de l&rsquo;inauguration, où votre œuvre sera présentée à l&rsquo;atelier.</p>
           <p><strong>Les résidences sont d&rsquo;une durée minimale d&rsquo;un mois.</strong></p>
-          <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+          <div className="actions">
             <a className="btn" href="/contact/">Candidater</a>
           </div>
         </div>

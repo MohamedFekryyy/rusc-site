@@ -19,7 +19,7 @@ export default function Residence() {
           <p>Artisans, painters, visual artists, photographers… Looking for a place to express yourself? Need specific pottery equipment? Short of inspiration? This tailor-made programme is for you.</p>
           <p>We support you through your personal project up to the opening day, when your work is presented at the studio.</p>
           <p><strong>Residencies last a minimum of one month.</strong></p>
-          <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+          <div className="actions">
             <a className="btn" href="/en/contact/">Apply</a>
           </div>
         </div>

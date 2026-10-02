@@ -45,7 +45,7 @@ export default function Membres() {
             </ul>
             <p style={{ marginTop: "14px", fontSize: "15px", color: "var(--muted)" }}>Les membres bénéficient de <strong>–10&nbsp;%</strong> sur le cours de 2&nbsp;heures (tournage ou modelage), le décor à cru à l&rsquo;heure, le carnet 5 cours et le carnet 10 cours. Avantage strictement personnel&nbsp;: réservé au membre, non transférable. L&rsquo;atelier libre est réservé aux membres.</p>
           </div>
-          <div className="actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>
+          <div className="actions">
             <BookingButton lang="fr" workshop="adhesion" tone="member">Adhérer</BookingButton>
             <BookingButton lang="fr" workshop="atelier-libre-1h" tone="guest">Réserver un créneau</BookingButton>
           </div>
