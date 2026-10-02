@@ -1,0 +1,38 @@
+diff --git a/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx b/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
+index 4290fa1296..2a983180ba 100644
+--- a/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
++++ b/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
+@@ -4,7 +4,6 @@ import getBookingInfo from "@calcom/features/bookings/lib/getBookingInfo";
+ import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
+ import { getDefaultEvent } from "@calcom/features/eventtypes/lib/defaultEvents";
+ import { getBrandingForEventType } from "@calcom/features/profile/lib/getBranding";
+-import { shouldHideBrandingForEvent } from "@calcom/features/profile/lib/hideBranding";
+ import { parseRecurringEvent } from "@calcom/lib/isRecurringEvent";
+ import { markdownToSafeHTML } from "@calcom/lib/markdownToSafeHTML";
+ import { maybeGetBookingUidFromSeat } from "@calcom/lib/server/maybeGetBookingUidFromSeat";
+@@ -239,20 +238,16 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
+       ? { ...previousBooking, rescheduledBy: bookingInfo.user?.name }
+       : previousBooking;
+ 
+-  const isPlatformBooking = eventType.users[0]?.isPlatformManaged || eventType.team?.createdByOAuthClientId;
++  // rūsc: never show Cal.diy's "sign up / try it for free" branding. rūsc is
++  // the brand, not Cal; the host account isn't marked hideBranding, so force it
++  // on the booking success page (and everywhere else it reads this prop).
++  const hideBranding = true;
+ 
+   return {
+     props: {
+       orgSlug: currentOrgDomain,
+       themeBasis: eventType.team ? eventType.team.slug : eventType.users[0]?.username,
+-      hideBranding: isPlatformBooking
+-        ? true
+-        : await shouldHideBrandingForEvent({
+-            eventTypeId: eventType.id,
+-            team: eventType?.parent?.team ?? eventType?.team,
+-            owner: eventType.users[0] ?? null,
+-            organizationId: session?.user?.profile?.organizationId ?? session?.user?.org?.id ?? null,
+-          }),
++      hideBranding,
+       profile,
+       eventType,
+       recurringBookings: await getRecurringBookings(bookingInfo.recurringEventId),
