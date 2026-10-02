@@ -9,3 +9,5 @@
 | `rusc-wording.patch` | The confirmation screen said "This meeting is scheduled" and "calendar invitation" (Cal.diy's default). rūsc is a studio with classes, not meetings: the patch changes the EN and FR strings to "Your class is booked / Votre cours est réservé" and drops the calendar-invitation wording. File: `packages/i18n/locales/{en,fr}/common.json`. |
 
 When updating `CAL_DIY_REF`, check that each patch still applies (the build fails if not) and still makes sense.
+
+Keep the booking/confirmation translations together in `rusc-wording.patch`, generated with normal diff context against the pinned source. A separate zero-context wording patch cannot be applied by the workflow's plain `git apply` and may conflict with this patch.

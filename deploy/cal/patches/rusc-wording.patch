@@ -1,8 +1,26 @@
 diff --git a/packages/i18n/locales/en/common.json b/packages/i18n/locales/en/common.json
-index d57c59fed3..6411c7ae21 100644
+index d57c59f..2893c8d 100644
 --- a/packages/i18n/locales/en/common.json
 +++ b/packages/i18n/locales/en/common.json
-@@ -459,10 +459,10 @@
+@@ -118,7 +118,7 @@
+   "check_with_provider_and_user": "Please check with your payment provider and {{user}} how to handle this.",
+   "a_refund_failed": "A refund failed",
+   "awaiting_payment_subject": "Awaiting payment: {{title}} on {{date}}",
+-  "meeting_awaiting_payment": "Your meeting is awaiting payment",
++  "meeting_awaiting_payment": "Your booking is awaiting payment",
+   "dark_theme_contrast_error": "Dark theme color doesn't pass contrast check. We recommend you change this colour so your buttons will be more visible.",
+   "light_theme_contrast_error": "Light theme color doesn't pass contrast check. We recommend you change this colour so your buttons will be more visible.",
+   "event_type_color_light_theme_contrast_error": "Light theme color doesn't pass contrast check. We recommend you change this color so your event types color will be more visible.",
+@@ -202,7 +202,7 @@
+   "download_transcript_email_subject": "Download transcript: {{title}} at {{date}}",
+   "download_your_recording": "Download your recording",
+   "download_your_transcripts": "Download your transcripts",
+-  "your_meeting_has_been_booked": "Your meeting has been booked",
++  "your_meeting_has_been_booked": "Your seat is booked",
+   "event_type_has_been_rescheduled_on_time_date": "Your {{title}} has been rescheduled to {{date}}.",
+   "event_type_has_been_updated": "Your {{title}} has been updated.",
+   "event_has_been_rescheduled": "Updated - Your event has been rescheduled",
+@@ -459,18 +459,18 @@
    "add_another_calendar": "Add another calendar",
    "other": "Other",
    "email_sign_in_subject": "Your sign-in link for {{appName}}",
@@ -15,9 +33,10 @@ index d57c59fed3..6411c7ae21 100644
 +  "emailed_host_and_attendee": "We sent an email with all the details to everyone.",
 +  "emailed_host_and_attendee_recurring": "We sent an email with all the details to everyone for the first of these recurring classes.",
    "round_robin_emailed_you_and_attendees_recurring": "You are meeting with {{user}}. We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
-   "round_robin_emailed_host_and_attendee_recurring": "{{host}} is meeting with {{attendee}}. We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
+-  "round_robin_emailed_host_and_attendee_recurring": "{{host}} is meeting with {{attendee}}. We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
++  "round_robin_emailed_host_and_attendee_recurring": "{{host}} is booked with {{attendee}}. We sent an email with all the details to everyone for the first of these recurring classes.",
    "emailed_you_and_any_other_attendees": "We sent an email to everyone with this information.",
-@@ -470,7 +470,7 @@
+   "needs_to_be_confirmed_or_rejected": "Your booking still needs to be confirmed or rejected.",
    "needs_to_be_confirmed_or_rejected_recurring": "Your recurring meeting still needs to be confirmed or rejected.",
    "user_needs_to_confirm_or_reject_booking": "{{user}} still needs to confirm or reject the booking.",
    "user_needs_to_confirm_or_reject_booking_recurring": "{{user}} still needs to confirm or reject each booking of the recurring meeting.",
@@ -27,7 +46,7 @@ index d57c59fed3..6411c7ae21 100644
    "booking_submitted": "Your booking has been submitted",
    "booking_submitted_recurring": "Your recurring meeting has been submitted",
 diff --git a/packages/i18n/locales/fr/common.json b/packages/i18n/locales/fr/common.json
-index 3e643e8e88..7ca27f4a41 100644
+index 3e643e8..7ca27f4 100644
 --- a/packages/i18n/locales/fr/common.json
 +++ b/packages/i18n/locales/fr/common.json
 @@ -458,10 +458,10 @@
