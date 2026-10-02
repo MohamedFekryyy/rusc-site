@@ -1,0 +1,13 @@
+diff --git a/packages/features/bookings/lib/handleSeats/handleSeats.ts b/packages/features/bookings/lib/handleSeats/handleSeats.ts
+index a8dd8b8c4e..f534af7cbc 100644
+--- a/packages/features/bookings/lib/handleSeats/handleSeats.ts
++++ b/packages/features/bookings/lib/handleSeats/handleSeats.ts
+@@ -52,7 +52,7 @@ const handleSeats = async (
+           startTime: new Date(evt.startTime),
+         },
+       ],
+-      status: BookingStatus.ACCEPTED,
++      status: { in: [BookingStatus.ACCEPTED, BookingStatus.PENDING] },
+     },
+     select: {
+       uid: true,
