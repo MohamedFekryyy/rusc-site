@@ -200,6 +200,9 @@ export function offersIn(view: BookingView) {
 }
 
 // The Cal event type of an offer, e.g. "raquel/porcelaine" (one for both languages).
-export function offerCalLink(offer: Offer) {
-  return calLink(offer.key);
+export function offerCalLink(offer: Offer, lang?: "fr" | "en") {
+  const link = calLink(offer.key);
+  // Force the booker's language to the page's language (not the visitor's
+  // browser). Cal reads it from the ?lang= query param on the calLink.
+  return lang ? `${link}?lang=${lang}` : link;
 }
