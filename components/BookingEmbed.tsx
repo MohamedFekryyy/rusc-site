@@ -15,7 +15,7 @@ import {
 import { getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
-import { CART, PAGES, bookingHref, type Lang } from "@/lib/routes";
+import { CART, HOME, PAGES, bookingHref, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
 const TEXT = {
@@ -31,7 +31,11 @@ const TEXT = {
     viewCart: "Voir le panier",
     keepBrowsing: "Continuer",
     slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
-    slotPaid: "Votre réservation est confirmée.",
+    slotPaid: "Votre place est réservée. Merci.",
+    bookedTitle: "À l’atelier",
+    bookedText: "On vous attend à l’atelier rūsc, 99 Promenade Marie-Paradis à Chamonix. Venez les mains libres : le tablier, la terre et un bon moment sont déjà là.",
+    bookedNext: "Envie d’en faire une habitude ? Découvrez nos carnets. Ou offrez ce moment : un bon cadeau.",
+    backHome: "Retour à l’accueil",
     codeAsk: "Carnet, bon cadeau ou code de l’atelier ?",
     codePlaceholder: "Votre code",
     codeUse: "Utiliser",
@@ -61,7 +65,11 @@ const TEXT = {
     viewCart: "View cart",
     keepBrowsing: "Keep browsing",
     slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
-    slotPaid: "Your booking is confirmed.",
+    slotPaid: "Your place is reserved. Thank you.",
+    bookedTitle: "At the studio",
+    bookedText: "We’ll see you at rūsc, 99 Promenade Marie-Paradis in Chamonix. Come with your hands free: the apron, the clay and a good time are already there.",
+    bookedNext: "Want to make it a habit? Discover our class cards. Or gift this moment: a voucher.",
+    backHome: "Back to home",
     codeAsk: "Got a class card, gift voucher or studio code?",
     codePlaceholder: "Your code",
     codeUse: "Use",
@@ -439,8 +447,11 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
             </form>
           )}
           {booked && (
-            <div style={bookedBar} role="status">
-              <span>
+            <div key="booked" style={{ textAlign: "center", padding: "40px 20px" }}>
+              <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "12px" }}>
+                {t.bookedTitle}
+              </p>
+              <h3 style={{ fontSize: "24px", marginBottom: "10px", color: "var(--accent)" }}>
                 {booked.kind === "cart"
                   ? t.slotAdded
                   : booked.kind === "code"
@@ -448,10 +459,18 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
                     : booked.kind === "codeFailed"
                       ? t.slotCodeFailed
                       : t.slotPaid}
-              </span>
-              {(booked.kind === "cart" || booked.kind === "codeFailed") && (
+              </h3>
+              {booked.kind !== "cart" && booked.kind !== "codeFailed" && (
+                <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 14px" }}>{t.bookedText}</p>
+              )}
+              <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 22px", fontSize: "14.5px" }}>{t.bookedNext}</p>
+              {(booked.kind === "cart" || booked.kind === "codeFailed") ? (
                 <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
                   {t.viewCart}
+                </a>
+              ) : (
+                <a className="btn guest" href={HOME[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
+                  {t.backHome}
                 </a>
               )}
             </div>
