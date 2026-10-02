@@ -1,5 +1,5 @@
 diff --git a/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx b/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
-index dee7aa70e2..0493393983 100644
+index dee7aa70e2..e8f78b47dd 100644
 --- a/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
 +++ b/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
 @@ -26,7 +26,8 @@ const ServerPage = async ({ params, searchParams }: ServerPageProps) => {
@@ -7,13 +7,13 @@ index dee7aa70e2..0493393983 100644
    const props = await getData(context);
  
 -  const locale = props.eventData?.interfaceLanguage;
-+  const requestedLang = typeof searchParams.lang === "string" ? searchParams.lang : undefined;
-+  const locale = requestedLang ?? props.eventData?.interfaceLanguage;
++  const requestedLang = context.query.lang;
++  const locale = (typeof requestedLang === "string" && requestedLang) || props.eventData?.interfaceLanguage;
    if (locale) {
      const ns = "common";
      const translations = await loadTranslations(locale, ns);
 diff --git a/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx b/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
-index 5eb9e6e9a5..7b85d90df7 100644
+index 5eb9e6e9a5..f826a3ec96 100644
 --- a/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
 +++ b/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
 @@ -19,7 +19,11 @@ const ServerPage = async ({ params, searchParams }: PageProps): Promise<JSX.Elem
@@ -24,8 +24,8 @@ index 5eb9e6e9a5..7b85d90df7 100644
 +  // rūsc: honor ?lang= (the site's page language) over the event type's
 +  // interface language so the embedded booker follows the site's FR/EN page,
 +  // not the visitor's browser locale.
-+  const requestedLang = typeof searchParams.lang === "string" ? searchParams.lang : undefined;
-+  const locale = requestedLang ?? props.eventData?.interfaceLanguage;
++  const requestedLang = legacyCtx.query.lang;
++  const locale = (typeof requestedLang === "string" && requestedLang) || props.eventData?.interfaceLanguage;
    if (locale) {
      const ns = "common";
      const translations = await loadTranslations(locale, ns);
