@@ -1,0 +1,44 @@
+diff --git a/apps/web/modules/bookings/hooks/useBookings.ts b/apps/web/modules/bookings/hooks/useBookings.ts
+index 4dea974c4d..17108e1112 100644
+--- a/apps/web/modules/bookings/hooks/useBookings.ts
++++ b/apps/web/modules/bookings/hooks/useBookings.ts
+@@ -21,6 +21,7 @@ import { useMutation } from "@tanstack/react-query";
+ import { useRouter } from "next/navigation";
+ import { useRef } from "react";
+ import { shallow } from "zustand/shallow";
++import { useIsEmbed } from "@calcom/embed-core/embed-iframe";
+ 
+ export interface IUseBookings {
+   event: {
+@@ -125,6 +126,7 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+   const timeslot = useBookerStoreContext((state) => state.selectedTimeslot);
+   const { t } = useLocale();
+   const bookingSuccessRedirect = useBookingSuccessRedirect();
++  const isEmbed = useIsEmbed();
+   const bookerFormErrorRef = useRef<HTMLDivElement>(null);
+ 
+   const duration = useBookerStoreContext((state) => state.selectedDuration);
+@@ -264,6 +266,12 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+         rescheduledBy, // ensure further reschedules performed on the success page are recorded correctly
+       };
+ 
++      // rūsc: when embedded, the parent site owns the post-booking flow (cart +
++      // payment + confirmation). Don't navigate the iframe to Cal's own success
++      // card; the parent already received bookingSuccessful/bookingSuccessfulV2.
++      // Only redirect for the non-embed (standalone) case.
++      if (isEmbed) return;
++
+       bookingSuccessRedirect({
+         successRedirectUrl: event?.data?.successRedirectUrl || "",
+         query,
+@@ -381,6 +389,10 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+         });
+       }
+ 
++      // rūsc: same as the non-recurring case — when embedded, the parent owns
++      // the post-booking flow; don't navigate the iframe to Cal's success card.
++      if (isEmbed) return;
++
+       bookingSuccessRedirect({
+         successRedirectUrl: event?.data?.successRedirectUrl || "",
+         query,
