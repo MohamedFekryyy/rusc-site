@@ -331,6 +331,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         handledRef.current = booking.uid;
         const seat = booking.seatReferenceUid ?? undefined;
         const toCart = () => cart.addBooking(offer.key, { uid: booking.uid!, seat, start: booking.startTime!, end: booking.endTime });
+        // Bring the result into view: the cart message ("added, pay to confirm")
+        // must be what the visitor sees first, not Cal's own confirmation.
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
         const usedCode = codeRef.current;
         if (!usedCode || !seat) {
           toCart();
@@ -363,6 +366,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         if (!data.paymentRequired) {
           cart.addBooking(offer.key, { uid: data.uid, start: data.startTime, end: data.endTime });
         }
+        // Bring the result into view: the cart message ("added, pay to confirm")
+        // must be what the visitor sees first, not Cal's own confirmation.
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
         setBooked({ kind: data.paymentRequired ? "paid" : "cart" });
       },
     });
