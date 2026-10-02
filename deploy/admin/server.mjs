@@ -386,7 +386,18 @@ async function recordOrder(session) {
       const [, key, cents, qtyText, ref] = match;
       const qty = Math.min(Number(qtyText) || 1, 20);
       if (OFFERS[key]) {
-        if (ref) await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [ref, session.id, key]);
+        if (ref) {
+          await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [ref, session.id, key]);
+          // Payment confirms the place: the Cal.diy booking is created PENDING
+          // (requiresConfirmation = true in the seed) and flips to ACCEPTED only
+          // now that Stripe has confirmed payment. Without this, the booker
+          // would show "scheduled" before anyone paid.
+          await client.query(
+            `UPDATE public."Booking" b SET status = 'accepted', paid = true
+               FROM public."BookingSeat" s WHERE s."bookingId" = b.id AND s."referenceUid" = $1`,
+            [ref],
+          );
+        }
         continue;
       }
       if (key === "adhesion" && email) {

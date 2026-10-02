@@ -127,7 +127,7 @@ CLASSES.forEach((c, index) => {
       ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "minimumBookingNotice" = ${NOTICE}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
       ` locations = ${q(locations)}::jsonb, "interfaceLanguage" = NULL,` +
       ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = false,` +
-      ` "requiresConfirmation" = false, hidden = true, "slotInterval" = ${c.interval ?? 30},` +
+      ` "requiresConfirmation" = true, hidden = true, "slotInterval" = ${c.interval ?? 30},` +
       ` position = ${CLASSES.length - index}` +
       ` WHERE id = eid;`,
   );
