@@ -138,6 +138,8 @@ export const cart = {
   add(key: OfferKey) {
     load();
     const line = items.find((i) => i.key === key && !i.booking);
+    // A membership is one per cart, never a quantity: cap at 1.
+    if (key === "adhesion" && (line || items.some((i) => i.key === "adhesion"))) return;
     write(
       line
         ? items.map((i) => (i === line ? { ...i, qty: Math.min(i.qty + 1, MAX_QTY) } : i))
@@ -167,7 +169,14 @@ export const cart = {
   },
   setQty(id: string, qty: number) {
     load();
-    write(items.map((i) => (i.id === id ? { ...i, qty: Math.max(1, Math.min(qty, MAX_QTY)) } : i)));
+    write(
+      items.map((i) => {
+        if (i.id !== id) return i;
+        // A membership is one per cart, never a quantity.
+        const cap = i.key === "adhesion" ? 1 : MAX_QTY;
+        return { ...i, qty: Math.max(1, Math.min(qty, cap)) };
+      }),
+    );
   },
   remove(id: string) {
     load();
