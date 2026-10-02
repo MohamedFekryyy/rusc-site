@@ -1,0 +1,56 @@
+diff --git a/packages/i18n/locales/en/common.json b/packages/i18n/locales/en/common.json
+index d57c59fed3..6411c7ae21 100644
+--- a/packages/i18n/locales/en/common.json
++++ b/packages/i18n/locales/en/common.json
+@@ -459,10 +459,10 @@
+   "add_another_calendar": "Add another calendar",
+   "other": "Other",
+   "email_sign_in_subject": "Your sign-in link for {{appName}}",
+-  "round_robin_emailed_you_and_attendees": "You are meeting with {{user}}. We sent an email with a calendar invitation with the details to everyone.",
+-  "round_robin_emailed_host_and_attendee": "{{host}} is meeting with {{attendee}}. We sent an email with a calendar invitation with the details to everyone.",
+-  "emailed_host_and_attendee": "We sent an email with a calendar invitation with the details to everyone.",
+-  "emailed_host_and_attendee_recurring": "We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
++  "round_robin_emailed_you_and_attendees": "You are booked with {{user}}. We sent an email with all the details to everyone.",
++  "round_robin_emailed_host_and_attendee": "{{host}} is booked with {{attendee}}. We sent an email with all the details to everyone.",
++  "emailed_host_and_attendee": "We sent an email with all the details to everyone.",
++  "emailed_host_and_attendee_recurring": "We sent an email with all the details to everyone for the first of these recurring classes.",
+   "round_robin_emailed_you_and_attendees_recurring": "You are meeting with {{user}}. We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
+   "round_robin_emailed_host_and_attendee_recurring": "{{host}} is meeting with {{attendee}}. We sent an email with a calendar invitation with the details to everyone for the first of these recurring events.",
+   "emailed_you_and_any_other_attendees": "We sent an email to everyone with this information.",
+@@ -470,7 +470,7 @@
+   "needs_to_be_confirmed_or_rejected_recurring": "Your recurring meeting still needs to be confirmed or rejected.",
+   "user_needs_to_confirm_or_reject_booking": "{{user}} still needs to confirm or reject the booking.",
+   "user_needs_to_confirm_or_reject_booking_recurring": "{{user}} still needs to confirm or reject each booking of the recurring meeting.",
+-  "meeting_is_scheduled": "This meeting is scheduled",
++  "meeting_is_scheduled": "Your class is booked",
+   "meeting_is_scheduled_recurring": "The recurring events are scheduled",
+   "booking_submitted": "Your booking has been submitted",
+   "booking_submitted_recurring": "Your recurring meeting has been submitted",
+diff --git a/packages/i18n/locales/fr/common.json b/packages/i18n/locales/fr/common.json
+index 3e643e8e88..7ca27f4a41 100644
+--- a/packages/i18n/locales/fr/common.json
++++ b/packages/i18n/locales/fr/common.json
+@@ -458,10 +458,10 @@
+   "add_another_calendar": "Ajouter un autre calendrier",
+   "other": "Autre",
+   "email_sign_in_subject": "Votre lien de connexion pour {{appName}}",
+-  "round_robin_emailed_you_and_attendees": "Vous avez rendez-vous avec {{user}}. Nous avons envoyé un e-mail avec une invitation de calendrier comprenant les détails à tout le monde.",
+-  "round_robin_emailed_host_and_attendee": "{{host}} a un rendez-vous avec {{attendee}}. Nous avons envoyé un e-mail avec une invitation calendrier contenant tous les détails aux participants.",
+-  "emailed_host_and_attendee": "Nous avons envoyé un e-mail avec une invitation calendrier contenant tous les détails aux participants.",
+-  "emailed_host_and_attendee_recurring": "Nous avons envoyé un e-mail avec une invitation calendrier contenant tous les détails aux participants pour le premier de ces événements récurrents.",
++  "round_robin_emailed_you_and_attendees": "Vous avez réservé avec {{user}}. Nous avons envoyé un e-mail avec tous les détails à tout le monde.",
++  "round_robin_emailed_host_and_attendee": "{{host}} a réservé avec {{attendee}}. Nous avons envoyé un e-mail avec tous les détails à tout le monde.",
++  "emailed_host_and_attendee": "Nous avons envoyé un e-mail avec tous les détails aux participants.",
++  "emailed_host_and_attendee_recurring": "Nous avons envoyé un e-mail avec tous les détails aux participants pour le premier de ces cours récurrents.",
+   "round_robin_emailed_you_and_attendees_recurring": "Vous avez un rendez-vous avec {{user}}. Nous avons envoyé un e-mail avec une invitation calendrier contenant tous les détails aux participants pour le premier de ces événements récurrents.",
+   "round_robin_emailed_host_and_attendee_recurring": "{{host}} a un rendez-vous avec {{attendee}}. Nous avons envoyé un e-mail avec une invitation calendrier contenant tous les détails aux participants pour le premier de ces événements récurrents.",
+   "emailed_you_and_any_other_attendees": "Nous avons envoyé cette information à tout le monde par e-mail.",
+@@ -469,7 +469,7 @@
+   "needs_to_be_confirmed_or_rejected_recurring": "Votre rendez-vous récurrent doit encore être confirmé ou refusé.",
+   "user_needs_to_confirm_or_reject_booking": "{{user}} doit encore confirmer ou refuser la réservation.",
+   "user_needs_to_confirm_or_reject_booking_recurring": "{{user}} doit encore confirmer ou refuser chaque réservation du rendez-vous récurrent.",
+-  "meeting_is_scheduled": "Le rendez-vous est planifié",
++  "meeting_is_scheduled": "Votre cours est réservé",
+   "meeting_is_scheduled_recurring": "Les événements récurrents sont planifiés",
+   "booking_submitted": "Votre réservation a été envoyée",
+   "booking_submitted_recurring": "Votre rendez-vous récurrent a été envoyé",
