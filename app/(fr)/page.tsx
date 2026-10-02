@@ -104,8 +104,8 @@ export default function Home() {
         <h1 className="tagline">Atelier de poterie à Chamonix.</h1>
         <p className="intro">Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
         <div className="actions">
+          <BookingButton lang="fr" tone="guest">Réserver un cours</BookingButton>
           <a className="btn member" href={PAGES.membres.fr}>Espace membre</a>
-          <a className="btn guest" href={PAGES.cours.fr}>Choisir un cours</a>
         </div>
       </section>
 

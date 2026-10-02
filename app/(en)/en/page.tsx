@@ -66,8 +66,8 @@ export default function Home() {
         <h1 className="tagline">Pottery studio in Chamonix.</h1>
         <p className="intro">At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
         <div className="actions">
+          <BookingButton lang="en" tone="guest">Book a course</BookingButton>
           <a className="btn member" href={PAGES.membres.en}>Member area</a>
-          <a className="btn guest" href={PAGES.cours.en}>Choose a course</a>
         </div>
       </section>
 
