@@ -129,7 +129,7 @@ index 3e643e8e88..0383a7a766 100644
    "no": "Non",
    "additional_notes": "Notes supplémentaires",
 -  "booking_fail": "Le rendez-vous n'a pas pu être réservé.",
-+  "booking_fail": "Le cours n'a pas pu être réservé. Veuillez réessayer."
++  "booking_fail": "Le cours n'a pas pu être réservé. Veuillez réessayer.",
    "reschedule_fail": "Le rendez-vous n'a pas pu être replanifié.",
    "share_additional_notes": "Merci de renseigner tout ce qui aidera à préparer notre rendez-vous.",
    "booking_confirmation": "Confirmez votre {{eventTypeTitle}} avec {{profileName}}",
