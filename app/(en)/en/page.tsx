@@ -8,7 +8,7 @@ import SectionHead from "@/components/SectionHead";
 import { PAGES, bookingHref } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc-trim.webp";
-import hero from "@/assets/photos/hero-o.jpg";
+import hero from "@/assets/photos/us-chris-o.webp";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
@@ -71,6 +71,10 @@ export default function Home() {
         </div>
       </section>
 
+      <figure className="hero-photo">
+        <Image src={hero} alt="Chris Kerr, co-founder of rūsc" loading="eager" fetchPriority="high" />
+        <figcaption>Chris Kerr — co-founder of rūsc. He runs the Wednesday evening sessions.</figcaption>
+      </figure>
 
       <section className="event-banner wrap">
         <div className="event-banner-inner">
