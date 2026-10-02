@@ -126,7 +126,7 @@ CLASSES.forEach((c, index) => {
     `  UPDATE "EventType" SET slug = ${q(c.key)}, title = ${q(title)}, description = ${q(description)}, length = ${c.minutes},` +
       ` "scheduleId" = sid, "seatsPerTimeSlot" = ${c.seats}, "minimumBookingNotice" = ${NOTICE}, "seatsShowAvailabilityCount" = true, "seatsShowAttendees" = false,` +
       ` locations = ${q(locations)}::jsonb, "interfaceLanguage" = NULL,` +
-      ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = true,` +
+      ` "lockTimeZoneToggleOnBookingPage" = true, "lockedTimeZone" = ${q(TZ)}, "disableGuests" = false,` +
       ` "requiresConfirmation" = false, hidden = true, "slotInterval" = ${c.interval ?? 30},` +
       ` position = ${CLASSES.length - index}` +
       ` WHERE id = eid;`,
