@@ -1,0 +1,239 @@
+diff --git a/apps/web/modules/form-builder/components/Components.tsx b/apps/web/modules/form-builder/components/Components.tsx
+index c493145f79..7688edea62 100644
+--- a/apps/web/modules/form-builder/components/Components.tsx
++++ b/apps/web/modules/form-builder/components/Components.tsx
+@@ -245,81 +245,51 @@ export const Components: Record<FieldType, Component> = {
+     propsType: propsTypes.multiemail,
+     //TODO: Make it a ui component
+     factory: function MultiEmail({ value, readOnly, label, setValue, ...props }) {
+-      const placeholder = props.placeholder;
+       const { t } = useLocale();
+       value = value || [];
++      const count = value.length;
+       return (
+-        <>
+-          {value.length ? (
+-            <div>
+-              <label htmlFor="guests" className="text-default  mb-1 block text-sm font-medium">
+-                {label}
+-              </label>
+-              <ul>
+-                {value.map((field, index) => (
+-                  <li key={index}>
+-                    <EmailField
+-                      id={`${props.name}.${index}`}
+-                      disabled={readOnly}
+-                      value={value[index]}
+-                      onChange={(e) => {
+-                        value[index] = e.target.value.toLowerCase();
+-                        setValue(value);
+-                      }}
+-                      placeholder={placeholder}
+-                      label={<></>}
+-                      required
+-                      onClickAddon={() => {
+-                        value.splice(index, 1);
+-                        setValue(value);
+-                      }}
+-                      addOnSuffix={
+-                        !readOnly ? (
+-                          <Tooltip content="Remove email">
+-                            <button className="m-1" type="button">
+-                              <XIcon size={12} className="text-default" />
+-                            </button>
+-                          </Tooltip>
+-                        ) : null
+-                      }
+-                    />
+-                  </li>
+-                ))}
+-              </ul>
+-              {!readOnly && (
+-                <Button
+-                  data-testid="add-another-guest"
+-                  type="button"
+-                  color="minimal"
+-                  StartIcon="user-plus"
+-                  className="my-2.5"
+-                  onClick={() => {
+-                    value.push("");
+-                    setValue(value);
+-                  }}>
+-                  {t("add_another")}
+-                </Button>
+-              )}
+-            </div>
+-          ) : (
+-            <></>
+-          )}
+-
+-          {!value.length && !readOnly && (
+-            <Button
+-              data-testid="add-guests"
+-              color="minimal"
+-              variant="button"
+-              StartIcon="user-plus"
+-              onClick={() => {
+-                value.push("");
+-                setValue(value);
+-              }}
+-              className="mr-auto h-fit whitespace-normal text-left">
+-              <span className="flex-1">{label}</span>
+-            </Button>
+-          )}
+-        </>
++        <div>
++          <label htmlFor="guests" className="text-default  mb-1 block text-sm font-medium">
++            {t("number_of_places")}
++          </label>
++          <div className="flex items-center gap-1">
++            {!readOnly && (
++              <Button
++                data-testid="decrease-guests"
++                type="button"
++                color="minimal"
++                variant="button"
++                disabled={count <= 0}
++                onClick={() => {
++                  value.splice(-1, 1);
++                  setValue([...value]);
++                }}>
++                −
++              </Button>
++            )}
++            <span data-testid="guests-count" className="text-default text-sm font-medium tabular-nums">
++              {count + 1}
++            </span>
++            {!readOnly && (
++              <Button
++                data-testid="increase-guests"
++                type="button"
++                color="minimal"
++                variant="button"
++                StartIcon="user-plus"
++                onClick={() => {
++                  value.push("");
++                  setValue([...value]);
++                }}>
++                +
++              </Button>
++            )}
++          </div>
++          <p className="text-subtle mt-1 text-xs">
++            {t("includes_you_and_guests")}
++          </p>
++        </div>
+       );
+     },
+   },
+diff --git a/packages/features/bookings/lib/bookingCreateBodySchema.ts b/packages/features/bookings/lib/bookingCreateBodySchema.ts
+index c8f4b60da0..9112a17cc0 100644
+--- a/packages/features/bookings/lib/bookingCreateBodySchema.ts
++++ b/packages/features/bookings/lib/bookingCreateBodySchema.ts
+@@ -22,6 +22,7 @@ export const bookingCreateBodySchema = z.object({
+   hashedLink: z.string().nullish(),
+   seatReferenceUid: z.string().optional(),
+   orgSlug: z.string().optional(),
++  seats: z.number().int().min(1).max(100).optional(),
+   teamMemberEmail: z.string().nullish(),
+   crmOwnerRecordType: z.string().nullish(),
+   crmRecordId: z.string().nullish(),
+diff --git a/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx b/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
+index c604656a01..6f431a48a3 100644
+--- a/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
++++ b/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
+@@ -61,8 +61,14 @@ export const mapBookingToMutationInput = ({
+   const _isDryRun = isDryRunProp !== undefined ? isDryRunProp : isBookingDryRun(searchParams);
+   const dub_id = searchParams?.get("dub_id");
+ 
++  // rūsc: "number of places" selector. The booker's guests field holds one
++  // entry per extra place; total requested seats = booker + guests.
++  const guests = (values as { responses?: { guests?: string[] } })?.responses?.guests;
++  const seats = (Array.isArray(guests) ? guests.length : 0) + 1;
++
+   return {
+     ...values,
++    seats,
+     user: username,
+     start: dayjs(date).format(),
+     end: dayjs(date)
+diff --git a/packages/features/bookings/lib/service/RegularBookingService.ts b/packages/features/bookings/lib/service/RegularBookingService.ts
+index 644a80a3e3..873ffb6a0e 100644
+--- a/packages/features/bookings/lib/service/RegularBookingService.ts
++++ b/packages/features/bookings/lib/service/RegularBookingService.ts
+@@ -568,6 +568,7 @@ async function handler(
+     routedTeamMemberIds,
+     rrHostSubsetIds,
+     _isDryRun: isDryRun = false,
++    seats: requestedSeats,
+     ...reqBody
+   } = bookingData;
+ 
+@@ -1795,6 +1796,41 @@ async function handler(
+           },
+         });
+         evt.attendeeSeatId = uniqueAttendeeId;
++
++        // rūsc: book N anonymous places from one booker (no guest emails).
++        // The initial booking above created 1 attendee + 1 seat for the booker.
++        // For each additional requested place, create an anonymous attendee +
++        // seat under the same booking uid, capped at the remaining seat count.
++        const totalSeats = eventType.seatsPerTimeSlot ?? 0;
++        if (requestedSeats && requestedSeats > 1 && totalSeats > 0) {
++          const alreadyBooked = booking.attendees.length;
++          const extraCount = Math.min(
++            requestedSeats - 1,
++            Math.max(0, totalSeats - alreadyBooked)
++          );
++          for (let i = 0; i < extraCount; i++) {
++            const anonUid = uuid();
++            await deps.prismaClient.bookingSeat.create({
++              data: {
++                referenceUid: anonUid,
++                data: {
++                  description: additionalNotes,
++                  responses,
++                },
++                metadata: reqBody.metadata,
++                booking: { connect: { id: booking.id } },
++                attendee: {
++                  create: {
++                    email: `${anonUid}@anonymous.invalid`,
++                    name: `Place ${alreadyBooked + i + 1}`,
++                    timeZone: reqBody.timeZone ?? "UTC",
++                    locale: attendeeLanguage ?? "en",
++                  },
++                },
++              },
++            });
++          }
++        }
+       }
+     } else {
+       const { booking: dryRunBooking, troubleshooterData: _troubleshooterData } = buildDryRunBooking({
+diff --git a/packages/i18n/locales/en/common.json b/packages/i18n/locales/en/common.json
+index d57c59fed3..809e6d9035 100644
+--- a/packages/i18n/locales/en/common.json
++++ b/packages/i18n/locales/en/common.json
+@@ -304,6 +304,8 @@
+   "copy_referral_link": "Copy referral link",
+   "sign_out": "Sign out",
+   "add_another": "Add another",
++  "number_of_places": "Number of places",
++  "includes_you_and_guests": "Includes you plus any additional places",
+   "install_another": "Install another",
+   "until": "until",
+   "powered_by": "powered by",
+diff --git a/packages/i18n/locales/fr/common.json b/packages/i18n/locales/fr/common.json
+index 3e643e8e88..59b722ac08 100644
+--- a/packages/i18n/locales/fr/common.json
++++ b/packages/i18n/locales/fr/common.json
+@@ -303,6 +303,8 @@
+   "copy_referral_link": "Copier le lien de parrainage",
+   "sign_out": "Se déconnecter",
+   "add_another": "Ajouter un autre",
++  "number_of_places": "Nombre de places",
++  "includes_you_and_guests": "Vous y compris, plus les places supplémentaires",
+   "install_another": "Installer une autre",
+   "until": "jusqu'au",
+   "powered_by": "propulsé par",

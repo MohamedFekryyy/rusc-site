@@ -19,11 +19,12 @@ swap_size_mb = 1024
   NEXTAUTH_URL = "https://booking.studio-rusc.com"
   # start.sh waits for this address before running the migrations.
   DATABASE_HOST = "rusc-cal-db.internal:5432"
-  # Booking emails go through Brevo; its SMTP login is a secret.
-  EMAIL_FROM = "reservation@studio-rusc.com"
+  # Booking emails go through Resend; its API key is a secret (EMAIL_SERVER_PASSWORD).
+  EMAIL_FROM = "rrose@studio-rusc.com"
   EMAIL_FROM_NAME = "rūsc"
-  EMAIL_SERVER_HOST = "smtp-relay.brevo.com"
-  EMAIL_SERVER_PORT = "587"
+  EMAIL_SERVER_HOST = "smtp.resend.com"
+  EMAIL_SERVER_PORT = "465"
+  EMAIL_SERVER_USER = "resend"
   CALCOM_TELEMETRY_DISABLED = "1"
   # Hide Cal.diy's own branding footer/promo ("powered by Cal.com", "try it
   # for free") on the booking screens — rūsc is the brand, not Cal.

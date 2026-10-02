@@ -35,10 +35,10 @@ The Cal.diy image is `ghcr.io/mohamedfekryyy/rusc-cal:<tag>`. It is built by `.g
    - Payments stay off in Cal.
    - Cards, membership and gift vouchers need no event type: they go straight into the cart.
    - To change the timetable (a new stage date, a holiday), edit `seed-classes.mjs` and run it again, or edit the schedule in Cal. A new run of the script puts its own values back.
-4. **Emails (Brevo).**
-   - Create an SMTP key (SMTP & API → SMTP).
-   - Authenticate studio-rusc.com (Senders & domains) with the DNS records Brevo gives, at Squarespace. Without them, booking emails land in spam.
-   - Then run `sh deploy/cal/set-smtp.sh` yourself: it asks for the SMTP login and key (the key hidden) and saves them in rusc-cal's Fly secrets, so the key never lands in your shell history. **Not done yet (2026-09-24): until then Cal sends no e-mails.**
+4. **Emails (Resend).**
+   - In Resend → API Keys, create an API key (`re_...`). It doubles as the SMTP password; the SMTP username is fixed (`resend`), host/port are in `fly.toml` (`smtp.resend.com:465`).
+   - Authenticate studio-rusc.com in Resend → Domains, and add the DNS records it gives (SPF/DKIM/DMARC) at Squarespace. Without them, booking emails land in spam.
+   - Then run `sh deploy/cal/set-smtp.sh` yourself: it asks for the API key (hidden) and saves it in rusc-cal's Fly secrets, so the key never lands in your shell history. **Not done yet: until then Cal sends no e-mails.**
 5. **Own domain** (optional; can wait):
    - Run `fly certs add booking.studio-rusc.com -a rusc-cal`.
    - In Squarespace Domains → studio-rusc.com → DNS, add the records it prints: a `CNAME` for `booking` → `rusc-cal.fly.dev`.
