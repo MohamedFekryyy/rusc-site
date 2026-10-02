@@ -28,9 +28,11 @@ const TEXT = {
     noAccount: "Pas encore de compte ?",
     forgot: "Mot de passe oublié ? Écrivez à info@studio-rusc.com : l’atelier vous envoie un lien pour en choisir un nouveau.",
     already: "Déjà client·e de l’atelier ? Inscrivez-vous avec l’e-mail de vos réservations : vos cours, carnets et adhésion s’y retrouvent.",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
     errors: {
       email_taken: "Un compte existe déjà avec cet e-mail : connectez-vous.",
-      wrong_login: "E-mail ou mot de passe incorrect.",
+      wrong_login: "E-mail ou mot de passe oublié.",
       password_short: "Le mot de passe doit faire au moins 8 caractères.",
       email_invalid: "Cet e-mail n’a pas l’air valide.",
       name_required: "Indiquez votre nom.",
@@ -58,9 +60,11 @@ const TEXT = {
     noAccount: "No account yet?",
     forgot: "Forgot your password? Write to info@studio-rusc.com: the studio will send you a link to choose a new one.",
     already: "Already a client of the studio? Sign up with the e-mail you booked with: your classes, cards and membership show up there.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     errors: {
       email_taken: "An account already exists with this e-mail: log in instead.",
-      wrong_login: "Wrong e-mail or password.",
+      wrong_login: "Forgotten e-mail or password.",
       password_short: "The password needs at least 8 characters.",
       email_invalid: "This e-mail doesn’t look valid.",
       name_required: "Please give your name.",
@@ -78,6 +82,7 @@ export default function AuthForm({ lang, resetToken }: { lang: Lang; resetToken?
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -121,16 +126,46 @@ export default function AuthForm({ lang, resetToken }: { lang: Lang; resetToken?
       {mode !== "reset" && (
         <input type="email" name="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
       )}
-      <input
-        type="password"
-        name="password"
-        placeholder={mode === "reset" ? t.newPassword : t.password}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        minLength={8}
-        autoComplete={mode === "signin" ? "current-password" : "new-password"}
-      />
+
+      <div style={{ position: "relative" }}>
+        <input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          placeholder={mode === "reset" ? t.newPassword : t.password}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={8}
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          style={{ width: "100%", paddingRight: "46px" }}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((v) => !v)}
+          aria-label={showPassword ? t.hidePassword : t.showPassword}
+          title={showPassword ? t.hidePassword : t.showPassword}
+          style={{
+            position: "absolute",
+            right: "6px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: "38px",
+            height: "38px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--ink)",
+            fontSize: "18px",
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          {showPassword ? "🙈" : "👁"}
+        </button>
+      </div>
 
       <label style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "14px", color: "var(--muted)", cursor: "pointer" }}>
         <input
