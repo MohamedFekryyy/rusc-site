@@ -15,8 +15,7 @@ export default function Conditions() {
     <LegalPage
       home="/"
       back="Retour au site"
-      address="99 Promenade Marie Paradis · 74400 Chamonix-Mont-Blanc"
-      copy="© rūsc — tous droits réservés"
+      lang="fr"
     >
       <h1>Conditions générales</h1>
       <p className="sub">Réservation &amp; annulation</p>

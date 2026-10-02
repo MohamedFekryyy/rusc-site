@@ -1,42 +1,31 @@
-import Image from "next/image";
 import type { ReactNode } from "react";
-import logo from "@/assets/logo-rusc.webp";
-import { EMAIL, PHONE, PHONE_HREF } from "@/lib/site";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import type { Lang } from "@/lib/routes";
 import "@/styles/legal.css";
 
 type Props = {
   // Home page of the same language ("/" or "/en/").
   home: string;
   back: string;
-  address: string;
-  copy: string;
+  lang: Lang;
   children: ReactNode;
 };
 
-// Shell of the terms pages. Links back home are plain <a> on purpose: the
-// home stylesheet must not be loaded on top of legal.css (or the reverse).
-export default function LegalPage({ home, back, address, copy, children }: Props) {
+// Shell of the terms pages. Reuses the shared <Header> and <Footer> so the
+// navbar is identical to every other page (burger, FR/EN, Réserver, Connexion,
+// Panier) — no bespoke header here. Only the legal body uses legal.css.
+export default function LegalPage({ home, back, lang, children }: Props) {
   return (
     <>
-      <header>
-        <div className="wrap nav">
-          <a href={home}>
-            <Image src={logo} alt="rūsc" loading="eager" />
-          </a>
-          <a href={home}>{back}</a>
-        </div>
-      </header>
+      <Header lang={lang} page="home" />
 
-      <main className="wrap">
+      <main className="legal">
         {children}
         <a className="back" href={home}>{`← ${back}`}</a>
       </main>
 
-      <footer>
-        {address}<br />
-        <a href={`mailto:${EMAIL}`}>{EMAIL}</a> · <a href={PHONE_HREF}>{PHONE}</a><br />
-        {copy}
-      </footer>
+      <Footer lang={lang} />
     </>
   );
 }
