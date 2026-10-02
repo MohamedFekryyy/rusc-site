@@ -109,9 +109,6 @@ export default function Home() {
         </div>
       </section>
 
-      <figure className="hero-photo">
-        <Image src={hero} alt="Mains façonnant la terre à l’atelier rūsc, Chamonix" loading="eager" fetchPriority="high" />
-      </figure>
 
       <section className="event-banner wrap">
         <div className="event-banner-inner">
