@@ -11,6 +11,8 @@ primary_region = "ams"
 [env]
   # Sites allowed to call the API from the browser.
   ALLOWED_ORIGINS = "https://rusc-preview.vercel.app,https://studio-rusc.com,https://www.studio-rusc.com,http://localhost:3000,http://localhost:3001"
+  # The studio's public site address, used in password-reset links.
+  SITE_ORIGIN = "https://studio-rusc.com"
 
 # Sleeps when nobody uses it (costs almost nothing), wakes in about a second.
 [http_service]

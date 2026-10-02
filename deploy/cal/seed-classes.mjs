@@ -58,6 +58,16 @@ const CLASSES = [
   {
     key: "atelier-libre-1h", minutes: 60, seats: 7, interval: 60,
     weekly: [[2, "09:00", "14:00"], [4, "14:00", "18:00"]],
+    // Open studio, extra one-off windows for October 2026 (Issey, 2026-10-02):
+    // Tuesday 13h–20h, Wednesday 9h–13h, Thursday 14h–20h, every week
+    // except the week of 12–18 October. Added on top of the weekly schedule.
+    // To avoid overlaps with the weekly schedule (Tue 9h–14h, Thu 14h–18h),
+    // the Tuesday extends 14h–20h and the Thursday 18h–20h (option A).
+    dates: [
+      ["2026-10-06", "14:00", "20:00"], ["2026-10-07", "09:00", "13:00"], ["2026-10-08", "18:00", "20:00"],
+      ["2026-10-20", "14:00", "20:00"], ["2026-10-21", "09:00", "13:00"], ["2026-10-22", "18:00", "20:00"],
+      ["2026-10-27", "14:00", "20:00"], ["2026-10-28", "09:00", "13:00"], ["2026-10-29", "18:00", "20:00"],
+    ],
     fr: ["atelier libre 1h", "Réservé aux membres : l’atelier en autonomie, 7 tours de potier, outils, grès, engobes et émail transparent à disposition."],
     en: ["open studio 1h", "Members only: the studio on your own, with 7 potter’s wheels, tools, stoneware, slips and clear glaze available."],
   },

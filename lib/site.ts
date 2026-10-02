@@ -7,9 +7,11 @@ export const PHONE_HREF = "tel:+33782739697";
 export const INSTAGRAM = "https://www.instagram.com/studiorusc";
 export const INSTAGRAM_HANDLE = "@studiorusc";
 
-// Contact form backend (Formspree, Basin…). Empty: the form opens the
-// visitor's mail app with the message prefilled, addressed to EMAIL.
-export const FORM_ENDPOINT: string = "";
+// Contact form backend. Our own route (app/api/contact/route.ts) sends the
+// message via Brevo; it stays empty until that route is live, in which case
+// the form falls back to opening the visitor's mail app (mailto:). Set this
+// to "/api/contact" to use the site's own endpoint.
+export const FORM_ENDPOINT: string = "/api/contact";
 
 // schema.org data shared by both home pages; each page adds its own
 // slogan, description and url.

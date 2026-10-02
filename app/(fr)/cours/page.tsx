@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import BookingButton from "@/components/BookingButton";
+import PageNav from "@/components/PageNav";
 import decorACru from "@/assets/photos/decor-a-cru-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
@@ -18,8 +19,15 @@ export const metadata: Metadata = {
 export default function Cours() {
   return (
     <SitePage lang="fr" page="cours" title="les cours" sub={<>Osez l&rsquo;expérience</>}>
+      <PageNav items={[
+        { id: "tournage", label: "tournage 2h" },
+        { id: "modelage", label: "modelage 2h" },
+        { id: "decor", label: "décor à cru 1h" },
+        { id: "enfant", label: "cours enfant 2h" },
+        { id: "model-vivant", label: "modèle vivant 3h" },
+      ]} />
       <div className="grid">
-        <article className="card">
+        <article className="card" id="tournage">
           <Image className="thumb" src={ceramique2h} alt="Cours de tournage en céramique à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>tournage 2h</h3>
@@ -28,7 +36,7 @@ export default function Cours() {
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson dès 7&nbsp;€ membre · dès 8&nbsp;€ non-membre</p>
           <BookingButton lang="fr" workshop="atelier-ceramique-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
-        <article className="card">
+        <article className="card" id="modelage">
           <Image className="thumb" src={modelage2h} alt="Cours de modelage de l’argile à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>modelage 2h</h3>
@@ -37,7 +45,7 @@ export default function Cours() {
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson dès 7&nbsp;€ membre · dès 8&nbsp;€ non-membre</p>
           <BookingButton lang="fr" workshop="atelier-modelage-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
-        <article className="card">
+        <article className="card" id="decor">
           <Image className="thumb" src={decorACru} alt="Décor à cru — rūsc" />
           <p className="k">Cours d&rsquo;1&nbsp;h</p>
           <h3>décor à cru 1h</h3>
@@ -55,7 +63,7 @@ export default function Cours() {
           </details>
           <BookingButton lang="fr" workshop="decor-a-cru-1h" tone="guest">Réserver</BookingButton>
         </article>
-        <article className="card">
+        <article className="card" id="enfant">
           <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>cours enfant 2h</h3>
@@ -64,7 +72,7 @@ export default function Cours() {
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ cuisson 6&nbsp;€ la pièce</p>
           <BookingButton lang="fr" workshop="modelage-enfant" tone="guest">Réserver</BookingButton>
         </article>
-        <article className="card">
+        <article className="card" id="model-vivant">
           <Image className="thumb" src={mv3h} alt="Cours de modèle vivant à rūsc" />
           <p className="k">Cours de 3&nbsp;h</p>
           <h3>model vivant 3h</h3>

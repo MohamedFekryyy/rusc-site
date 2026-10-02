@@ -14,10 +14,9 @@ primary_region = "ams"
 swap_size_mb = 1024
 
 [env]
-  # Public address of the booking system. Switch both lines to
-  # https://booking.studio-rusc.com once its certificate is issued (README).
-  NEXT_PUBLIC_WEBAPP_URL = "https://rusc-cal.fly.dev"
-  NEXTAUTH_URL = "https://rusc-cal.fly.dev"
+  # Public address of the booking system (custom domain, cert issued).
+  NEXT_PUBLIC_WEBAPP_URL = "https://booking.studio-rusc.com"
+  NEXTAUTH_URL = "https://booking.studio-rusc.com"
   # start.sh waits for this address before running the migrations.
   DATABASE_HOST = "rusc-cal-db.internal:5432"
   # Booking emails go through Brevo; its SMTP login is a secret.

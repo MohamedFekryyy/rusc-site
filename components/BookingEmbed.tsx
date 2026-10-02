@@ -36,9 +36,12 @@ const TEXT = {
     bookedText: "On vous attend à l’atelier rūsc, 99 Promenade Marie-Paradis à Chamonix. Venez les mains libres : le tablier, la terre et un bon moment sont déjà là.",
     bookedNext: "Envie d’en faire une habitude ? Découvrez nos carnets. Ou offrez ce moment : un bon cadeau.",
     backHome: "Retour à l’accueil",
-    codeAsk: "Carnet, bon cadeau ou code de l’atelier ?",
-    codePlaceholder: "Votre code",
-    codeUse: "Utiliser",
+    codeAsk: "Tu as un carnet, un bon cadeau ou un code de l’atelier ?",
+    codePlaceholder: "Entre ton code ici",
+    codeUse: "C’est parti",
+    codeHint: "Commence par entrer ton code : ta place lui sera déduite à la fin.",
+    codeValidating: "On vérifie…",
+    codeApplied: (label: string) => `Code « ${label} » reconnu.`,
     codeRemove: "Retirer",
     codeOk: (label: string, left: string) => `${label} · reste ${left}. La réservation sera déduite de votre code.`,
     codeErrors: {
@@ -70,9 +73,12 @@ const TEXT = {
     bookedText: "We’ll see you at rūsc, 99 Promenade Marie-Paradis in Chamonix. Come with your hands free: the apron, the clay and a good time are already there.",
     bookedNext: "Want to make it a habit? Discover our class cards. Or gift this moment: a voucher.",
     backHome: "Back to home",
-    codeAsk: "Got a class card, gift voucher or studio code?",
-    codePlaceholder: "Your code",
-    codeUse: "Use",
+    codeAsk: "Got a class pass, gift voucher or studio code?",
+    codePlaceholder: "Enter your code here",
+    codeUse: "Let’s go",
+    codeHint: "Start by entering your code: your place will be taken off it at the end.",
+    codeValidating: "Checking…",
+    codeApplied: (label: string) => `Code “${label}” recognised.`,
     codeRemove: "Remove",
     codeOk: (label: string, left: string) => `${label} · ${left} left. The booking will be taken off your code.`,
     codeErrors: {
@@ -439,9 +445,12 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
                     style={codeInputStyle}
                   />
                   <button type="submit" className="btn guest" style={smallButton} disabled={codeBusy}>
-                    {t.codeUse}
+                    {codeBusy ? t.codeValidating : t.codeUse}
                   </button>
                   {codeError && <span role="alert" style={{ color: "var(--ochre)" }}>{codeError}</span>}
+                  {!code && !codeError && (
+                    <span style={{ color: "var(--muted)", fontSize: "12.5px", flexBasis: "100%" }}>{t.codeHint}</span>
+                  )}
                 </>
               )}
             </form>

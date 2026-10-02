@@ -304,6 +304,12 @@ html[lang="en"] .feature .txt li strong{color:inherit}
 /* Scrolling to the booking block stops where embed.js puts it (iframe data-offset-top 120). */
 #reservation .bk-shell{scroll-margin-top:70px}
 
+/* Table of contents for long interior pages (Cours, Espace membre). */
+.page-nav{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 8px;padding:0 0 18px;border-bottom:1px solid var(--line)}
+.page-nav a{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:7px 13px;border:1px solid var(--line);border-radius:999px;transition:color .15s,border-color .15s}
+.page-nav a:hover{color:var(--accent);border-color:var(--accent)}
+
+/* EN page uses its own section ids — mirror the FR grid/card styling. */
 /* EN page uses its own section ids — mirror the FR grid/card styling. */
 #pricing .price-grid,#booking .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;align-items:start}
 #booking .price-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}

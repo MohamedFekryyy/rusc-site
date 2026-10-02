@@ -3,6 +3,7 @@ import Image from "next/image";
 import SitePage from "@/components/SitePage";
 import BookingButton from "@/components/BookingButton";
 import { rateRow } from "@/components/ui";
+import PageNav from "@/components/PageNav";
 import drawing from "@/assets/dessin-sylwia.webp";
 
 export const metadata: Metadata = {
@@ -15,21 +16,27 @@ export const metadata: Metadata = {
 export default function Membres() {
   return (
     <SitePage lang="fr" page="membres" title="espace membre" sub="Ateliers libres">
+      <PageNav items={[
+        { id: "ateliers-libres", label: "que sont les ateliers libres ?" },
+        { id: "equipement", label: "équipements & matériel" },
+        { id: "acces", label: "conditions d’accès" },
+        { id: "tarifs", label: "adhésion & tarifs" },
+      ]} />
       <div className="feature">
         <div className="txt">
           <h2>un espace pro, en autonomie</h2>
           <p>rūsc propose des ateliers libres destinés exclusivement à ses membres. Un espace professionnel équipé de matériel de qualité, idéal pour les céramistes amateurs comme confirmés.</p>
           <p>Des matériaux fournis, vous permettant de vous concentrer sur votre créativité sans souci logistique. La possibilité de travailler à votre rythme tout en bénéficiant d&rsquo;un environnement convivial et stimulant.</p>
-          <h3 style={{ fontSize: "19px", margin: "22px 0 10px" }}>que sont les ateliers libres&nbsp;?</h3>
+          <h3 id="ateliers-libres" style={{ fontSize: "19px", margin: "22px 0 10px" }}>que sont les ateliers libres&nbsp;?</h3>
           <p>Les ateliers libres sont dédiés à la céramique et offrent aux membres rūsc un accès autonome à notre espace entièrement équipé. Que vous souhaitiez perfectionner vos techniques ou simplement expérimenter, notre atelier est conçu pour répondre à vos besoins créatifs dans un cadre inspirant et professionnel.</p>
-          <h3 style={{ fontSize: "19px", margin: "22px 0 10px" }}>équipements et matériel à disposition</h3>
+          <h3 id="equipement" style={{ fontSize: "19px", margin: "22px 0 10px" }}>équipements et matériel à disposition</h3>
           <ul>
             <li>7 tours de potier pour vos travaux de tournage et modelage</li>
             <li>Une sélection complète des outils nécessaires au façonnage et au tournage de la terre</li>
             <li>Les matériaux inclus&nbsp;: grès, engobes, et émail transparent pour finaliser vos créations</li>
           </ul>
-          <p><strong>Conditions d&rsquo;accès&nbsp;:</strong> ces ateliers sont exclusivement réservés aux membres ayant suivi au moins une initiation de 2&nbsp;heures avec l&rsquo;un de nos enseignants. Une adhésion active est requise pour accéder à cet espace.</p>
-          <div className="pricing" style={{ marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "18px" }}>
+          <p id="acces"><strong>Conditions d&rsquo;accès&nbsp;:</strong> ces ateliers sont exclusivement réservés aux membres ayant suivi au moins une initiation de 2&nbsp;heures avec l&rsquo;un de nos enseignants. Une adhésion active est requise pour accéder à cet espace.</p>
+          <div id="tarifs" className="pricing" style={{ marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "18px" }}>
             <p className="price" style={{ marginBottom: "12px" }}><strong>Adhésion membre&nbsp;: 50&nbsp;€ / an</strong> — tarifs préférentiels et accès aux ateliers libres.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               <li style={rateRow}><span>Atelier libre — cours à l&rsquo;unité</span><span><strong>22,50&nbsp;€</strong> / heure</span></li>
