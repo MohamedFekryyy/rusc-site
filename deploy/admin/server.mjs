@@ -1109,7 +1109,7 @@ async function accountData(account) {
     db.query(
       `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title
          FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
-        WHERE lower(a.email) = $1 AND b.status IN ('accepted', 'pending') AND b."startTime" >= now() AT TIME ZONE 'UTC'
+        WHERE lower(a.email) = $1 AND b.status = 'accepted' AND b."startTime" >= now() AT TIME ZONE 'UTC'
         ORDER BY b."startTime"`,
       [email],
     ),
