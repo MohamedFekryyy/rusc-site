@@ -25,6 +25,9 @@ swap_size_mb = 1024
   EMAIL_SERVER_HOST = "smtp-relay.brevo.com"
   EMAIL_SERVER_PORT = "587"
   CALCOM_TELEMETRY_DISABLED = "1"
+  # Hide Cal.diy's own branding footer/promo ("powered by Cal.com", "try it
+  # for free") on the booking screens — rūsc is the brand, not Cal.
+  CALCOM_BRANDING = "false"
   # Node's default heap on a 1 GB machine is ~512 MB; give it a little more.
   NODE_OPTIONS = "--max-old-space-size=640"
   NEXT_PUBLIC_LICENSE_CONSENT = "agree"
