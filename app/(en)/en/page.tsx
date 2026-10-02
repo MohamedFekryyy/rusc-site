@@ -46,6 +46,7 @@ const jsonLd = {
 const bookGifts = (lang: "fr" | "en") => bookingHref(lang, "gifts");
 
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
+  { href: PAGES.us.en, img: hero, tag: "The team", title: "chris kerr", text: "Co-founder of rūsc and Raquel's very first student. He runs the Wednesday evening sessions." },
   { href: PAGES.membres.en, img: membre, tag: "Open studio", title: "member area", text: "A professional, fully equipped space, in autonomy. €50/year and preferential rates.", drawing: true },
   { href: PAGES.event.en, img: event, tag: "Past · present · future", title: "rūsc event", text: "Closet sale, pot & wine, exhibitions: the events that bring the studio to life." },
   { href: PAGES.cours.en, img: ceramique2h, tag: "Dare the experience", title: "courses", text: "Wheel throwing, hand-building, raw-glaze decoration, children's course, life drawing. Single session, or with a class pass." },
@@ -70,11 +71,6 @@ export default function Home() {
           <a className="btn member" href={PAGES.membres.en}>Member area</a>
         </div>
       </section>
-
-      <figure className="hero-photo">
-        <Image src={hero} alt="Chris Kerr, co-founder of rūsc" loading="eager" fetchPriority="high" />
-        <figcaption>Chris Kerr — co-founder of rūsc. He runs the Wednesday evening sessions.</figcaption>
-      </figure>
 
       <section className="event-banner wrap">
         <div className="event-banner-inner">

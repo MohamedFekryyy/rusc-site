@@ -47,6 +47,13 @@ const bookGifts = (lang: "fr" | "en") => bookingHref(lang, "gifts");
 
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
   {
+    href: PAGES.us.fr,
+    img: hero,
+    tag: "L'équipe",
+    title: "chris kerr",
+    text: "Cofondateur de rūsc et tout premier élève de Raquel. Il anime les séances du mercredi soir.",
+  },
+  {
     href: PAGES.membres.fr,
     img: membre,
     tag: "Ateliers libres",
@@ -108,11 +115,6 @@ export default function Home() {
           <a className="btn member" href={PAGES.membres.fr}>Espace membre</a>
         </div>
       </section>
-
-      <figure className="hero-photo">
-        <Image src={hero} alt="Chris Kerr, cofondateur de rūsc" loading="eager" fetchPriority="high" />
-        <figcaption>Chris Kerr — cofondateur de rūsc. Il anime les séances du mercredi soir.</figcaption>
-      </figure>
 
       <section className="event-banner wrap">
         <div className="event-banner-inner">
