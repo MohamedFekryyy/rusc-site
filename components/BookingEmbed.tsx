@@ -355,7 +355,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     cal.ns[ns]("inline", {
       elementOrSelector: el,
       calLink: offerCalLink(offer),
-      config: { layout: "month_view", theme: "light", ...(member ? { name: member.name, email: member.email } : {}) },
+      // Force the booker to the page's language (calLink's event types are
+      // already translated); otherwise Cal follows the visitor's browser.
+      config: { layout: "month_view", theme: "light", lang, ...(member ? { name: member.name, email: member.email } : {}) },
     });
     return () => {
       activeNs.current = null;
