@@ -135,15 +135,12 @@ export default function Header({ lang, page }: Props) {
           <span className="logo-line">{SLOGAN[lang]}</span>
         </a>
 
-        {/* Right: lang switch + Réserver + login + cart */}
+        {/* Right: lang switch + login + cart + Réserver (Réserver far right) */}
         <div className="nav-right">
           <span className="lang lang-top">
             <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
             <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
           </span>
-          <a className="cta" href={cta.href}>
-            {cta.label}
-          </a>
           {/* Login / account: the sign-in page, or the member's space once signed in. */}
           <a className="auth" href={LOGIN[lang]}>
             {signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}
@@ -152,6 +149,9 @@ export default function Header({ lang, page }: Props) {
           <a className="cart" href={CART[lang]}>
             {CART_LABEL[lang]}
             {count > 0 && ` (${count})`}
+          </a>
+          <a className="cta" href={cta.href}>
+            {cta.label}
           </a>
         </div>
       </div>

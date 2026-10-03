@@ -20,7 +20,7 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .auth[aria-disabled],.cart[aria-disabled]{color:var(--muted);cursor:default}
 
 /* Burger (always visible; opens the panel) */
-.burger{width:42px;height:42px;border:1px solid var(--line);background:transparent;border-radius:8px;position:relative;cursor:pointer}
+.burger{width:30px;height:30px;border:0;background:transparent;position:relative;cursor:pointer}
 .burger span,.burger span::before,.burger span::after{position:absolute;left:50%;transform:translateX(-50%);width:18px;height:1.5px;background:var(--ink);content:"";transition:transform .28s cubic-bezier(.6,.05,.28,.91),top .28s cubic-bezier(.6,.05,.28,.91),background .2s}
 .burger span{top:50%;margin-top:-.75px}
 .burger span::before{top:-6px}
@@ -242,7 +242,6 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 }
 @media(max-width:360px){
   .cta{padding:7px 9px;font-size:10px;letter-spacing:.06em}
-  .burger{width:36px;height:36px}
   .nav .logo img{height:20px;max-width:120px}
   .nav .logo{padding:0 2px}
 }
@@ -317,17 +316,16 @@ html[lang="en"] .feature .txt li strong{color:inherit}
 #booking .pcard .unit{font-size:14px;color:var(--muted);margin-bottom:8px}
 @media (max-width:640px){#booking .price-grid{grid-template-columns:1fr}}
 
-/* Mobile header (≤560px): two rows so nothing overlaps, everything stays visible.
-   Row 1: menu · logo · Réserver. Row 2: FR/EN · Connexion · Panier.
-   Overrides the per-width tweaks above; .nav-right's children join the grid. */
+/* Mobile header (≤560px): a single row — menu · logo · FR/EN · Connexion · Panier · Réserver.
+   Réserver stays on the far right; logo grows to push it. .nav-right's children join the grid. */
 @media(max-width:560px){
-  header .wrap.nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"menu logo cta" "lang auth cart";align-items:center;column-gap:10px;row-gap:6px;padding:8px 16px 7px}
+  header .wrap.nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto auto;grid-template-areas:"menu logo lang auth cart cta";align-items:center;column-gap:8px;padding:8px 16px 7px}
   .nav-left{grid-area:menu}
   .nav .logo{grid-area:logo;margin:0;padding:0;min-width:0}
   .nav .logo img{height:22px;width:auto;max-width:100%}
   .nav-right{display:contents}
-  .nav-right .cta{grid-area:cta;padding:7px 12px;font-size:10.5px;letter-spacing:.08em}
-  .nav-right .lang.lang-top{grid-area:lang;justify-self:start}
+  .nav-right .cta{grid-area:cta;justify-self:end;padding:7px 12px;font-size:10.5px;letter-spacing:.08em}
+  .nav-right .lang.lang-top{grid-area:lang;justify-self:end}
   .nav-right .lang.lang-top a{padding:3px 8px;font-size:10px}
   .nav-right .auth{grid-area:auth;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
   .nav-right .cart{grid-area:cart;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
