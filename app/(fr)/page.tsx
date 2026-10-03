@@ -8,7 +8,7 @@ import SectionHead from "@/components/SectionHead";
 import { PAGES, bookingHref } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc-trim.webp";
-import hero from "@/assets/photos/us-chris-o.webp";
+import hero from "@/assets/photos/hero-o.jpg";
 import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
 import residence from "@/assets/photos/residence-o.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
@@ -46,13 +46,6 @@ const jsonLd = {
 const bookGifts = (lang: "fr" | "en") => bookingHref(lang, "gifts");
 
 const CARDS: { href: string; img: typeof hero; tag: string; title: string; text: string; drawing?: boolean }[] = [
-  {
-    href: PAGES.us.fr,
-    img: hero,
-    tag: "L'équipe",
-    title: "chris kerr",
-    text: "Cofondateur de rūsc et tout premier élève de Raquel. Il anime les séances du mercredi soir.",
-  },
   {
     href: PAGES.membres.fr,
     img: membre,
@@ -115,6 +108,11 @@ export default function Home() {
           <a className="btn member" href={PAGES.membres.fr}>Espace membre</a>
         </div>
       </section>
+
+      <figure className="hero-photo">
+        <Image src={hero} alt="Mains façonnant une boule de terre sur le tour" loading="eager" fetchPriority="high" />
+        <figcaption>La terre, au cœur de rūsc.</figcaption>
+      </figure>
 
       <section className="event-banner wrap">
         <div className="event-banner-inner">
