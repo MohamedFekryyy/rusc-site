@@ -30,14 +30,16 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-09-24, evening)
+## Where things stand (updated 2026-10-03)
 
 Keep this section current; the migration log below keeps the history.
 
 **Live**
 - **Site:** https://rusc-preview.vercel.app (Vercel, built from `main`).
-- **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`), one event type per class, embedded in the booking pages. Bookable until 30 minutes after a class starts (step 28).
-- **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`.
+- **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`) at https://booking.studio-rusc.com (the site's `NEXT_PUBLIC_CAL_ORIGIN`), one event type per class, embedded in the booking pages. Bookable until 30 minutes after a class starts (step 28). The booker follows the page's language, French in 24-hour time (step 34).
+- **Places** (step 34): a class booked on the site goes to the cart, its places held 30 minutes (40 while paying), then freed unless paid. "Nombre de places" in the booker and + / − in the cart add or remove places for friends, up to the class's seats; "Retirer" frees them at once. Payment is per place (`rusc.paid_seats`, codes, Acuity).
+- **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`. Until 2026-10-03 the webhook failed on any cart with a class (step 34); no real order had been paid yet.
+- **Member price and codes in the cart** (Rrose, 2026-10-01, `64228bb`, `ef0afbd`; not yet checked end to end): signed-in members get 10% off classes and carnets at checkout (`lib/pricing.ts`; `MEMBER_DISCOUNT_PERCENT=0` in Vercel turns it off), and a euro code can pay part of a cart.
 - **Gift vouchers:** fixed ones, and one of any amount (10–1,000 €, step 32), which becomes a euro code for every class.
 - **Member accounts** (`/connexion/`, `/en/login/`): sign-up, sign-in, and the member's space (membership, coming classes, codes, past classes including Acuity's). The booking page fills in a signed-in member's name and e-mail (step 31).
 - **rūsc admin** (`rusc-admin` on Fly), in French and English:
@@ -52,8 +54,9 @@ Keep this section current; the migration log below keeps the history.
   - every URL of the old Squarespace site lands on a page of the new one (step 33).
 
 **Waiting on the owner (Fekry)**
-- **A small real purchase** in the live cart (for example a 10 € gift voucher), then a refund in Stripe. It checks payment, webhook, Commandes and the code on the thank-you screen.
-- **Booking emails:** run `sh deploy/cal/set-smtp.sh` with the Brevo SMTP login and key, and authenticate studio-rusc.com in Brevo (DNS at Squarespace). Until then Cal sends no e-mails (no `EMAIL_SERVER_*` secrets on `rusc-cal`).
+- **A small real purchase** in the live cart, then a refund in Stripe: a 10 € gift voucher, and one class. It checks payment, webhook, Commandes, the paid place in Cours and the code on the thank-you screen.
+- **Booking emails (Resend):** the key in `rusc-cal` is valid, but studio-rusc.com isn't verified in Resend yet: add its 4 DNS records at Squarespace. Until then every Cal e-mail fails (logged, nothing sent). The sender is `EMAIL_FROM` in `deploy/cal/fly.toml`, now `rrose@studio-rusc.com`: pick the studio's address before e-mails go out.
+- **Test bookings of 2–3 October:** 12 upcoming bookings in 10 classes, none paid, made before places were held; they don't expire. Free them (or keep the real ones) in Cal or by asking an agent.
 - **Domains, at switch time:**
   - studio-rusc.com on Vercel;
   - optionally `booking.` and `admin.` on Fly;
@@ -71,11 +74,13 @@ Keep this section current; the migration log below keeps the history.
 - **Members:** Acuity had no export of them. The studio marks each current member on their page in rūsc admin (Clients → "Membre jusqu’au").
 - **2-hour carnets:** should the admin's 2-hour carnet presets also cover the children's class, as Acuity's carnets did?
 - **Deleted Acuity products:** codes of products since deleted in Acuity (for example old 50/100/150 € value vouchers) weren't imported. If a customer shows one, create it by hand in rūsc admin.
+- **Layout changes since 24 September** (Rrose; Raquel says the look kept changing without her asking): the pot & wine banner on the home pages (`39957b6`), full-width stacked buttons on phones and even section padding (`97f77eb`, `85e7849`, `24ccea5`), pill navigation on long pages, a direct "Book a course" button (`0a7f8e9`), the site header and footer on the terms pages (`15194bd`). The hero photo is the original again (`edd349c`). Keep or undo each, then change nothing visual without her say.
+- **A membership in her cart she didn't add:** no code adds one by itself. The cart is kept in the browser with no expiry, and "Adhérer" on the membership card adds it straight away. Her screenshot would tell which.
 
 **Next for agents**
-- **Member prices at checkout**, for signed-in members (after Raquel's answer). The checkout would ask rūsc admin who the buyer is, from their token.
-- **Codes for cart products:** a code field in the cart, with a Stripe coupon for the amount covered. Today a code (including an any-amount voucher) only pays for classes at booking.
-- **Password reset by e-mail**, once Brevo works. Today the studio makes a link from the client's page.
+- **E-mails after payment:** once Resend works, Cal e-mails at booking time, before payment ("request received", and the studio gets a confirmation request for each cart booking). Better: turn Cal's class e-mails off (a patch: Cal.diy has no workflows) and have rūsc admin send "your place is confirmed" from the Stripe webhook.
+- **Check member prices and codes in the cart end to end** (built by Rrose, not tested here).
+- **Password reset by e-mail**, once Resend works. Today the studio makes a link from the client's page.
 - **Switch day:** re-run both Acuity imports (`scripts/continuity/README.md`), then follow "Bascule finale" in `README.md`.
 
 **How agents work here**
@@ -87,7 +92,9 @@ Keep this section current; the migration log below keeps the history.
 - **Studio accounts:** don't sign in to rūsc admin or Cal as the studio.
   - To see the admin, use its local preview (`deploy/admin/preview.mjs`).
   - The Acuity admin is the studio's account: only use it in the owner's browser, with their go-ahead.
-- **Tests on live systems:** clean up after yourself. For example, a throwaway member account made to test sign-in is deleted right after (step 31).
+- **Tests on live systems:** clean up after yourself. For example, a throwaway member account made to test sign-in is deleted right after (step 31). A test booking is freed with the cart's "Retirer" (or its hold run out), which cancels it in Cal.
+- **Say "done" only after seeing it work** where Raquel will: the live site, in a real browser, French and English. Cal's booker is a cross-origin frame: screenshots and the network log are the only view into it.
+- **Cal image:** each push to `deploy/cal/patches/` builds for about 13 minutes. Check the whole patch set applies on the pinned source first (`deploy/cal/patches/README.md`), batch changes, then `sh deploy/cal/deploy.sh` (it warms the bookers up).
 
 ## Commands
 
@@ -590,3 +597,19 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Acuity:** codes, upcoming bookings, the whole history and the client list are in rūsc admin (steps 23 and 30). Members are marked by hand, since Acuity has no export of them.
 - **Vercel:** the unused `ACUITY_USER_ID` and `ACUITY_API_KEY` were removed.
 - **Booking emails:** `deploy/cal/set-smtp.sh` saves the Brevo SMTP login in rusc-cal, the key typed hidden. The owner runs it.
+
+### 34. After Rrose's handoff: places, payment, languages, branding (2026-10-03)
+- **Context:** from 1 to 3 October another agent (Rrose) changed the site and Cal without logging it here: member price and codes in the cart (`64228bb`, `ef0afbd`), classes PENDING until paid (`bee9f73`), a "number of places" selector (`70d7e2f`), booker language via `?lang=` (`fca5b4e`, `3d49a33`), no Cal.diy branding (`a07bb7d`), no Cal success card in the embed (`5fc2d8e`), class wording (`70605b3`, `93a3596`), e-mail through Resend, and layout changes on the home pages. Its handoff listed what went wrong; Raquel listed five problems. All checked against the live systems before fixing.
+- **"No availability" wasn't a data problem.** The slots API returned every class. The first booker Cal renders after a restart takes about 17 s and the site shows an empty frame meanwhile. `deploy/cal/deploy.sh` now opens every class's booker after a deploy (`bbf8ac1`). A booker can still take several seconds in the browser: Cal's page is about 730 KB of HTML plus its scripts.
+- **Unpaid places never ended** (Raquel: classes stay taken when not paid or removed from the cart). Nothing freed a PENDING place, and "Retirer" only emptied the browser's cart. rūsc admin now holds the places of a cart for 30 minutes, then frees them in Cal; "Retirer" frees them at once; Cal's cron loop wakes rūsc admin every 5 minutes (`/tasks/release-places`). `0b6f71b`, `e8e5e72`.
+- **Several places** (Rrose's selector only worked for the first person in a class, made its extra seats inside Cal's booking engine, and the cart charged one place for all of them): Cal now books only the booker's place and passes the number asked (`booking.ruscPlaces`); rūsc admin adds the others as anonymous seats of the same Cal booking, linked to the booker's seat, within the class's seats (`dd78526`, `0b6f71b`). The cart has + and − on classes (Raquel: "you can't add a spot from the cart"), and checkout charges each class for its unpaid places as rūsc admin counts them (`e8e5e72`).
+- **The webhook failed on every cart with a class**: `bee9f73` made it `UPDATE "Booking"`, but `rusc_codes` could only read that table, so the whole order rolled back (no order, no codes, no paid seat). No real order had been paid yet. `schema.sql` grants the columns needed, and what Cal's `BookingDenormalized` trigger writes (`0b6f71b`). Payment is now recorded per place; everyone in a class shares one Cal booking, so its status says little.
+- **Held places counted as free:** Cal counts only ACCEPTED bookings for the places left, and classes stay PENDING until paid, so a class held full still showed 7 places. `seats-pending.patch` counts PENDING too (`c673ac3`).
+- **FR/EN mix** (Raquel): the booker's title and description followed the browser, the French booker showed 4:00pm, and Cal's root layout took its language from the browser's `Accept-Language`, so a French browser on the English page got both languages (checked with curl: `<html lang="fr">`). `booker-lang.patch` makes `?lang=` decide all three (`dd78526`, `bbf8ac1`, `a88e3d9`). "Places disponibles" is lower-case.
+- **Branding:** the booking form still said "you agree to Cal.diy's Terms and Privacy Policy", linking to cal.com. Off (`c673ac3`); the booking pages link the studio's terms.
+- **Also fixed:** classes paid with a code stayed PENDING and were hidden from the member's space (Rrose's `0e1fcc0` listed only ACCEPTED bookings): a code payment confirms the class, and the space lists places paid or confirmed, not those waiting in a cart. Rūsc admin's Cours says "dans un panier · libéré à HH:MM"; extra places show no contact and don't join Clients.
+- **Checked:**
+  - rūsc admin against a local Postgres with the live table definitions: hold, add, full, remove, release (a lone booker cancels the booking and clears its idempotency key), expiry (paid places kept), a signed test webhook paying 2 places, the member's space, Cours;
+  - live, from a local build of the site: booked 2 places in a class, the cart showed 2, + made 3, − made 2, Cal and rūsc admin agreed; the hold was run out, both places were freed and the booking cancelled in Cal, and the cart said so. That test booking is the only one made; nothing of it remains.
+- **Image tags:** the live image is `54343aa685ae-<first 8 of the patches' sha256>`, as `deploy.sh` computes; `fly status -a rusc-cal` shows it.
+- **Not done here** (see "Where things stand"): the 12 test bookings of 2–3 October, the layout changes, the membership in Raquel's cart, e-mails (Resend DNS, sender address, e-mail after payment).
