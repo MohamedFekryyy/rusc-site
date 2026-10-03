@@ -111,6 +111,14 @@ export default function CartView({ lang }: { lang: Lang }) {
   const [codeInput, setCodeInput] = useState("");
   const [stage, setStage] = useState<Stage>("cart");
   const checkoutRef = useRef<HTMLDivElement>(null);
+  // "Payer directement" on a booking page lands here with ?pay=1 and skips the
+  // cart list, going straight to the checkout. The places are already in the
+  // cart (and held), so nothing is lost.
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pay") === "1") {
+      setStage(PUBLISHABLE_KEY ? "checkout" : "unavailable");
+    }
+  }, []);
   // The Stripe order being paid, then the codes it created (if any).
   const orderRef = useRef<string | null>(null);
   const [order, setOrder] = useState<OrderCodes | null>(null);
@@ -381,7 +389,7 @@ export default function CartView({ lang }: { lang: Lang }) {
             </div>
           ) : (
             <form
-              style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}
+              style={{ display: "flex", gap: "8px", justifyContent: "center", alignItems: "stretch" }}
               onSubmit={(e) => {
                 e.preventDefault();
                 if (codeInput.trim()) applyCode(codeInput);
@@ -391,9 +399,9 @@ export default function CartView({ lang }: { lang: Lang }) {
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value)}
                 placeholder={t.codePlaceholder}
-                style={{ padding: "8px 12px", border: "1px solid var(--line)", background: "#fff", color: "var(--ink)", font: "inherit", minWidth: "220px" }}
+                style={{ padding: "8px 12px", border: "1px solid var(--line)", borderBottom: "none", background: "#fff", color: "var(--ink)", font: "inherit", flex: "1 1 auto", minWidth: "0" }}
               />
-              <button type="submit" className="btn guest">{t.codeApply}</button>
+              <button type="submit" className="btn guest" style={{ whiteSpace: "nowrap" }}>{t.codeApply}</button>
             </form>
           )}
           <p style={{ ...note, margin: "10px 0 0" }}>{t.codeHint}</p>

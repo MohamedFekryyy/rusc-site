@@ -30,6 +30,7 @@ const TEXT = {
     added: (title: string) => `« ${title} » est dans votre panier.`,
     amountRange: (min: number, max: number) => `Un montant entier entre ${min} et ${max} €.`,
     viewCart: "Voir le panier",
+    payDirectly: "Payer directement",
     keepBrowsing: "Continuer",
     slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
     placesAdded: (n: number) => `${n} places ajoutées au panier : elles sont confirmées une fois le panier payé.`,
@@ -72,6 +73,7 @@ const TEXT = {
     added: (title: string) => `“${title}” is in your cart.`,
     amountRange: (min: number, max: number) => `A whole amount between €${min} and €${max}.`,
     viewCart: "View cart",
+    payDirectly: "Pay directly",
     keepBrowsing: "Keep browsing",
     slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
     placesAdded: (n: number) => `${n} places added to your cart: they’re confirmed once the cart is paid.`,
@@ -535,9 +537,14 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               )}
               <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 22px", fontSize: "14.5px" }}>{t.bookedNext}</p>
               {booked.unpaid ? (
-                <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
-                  {t.viewCart}
-                </a>
+                <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+                  <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
+                    {t.viewCart}
+                  </a>
+                  <a className="btn guest" href={`${CART[lang]}?pay=1`} style={{ padding: "9px 18px", fontSize: "11px" }}>
+                    {t.payDirectly}
+                  </a>
+                </div>
               ) : (
                 <a className="btn guest" href={HOME[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
                   {t.backHome}
