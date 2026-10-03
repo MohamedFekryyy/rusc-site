@@ -46,6 +46,26 @@ index 9fca96d..4b1555b 100644
    const translatedDescription = getTranslatedField(
      event?.fieldTranslations ?? [],
      EventTypeAutoTranslatedField.DESCRIPTION,
+diff --git a/apps/web/proxy.ts b/apps/web/proxy.ts
+index f656c7b..5992f2a 100644
+--- a/apps/web/proxy.ts
++++ b/apps/web/proxy.ts
+@@ -91,6 +91,15 @@ const proxy = async (req: NextRequest): Promise<NextResponse<unknown>> => {
+     }
+   }
+ 
++  // rūsc: the site passes its page language as ?lang= to the embedded booker
++  // (booker-lang.patch). Make it the request's language, so the whole page,
++  // the root layout's translations included, follows it rather than the
++  // visitor's browser: a French browser on an English page got a mix.
++  const pageLang = url.searchParams.get("lang");
++  if (url.pathname.endsWith("/embed") && (pageLang === "fr" || pageLang === "en")) {
++    requestHeaders.set("accept-language", pageLang);
++  }
++
+   const res = NextResponse.next({
+     request: {
+       headers: sanitizeRequestHeaders(requestHeaders),
 diff --git a/packages/features/bookings/lib/timePreferences.ts b/packages/features/bookings/lib/timePreferences.ts
 index 6b04041..721506c 100644
 --- a/packages/features/bookings/lib/timePreferences.ts
