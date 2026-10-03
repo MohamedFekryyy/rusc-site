@@ -108,8 +108,8 @@ export const OFFERS = [
   // Adhésion & carnets
   {
     key: "adhesion", view: "catalog", tone: "member", kind: "product", price: 5000,
-    fr: { tag: "Membres", title: "adhésion annuelle", unit: "50 € / an · atelier libre et –10 %", cta: "Adhérer" },
-    en: { tag: "Members", title: "annual membership", unit: "€50 / year · open studio and 10% off", cta: "Join" },
+    fr: { tag: "Membres", title: "adhésion annuelle", unit: "50 € / an · atelier libre en autonomie · -10 % sur les cours", cta: "Adhérer" },
+    en: { tag: "Members", title: "annual membership", unit: "€50 / year · open studio in autonomy · 10% off courses", cta: "Join" },
   },
   {
     key: "carnet-5-cours", view: "catalog", tone: "guest", kind: "product", price: 21000,
