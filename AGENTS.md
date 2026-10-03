@@ -56,7 +56,7 @@ Keep this section current; the migration log below keeps the history.
 **Waiting on the owner (Fekry)**
 - **A small real purchase** in the live cart, then a refund in Stripe: a 10 € gift voucher, and one class. It checks payment, webhook, Commandes, the paid place in Cours and the code on the thank-you screen.
 - **Booking emails (Resend):** the key in `rusc-cal` is valid, but studio-rusc.com isn't verified in Resend yet: add its 4 DNS records at Squarespace. Until then every Cal e-mail fails (logged, nothing sent). The sender is `EMAIL_FROM` in `deploy/cal/fly.toml`, now `rrose@studio-rusc.com`: pick the studio's address before e-mails go out.
-- **Test bookings of 2–3 October:** 12 upcoming bookings in 10 classes, none paid, made before places were held; they don't expire. Free them (or keep the real ones) in Cal or by asking an agent.
+- **One booking to check:** tournage, 22 October, unpaid, made on 3 October under a business address (not Gmail). It doesn't expire on its own. The 11 other unpaid test bookings of 2–3 October were freed on 2026-10-03 (owner's decision).
 - **Domains, at switch time:**
   - studio-rusc.com on Vercel;
   - optionally `booking.` and `admin.` on Fly;
@@ -612,4 +612,6 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - rūsc admin against a local Postgres with the live table definitions: hold, add, full, remove, release (a lone booker cancels the booking and clears its idempotency key), expiry (paid places kept), a signed test webhook paying 2 places, the member's space, Cours;
   - live, from a local build of the site: booked 2 places in a class, the cart showed 2, + made 3, − made 2, Cal and rūsc admin agreed; the hold was run out, both places were freed and the booking cancelled in Cal, and the cart said so. That test booking is the only one made; nothing of it remains.
 - **Image tags:** the live image is `54343aa685ae-<first 8 of the patches' sha256>`, as `deploy.sh` computes; `fly status -a rusc-cal` shows it.
-- **Not done here** (see "Where things stand"): the 12 test bookings of 2–3 October, the layout changes, the membership in Raquel's cart, e-mails (Resend DNS, sender address, e-mail after payment).
+- **Deployed:** image `54343aa685ae-78a293ac` (the owner ran `deploy.sh`). Checked live: a French browser on the English page and an English one on the French page each get one language only (`<html lang>` and strings, with curl); the French booker in an English browser shows "tournage 2h", "16:00", "7 places disponibles" and no Cal.diy terms line or cal.com link; the one unpaid booking left (22 October) shows as a place taken.
+- **Test bookings:** the owner chose to free the 11 unpaid ones of 2–3 October on Gmail addresses, through the release path (an expired hold, then `/tasks/release-places`): their places are gone and the bookings cancelled. The 22 October one is left for him to check.
+- **Not done here** (see "Where things stand"): the 22 October booking, the layout changes (Raquel decides), the membership in Raquel's cart, e-mails (Resend DNS, sender address, e-mail after payment).
