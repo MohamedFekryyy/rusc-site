@@ -17,15 +17,19 @@
 //   POST /api/check   {code, offer}    what's left, and whether it covers that class
 //   POST /api/redeem  {code, seatUid}  takes the class just booked in Cal off the code
 //   GET  /api/order?id=cs_…            the codes an online order created (thank-you screen)
+//   /api/places …  the places of a class in the cart: held unpaid for a while,
+//                  extra places for friends, freed when removed (see "places")
 //   /api/auth/…  the site's member accounts (signup, login, logout, session,
 //                account, codes, reset), with a Bearer token
 //
-// Data: schema "rusc" of the Cal.diy database (schema.sql). Cal's own tables
-// are only read (bookings, seats, event types, attendees), never written.
+// Data: schema "rusc" of the Cal.diy database (schema.sql). Of Cal's own
+// tables it reads bookings, seats, event types and attendees, and writes only:
+// the timetable (Availability), extra places and freed places (Attendee,
+// BookingSeat), and a booking's status once paid or empty (Booking).
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import http from "node:http";
-import { createHash, createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import pg from "pg";
 
@@ -199,7 +203,7 @@ async function reconcile() {
        UNION ALL SELECT o.email, o.name, NULL, 'online', 2 FROM rusc.orders o
        UNION ALL SELECT ac.email, ac.name, NULL, 'account', 3 FROM rusc.accounts ac
      ) x
-     WHERE email ~ '@' AND email NOT LIKE '%@clients.studio-rusc.com'
+     WHERE email ~ '@' AND email NOT LIKE '%@clients.studio-rusc.com' AND email NOT LIKE '%@anonymous.invalid'
      ORDER BY lower(email), rank
      ON CONFLICT (lower(email)) WHERE email IS NOT NULL DO NOTHING`,
   ).catch((e) => console.error("clients", e.message));
@@ -306,6 +310,8 @@ async function apiRedeem(input) {
       return { ok: false, reason: "already_used" };
     }
     const after = await client.query("UPDATE rusc.codes SET remaining = remaining - $2 WHERE key = $1 RETURNING *", [key, amount]);
+    // Paid with the code: the place is confirmed, as a card payment would.
+    await client.query(`UPDATE public."Booking" SET status = 'accepted' WHERE uid = $1 AND status = 'pending'`, [seat.booking_uid]);
     await client.query("COMMIT");
     return { ok: true, used: amount, ...publicCode(after.rows[0]) };
   } catch (error) {
@@ -313,6 +319,236 @@ async function apiRedeem(input) {
     throw error;
   } finally {
     client.release();
+  }
+}
+
+// ---------------------------------------------------------------- places
+
+// A class booked on the site goes to the cart unpaid. Its places are held for
+// HOLD_MINUTES (longer while the person pays), then freed in Cal unless paid,
+// so unpaid places never fill a class. Whoever booked can add places for
+// friends, up to the class's seats, or remove them: the booker's "number of
+// places" and the cart's + and −. Extra places are anonymous seats of the same
+// Cal booking, linked to the booker's seat (BookingSeat.data.rusc_holder). The
+// booker's seat reference is the proof: only they have it.
+//   POST /api/places          {seat, op: "hold", places} | {seat, op: "add" | "remove" | "release"}
+//   GET  /api/places?seats=a,b  the cart's lines, as they stand
+//   POST /api/places/checkout {seats}  what to charge for each; holds them while paying
+const HOLD_MINUTES = 30;
+// The checkout route's Stripe session lasts 30 minutes: hold a little longer.
+const CHECKOUT_MINUTES = 40;
+const ANONYMOUS = "@anonymous.invalid"; // e-mail of an extra place
+
+// A place counts as paid by card, by a code, or on Acuity before the switch.
+const PAID_SEAT = `(EXISTS (SELECT 1 FROM rusc.paid_seats ps WHERE ps.seat_uid = s."referenceUid")
+  OR EXISTS (SELECT 1 FROM rusc.uses u WHERE u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL)
+  OR EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.seat_uid = s."referenceUid"))`;
+
+// The booker's seat, its class, and the places of its group (the booker's
+// first, then the extras in the order they were added). With lock, the class's
+// booking is locked first, as Cal does when it adds a seat.
+async function placeGroup(client, seatUid, lock = false) {
+  const head = await client.query(
+    `SELECT s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status,
+            b."startTime" AT TIME ZONE 'UTC' AS start_time, b."endTime" AT TIME ZONE 'UTC' AS end_time,
+            e.slug, e."seatsPerTimeSlot" AS capacity, a.name, a."timeZone" AS time_zone, a.locale
+       FROM public."BookingSeat" s
+       JOIN public."Booking" b ON b.id = s."bookingId"
+       JOIN public."EventType" e ON e.id = b."eventTypeId"
+       LEFT JOIN public."Attendee" a ON a.id = s."attendeeId"
+      WHERE s."referenceUid" = $1`,
+    [seatUid],
+  );
+  const group = head.rows[0];
+  // Unknown, cancelled, or an extra place's own seat (only the booker's counts).
+  if (!group || group.holder || !["accepted", "pending"].includes(group.status)) return null;
+  if (lock) await client.query(`SELECT id FROM public."Booking" WHERE id = $1 FOR UPDATE`, [group.booking_id]);
+  // One after the other: a pg client runs one query at a time.
+  const seats = await client.query(
+    `SELECT s.id, s."referenceUid" AS uid, s."attendeeId" AS attendee_id, ${PAID_SEAT} AS paid
+       FROM public."BookingSeat" s
+      WHERE s."bookingId" = $1 AND (s."referenceUid" = $2 OR s.data->>'rusc_holder' = $2)
+      ORDER BY s."referenceUid" = $2 DESC, s.id`,
+    [group.booking_id, seatUid],
+  );
+  const taken = await client.query(`SELECT count(*)::int AS n FROM public."BookingSeat" WHERE "bookingId" = $1`, [group.booking_id]);
+  const hold = await client.query("SELECT expires_at, released_at FROM rusc.holds WHERE seat_uid = $1", [seatUid]);
+  return { ...group, seat_uid: seatUid, seats: seats.rows, taken: taken.rows[0].n, hold: hold.rows[0] ?? null };
+}
+
+function placeState(group) {
+  const unpaid = group.seats.filter((s) => !s.paid).length;
+  return {
+    ok: true,
+    seat: group.seat_uid,
+    offer: OFFERS[group.slug] ? group.slug : null,
+    start: new Date(group.start_time).toISOString(),
+    end: new Date(group.end_time).toISOString(),
+    places: group.seats.length,
+    unpaid,
+    // Places still free in the class (for the cart's + button).
+    left: group.capacity ? Math.max(0, group.capacity - group.taken) : 0,
+    // The unpaid extra places, so a code can pay for them too (booking page).
+    extras: group.seats.filter((s) => !s.paid && s.uid !== group.seat_uid).map((s) => s.uid),
+    expiresAt: unpaid && group.hold && !group.hold.released_at ? new Date(group.hold.expires_at).toISOString() : null,
+  };
+}
+
+// Removes places (attendee and seat) from a Cal booking. When nobody is left,
+// the booking is cancelled, as Cal does, so the slot is free again.
+async function dropSeats(client, group, seats) {
+  if (!seats.length) return;
+  await client.query(`DELETE FROM public."BookingSeat" WHERE id = ANY($1::int[])`, [seats.map((s) => s.id)]);
+  await client.query(`DELETE FROM public."Attendee" WHERE id = ANY($1::int[])`, [seats.map((s) => s.attendee_id)]);
+  const left = await client.query(`SELECT count(*)::int AS n FROM public."Attendee" WHERE "bookingId" = $1`, [group.booking_id]);
+  if (!left.rows[0].n) {
+    await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1`, [group.booking_id]);
+  }
+}
+
+// Adds up to `count` extra places to the group, within the class's seats.
+async function addSeats(client, group, count) {
+  const free = group.capacity ? group.capacity - group.taken : 0;
+  for (let i = 0; i < Math.min(count, free); i++) {
+    const uid = randomUUID();
+    const number = group.seats.length + 1;
+    const attendee = await client.query(
+      `INSERT INTO public."Attendee" (email, name, "timeZone", locale, "bookingId") VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [`place-${uid}${ANONYMOUS}`, `${group.name ?? "?"} +${number - 1}`, group.time_zone ?? "Europe/Paris", group.locale ?? "fr", group.booking_id],
+    );
+    const seat = await client.query(
+      `INSERT INTO public."BookingSeat" ("referenceUid", "bookingId", "attendeeId", data) VALUES ($1, $2, $3, $4) RETURNING id`,
+      [uid, group.booking_id, attendee.rows[0].id, { rusc_holder: group.seat_uid }],
+    );
+    group.seats.push({ id: seat.rows[0].id, uid, attendee_id: attendee.rows[0].id, paid: false });
+    group.taken += 1;
+  }
+}
+
+// Frees the group's unpaid places (the booker's too, if unpaid) and closes its hold.
+async function releaseGroup(client, group) {
+  const unpaid = group.seats.filter((s) => !s.paid);
+  await dropSeats(client, group, unpaid);
+  group.seats = group.seats.filter((s) => s.paid);
+  group.taken -= unpaid.length;
+  await client.query(
+    `INSERT INTO rusc.holds (seat_uid, booking_uid, offer, expires_at, released_at) VALUES ($1, $2, $3, now(), now())
+     ON CONFLICT (seat_uid) DO UPDATE SET released_at = now()`,
+    [group.seat_uid, group.booking_uid, group.slug],
+  );
+  group.hold = { expires_at: new Date(), released_at: new Date() };
+}
+
+async function apiPlaces(input) {
+  const seatUid = String(input.seat ?? "").slice(0, 100);
+  const op = String(input.op ?? "");
+  if (!seatUid || !["hold", "add", "remove", "release"].includes(op)) return { ok: false, reason: "unknown" };
+  await releaseExpired();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const group = await placeGroup(client, seatUid, true);
+    // Gone: freed (expired, or removed in another tab) or cancelled.
+    if (!group || (group.hold?.released_at && op !== "release")) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "gone" };
+    }
+    if (op !== "release" && new Date(group.end_time) < new Date()) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "past" };
+    }
+    let reason;
+    if (op === "release") {
+      await releaseGroup(client, group);
+    } else {
+      // Every place change keeps (or starts) the hold on the group's unpaid places.
+      await client.query(
+        `INSERT INTO rusc.holds (seat_uid, booking_uid, offer, expires_at) VALUES ($1, $2, $3, now() + make_interval(mins => $4))
+         ON CONFLICT (seat_uid) DO NOTHING`,
+        [seatUid, group.booking_uid, group.slug, HOLD_MINUTES],
+      );
+      if (!group.hold) group.hold = { expires_at: new Date(Date.now() + HOLD_MINUTES * 60_000), released_at: null };
+      if (op === "hold") {
+        const wanted = Math.min(Math.max(Math.floor(Number(input.places)) || 1, 1), 20);
+        await addSeats(client, group, wanted - group.seats.length);
+        if (group.seats.length < wanted) reason = "full";
+      } else if (op === "add") {
+        const before = group.seats.length;
+        await addSeats(client, group, 1);
+        if (group.seats.length === before) reason = "full";
+      } else {
+        // The last unpaid extra place; the booker's own is removed with "release".
+        const extra = group.seats.filter((s) => !s.paid && s.uid !== seatUid).pop();
+        if (extra) {
+          await dropSeats(client, group, [extra]);
+          group.seats = group.seats.filter((s) => s !== extra);
+          group.taken -= 1;
+        } else reason = "last";
+      }
+    }
+    await client.query("COMMIT");
+    return { ...placeState(group), ...(reason ? { note: reason } : {}) };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// The cart's lines as they stand: places, unpaid, still held or gone.
+async function apiPlacesState(seats) {
+  await releaseExpired();
+  const client = await db.connect();
+  try {
+    const result = [];
+    for (const seat of seats) {
+      const group = await placeGroup(client, seat);
+      result.push(group && !group.hold?.released_at ? placeState(group) : { ok: false, seat, reason: "gone" });
+    }
+    return { places: result };
+  } finally {
+    client.release();
+  }
+}
+
+// Checkout (the site's /api/checkout route, before it opens Stripe): the class
+// and number of unpaid places of each line, from Cal, never from the browser.
+// Their hold lasts while the person pays.
+async function apiPlacesCheckout(seats) {
+  const before = await apiPlacesState(seats);
+  const held = before.places.filter((p) => p.ok && p.unpaid).map((p) => p.seat);
+  if (!held.length) return before;
+  await db.query(
+    `UPDATE rusc.holds SET expires_at = greatest(expires_at, now() + make_interval(mins => $2))
+      WHERE seat_uid = ANY($1::text[]) AND released_at IS NULL`,
+    [held, CHECKOUT_MINUTES],
+  );
+  return apiPlacesState(seats);
+}
+
+// Frees the places whose hold ran out unpaid. Runs every minute while rūsc
+// admin is awake; Cal's cron loop wakes it (GET /tasks/release-places).
+let lastRelease = 0;
+async function releaseExpired() {
+  if (Date.now() - lastRelease < 20_000) return;
+  lastRelease = Date.now();
+  const { rows } = await db.query("SELECT seat_uid FROM rusc.holds WHERE released_at IS NULL AND expires_at < now()");
+  for (const { seat_uid: seatUid } of rows) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      const group = await placeGroup(client, seatUid, true);
+      if (group) await releaseGroup(client, group);
+      else await client.query("UPDATE rusc.holds SET released_at = now() WHERE seat_uid = $1", [seatUid]);
+      await client.query("COMMIT");
+      if (group) console.log("places released", seatUid.slice(0, 8));
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("release", seatUid.slice(0, 8), error.message);
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -387,16 +623,18 @@ async function recordOrder(session) {
       const qty = Math.min(Number(qtyText) || 1, 20);
       if (OFFERS[key]) {
         if (ref) {
-          await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [ref, session.id, key]);
-          // Payment confirms the place: the Cal.diy booking is created PENDING
-          // (requiresConfirmation = true in the seed) and flips to ACCEPTED only
-          // now that Stripe has confirmed payment. Without this, the booker
-          // would show "scheduled" before anyone paid.
-          await client.query(
-            `UPDATE public."Booking" b SET status = 'accepted', paid = true
-               FROM public."BookingSeat" s WHERE s."bookingId" = b.id AND s."referenceUid" = $1`,
-            [ref],
-          );
+          // The booker's seat and the extra places of its group (/api/places):
+          // qty of its unpaid places are paid, the booker's first.
+          const group = await placeGroup(client, ref, true);
+          const seats = group ? group.seats.filter((s) => !s.paid).slice(0, qty).map((s) => s.uid) : [ref];
+          if (!group || seats.length < qty) console.error("order paid more places than are held", session.id, ref.slice(0, 8));
+          for (const seat of seats) {
+            await client.query("INSERT INTO rusc.paid_seats (seat_uid, order_id, offer) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [seat, session.id, key]);
+          }
+          // Payment confirms the class: Cal books it PENDING (requiresConfirmation)
+          // until someone pays. Who paid is per place (paid_seats), since everyone
+          // in a class shares one Cal booking.
+          if (group) await client.query(`UPDATE public."Booking" SET status = 'accepted', paid = true WHERE id = $1`, [group.booking_id]);
         }
         continue;
       }
@@ -609,6 +847,7 @@ const ICONS = {
   "exclamation-circle": [16, '<path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>'],
   "exclamation-triangle": [16, '<path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>'],
   "question-mark-circle": [16, '<path fill-rule="evenodd" d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0Zm-6 3.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM7.293 5.293a1 1 0 1 1 .99 1.667c-.459.134-1.033.566-1.033 1.29v.25a.75.75 0 1 0 1.5 0v-.115a2.5 2.5 0 1 0-2.518-4.153.75.75 0 1 0 1.061 1.06Z" clip-rule="evenodd"/>'],
+  "clock": [16, '<path fill-rule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .414.336.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z" clip-rule="evenodd"/>'],
   "envelope": [16, '<path d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"/><path d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"/>'],
   "phone": [16, '<path fill-rule="evenodd" d="m3.855 7.286 1.067-.534a1 1 0 0 0 .542-1.046l-.44-2.858A1 1 0 0 0 4.036 2H3a1 1 0 0 0-1 1v2c0 .709.082 1.4.238 2.062a9.012 9.012 0 0 0 6.7 6.7A9.024 9.024 0 0 0 11 14h2a1 1 0 0 0 1-1v-1.036a1 1 0 0 0-.848-.988l-2.858-.44a1 1 0 0 0-1.046.542l-.534 1.067a7.52 7.52 0 0 1-4.86-4.859Z" clip-rule="evenodd"/>'],
   "magnifying-glass": [16, '<path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd"/>'],
@@ -692,10 +931,12 @@ const isDay = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") && !Number.isNa
 // and how each person paid. A past class only shows if someone was booked.
 // Returns a Map "YYYY-MM-DD" → that day's classes, in order.
 async function loadSessions(from, to) {
+  await releaseExpired().catch((e) => console.error("release", e.message));
   const bookings = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
-            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order, x.pay AS acuity_pay
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order, x.pay AS acuity_pay,
+            h.expires_at AS held_until
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
@@ -704,6 +945,7 @@ async function loadSessions(from, to) {
        LEFT JOIN rusc.codes c ON c.key = u.key
        LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
        LEFT JOIN rusc.acuity_seats x ON x.seat_uid = s."referenceUid"
+       LEFT JOIN rusc.holds h ON h.seat_uid = coalesce(s.data->>'rusc_holder', s."referenceUid") AND h.released_at IS NULL
       WHERE b.status IN ('accepted', 'pending')
         AND b."startTime" AT TIME ZONE 'UTC' >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
         AND b."startTime" AT TIME ZONE 'UTC' < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
@@ -794,6 +1036,11 @@ function payment(p) {
     }
     return `<span class="st off">${icon("exclamation-circle")}<span>${tr("à régler (réservé sur Acuity)", "to pay (booked on Acuity)")}</span></span>`;
   }
+  // In someone's cart on the site, not paid yet: freed at that time unless paid.
+  if (p.held_until) {
+    const at = new Date(p.held_until).toLocaleTimeString(LOCALE(), { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+    return `<span class="st muted">${icon("clock")}<span>${tr(`dans un panier, pas encore payé · libéré à ${at} sinon`, `in a cart, not paid yet · freed at ${at} otherwise`)}</span></span>`;
+  }
   return WEBHOOK_SECRET
     ? `<span class="st off">${icon("exclamation-circle")}<span>${tr("à régler (panier non payé, ou sur place)", "to pay (cart not paid, or at the studio)")}</span></span>`
     : `<span class="st muted">${icon("question-mark-circle")}<span>${tr("à vérifier (paiement en ligne pas encore relié)", "to check (online payment not linked yet)")}</span></span>`;
@@ -803,8 +1050,10 @@ const people = (list) =>
   list.length
     ? `<table><tbody>${list
         .map((p) => {
+          // An extra place booked for a friend has no contact of its own.
+          const reachable = p.email && !String(p.email).endsWith(ANONYMOUS);
           const contact = [
-            p.email ? `<a href="mailto:${esc(p.email)}">${icon("envelope")}${esc(p.email)}</a>` : "",
+            reachable ? `<a href="mailto:${esc(p.email)}">${icon("envelope")}${esc(p.email)}</a>` : "",
             p.phone ? `<a href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(p.phone)}</a>` : "",
           ].join("");
           return `<tr><td><b>${esc(p.name)}</b>${contact ? `<span class="contact">${contact}</span>` : ""}</td><td>${payment(p)}</td></tr>`;
@@ -1106,10 +1355,16 @@ async function accountData(account) {
         WHERE account_id = $1 OR lower(coalesce(holder, '')) LIKE '%' || $2 || '%' ORDER BY created_at DESC`,
       [account.id, email],
     ),
+    // Coming classes: places paid (card, code, Acuity), or booked in a class
+    // the studio confirmed, but not places still waiting in a cart. Payment is
+    // per place: everyone in a class shares one Cal booking and its status.
     db.query(
       `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title
          FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
-        WHERE lower(a.email) = $1 AND b.status = 'accepted' AND b."startTime" >= now() AT TIME ZONE 'UTC'
+         LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
+        WHERE lower(a.email) = $1 AND b.status IN ('accepted', 'pending') AND b."startTime" >= now() AT TIME ZONE 'UTC'
+          AND (${PAID_SEAT} OR (b.status = 'accepted'
+               AND NOT EXISTS (SELECT 1 FROM rusc.holds h WHERE h.seat_uid = s."referenceUid" AND h.released_at IS NULL)))
         ORDER BY b."startTime"`,
       [email],
     ),
@@ -1600,6 +1855,12 @@ async function handle(req, res, url) {
       return send(res, 303, "", { location: target, "set-cookie": `rusc_lang=${to}; Path=/; Secure; SameSite=Lax; Max-Age=31536000` });
     }
     if (url.pathname === "/health") return send(res, 200, { ok: true });
+    // Cal's cron loop calls this every few minutes (deploy/cal/cron.sh): it
+    // wakes rūsc admin, which then frees unpaid places whose hold ran out.
+    if (url.pathname === "/tasks/release-places") {
+      await releaseExpired();
+      return send(res, 200, { ok: true });
+    }
     if (url.pathname === "/logo.webp") return send(res, 200, LOGO, { "content-type": "image/webp", "cache-control": "public, max-age=604800" });
 
     if (url.pathname === "/stripe/webhook" && req.method === "POST") {
@@ -1642,6 +1903,19 @@ async function handle(req, res, url) {
       if (url.pathname === "/api/order" && req.method === "GET") {
         if (limited(req, 60)) return send(res, 429, { paid: false, codes: [] }, headers);
         return send(res, 200, await apiOrder(String(url.searchParams.get("id") ?? "")), headers);
+      }
+      // Places (the cart): their own, larger allowance. Seat references can't
+      // be guessed, and checkouts all come from the site's few server addresses.
+      if (url.pathname === "/api/places" || url.pathname === "/api/places/checkout") {
+        if (limited(req, 300, "places:")) return send(res, 429, { ok: false, reason: "too_many" }, headers);
+        const seatList = (list) => (Array.isArray(list) ? list : []).map((s) => String(s).slice(0, 100)).filter(Boolean).slice(0, 20);
+        if (url.pathname === "/api/places" && req.method === "GET") {
+          return send(res, 200, await apiPlacesState(seatList(String(url.searchParams.get("seats") ?? "").split(","))), headers);
+        }
+        if (req.method !== "POST") return send(res, 405, { ok: false }, headers);
+        const input = JSON.parse((await readBody(req)) || "{}");
+        if (url.pathname === "/api/places/checkout") return send(res, 200, await apiPlacesCheckout(seatList(input.seats)), headers);
+        return send(res, 200, await apiPlaces(input), headers);
       }
       if (req.method !== "POST") return send(res, 405, { ok: false }, headers);
       if (limited(req, 40)) return send(res, 429, { ok: false, reason: "too_many" }, headers);
@@ -1755,3 +2029,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => console.log(`rusc-admin on :${PORT}`));
+
+// Unpaid places whose hold ran out are freed while rūsc admin is awake.
+if (process.env.DATABASE_URL) setInterval(() => releaseExpired().catch((e) => console.error("release", e.message)), 60_000).unref();

@@ -11,6 +11,15 @@ GRANT SELECT ON public."Booking", public."BookingSeat", public."EventType", publ
 -- Horaires (the timetable page) edits the classes' hours: Cal's Availability rows.
 GRANT INSERT, UPDATE, DELETE ON public."Availability" TO rusc_codes;
 GRANT USAGE, SELECT ON SEQUENCE public."Availability_id_seq" TO rusc_codes;
+-- Places (/api/places): extra places someone books for friends are seats of
+-- the same Cal booking; unpaid places are freed after a while; a paid (or
+-- emptied) booking gets its status. Cal's trigger on "Booking" then refreshes
+-- "BookingDenormalized" as this role, reading the host's name from users.
+GRANT UPDATE (status, paid, "idempotencyKey") ON public."Booking" TO rusc_codes;
+GRANT INSERT, DELETE ON public."Attendee", public."BookingSeat" TO rusc_codes;
+GRANT USAGE, SELECT ON SEQUENCE public."Attendee_id_seq", public."BookingSeat_id_seq" TO rusc_codes;
+GRANT SELECT, INSERT, DELETE ON public."BookingDenormalized" TO rusc_codes;
+GRANT SELECT (id, email, name, username) ON public.users TO rusc_codes;
 
 SET ROLE rusc_codes;
 
@@ -209,5 +218,19 @@ ALTER TABLE rusc.uses ADD COLUMN IF NOT EXISTS order_id text REFERENCES rusc.ord
 -- The code (and how much it covered) applied to an online order.
 ALTER TABLE rusc.orders ADD COLUMN IF NOT EXISTS code_key text;
 ALTER TABLE rusc.orders ADD COLUMN IF NOT EXISTS code_covered_cents integer;
+
+-- Places booked on the site and sitting in a cart, unpaid: held for a while
+-- (HOLD_MINUTES in server.mjs, longer while paying), then freed in Cal unless
+-- paid. One row per booker; the extra places they added point to their seat
+-- (BookingSeat.data->>'rusc_holder').
+CREATE TABLE IF NOT EXISTS rusc.holds (
+  seat_uid text PRIMARY KEY,           -- the booker's own seat (Cal's reference)
+  booking_uid text NOT NULL,
+  offer text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  released_at timestamptz              -- freed: ran out, or removed from the cart
+);
+CREATE INDEX IF NOT EXISTS holds_open ON rusc.holds (expires_at) WHERE released_at IS NULL;
 
 RESET ROLE;

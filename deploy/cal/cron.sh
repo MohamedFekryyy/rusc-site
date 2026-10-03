@@ -35,6 +35,9 @@ while :; do
 	if [ $((m % 5)) -eq 0 ]; then
 		hit /cron/calendar-subscriptions
 		hit /cron/selected-calendars
+		# rūsc admin frees places left unpaid in a cart past their hold. It
+		# sleeps when idle; this call wakes it (deploy/admin/server.mjs, "places").
+		wget -q -O /dev/null -T 30 "https://rusc-admin.fly.dev/tasks/release-places" || echo "cron: release-places failed"
 	fi
 	[ $((m % 15)) -eq 0 ] && remind
 	if [ "$m" -eq 0 ]; then
