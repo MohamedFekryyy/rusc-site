@@ -47,32 +47,21 @@ index 9fca96d..4b1555b 100644
      event?.fieldTranslations ?? [],
      EventTypeAutoTranslatedField.DESCRIPTION,
 diff --git a/packages/features/bookings/lib/timePreferences.ts b/packages/features/bookings/lib/timePreferences.ts
-index 6b04041..e97cf2f 100644
+index 6b04041..721506c 100644
 --- a/packages/features/bookings/lib/timePreferences.ts
 +++ b/packages/features/bookings/lib/timePreferences.ts
-@@ -1,6 +1,11 @@
- import { create } from "zustand";
- 
--import { TimeFormat, detectBrowserTimeFormat, setIs24hClockInLocalStorage } from "@calcom/lib/timeFormat";
-+import {
-+  TimeFormat,
-+  detectBrowserTimeFormat,
-+  getIs24hClockFromLocalStorage,
-+  setIs24hClockInLocalStorage,
-+} from "@calcom/lib/timeFormat";
- import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
- import { localStorage } from "@calcom/lib/webstorage";
- 
-@@ -13,13 +18,21 @@ type TimePreferencesStore = {
+@@ -13,13 +13,23 @@ type TimePreferencesStore = {
  
  const timezoneLocalStorageKey = "timeOption.preferredTimeZone";
  
-+// rūsc: the French booker (?lang=fr, booker-lang.patch) shows 24-hour times, as
-+// in France, unless the visitor picked a format; otherwise the browser decides.
++// rūsc: the French booker (?lang=fr, booker-lang.patch) opens with 24-hour
++// times, as in France; the 12h/24h toggle still works for the visit. The
++// stored preference can't tell a visitor's choice from the browser default Cal
++// writes on first load (apps/web/lib/clock.ts), so it isn't consulted here.
++// Elsewhere the browser decides, as before.
 +const initialTimeFormat = (): TimePreferencesStore["timeFormat"] => {
 +  const lang = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("lang");
-+  if (lang === "fr" && getIs24hClockFromLocalStorage() === null) return TimeFormat.TWENTY_FOUR_HOUR;
-+  return detectBrowserTimeFormat;
++  return lang === "fr" ? TimeFormat.TWENTY_FOUR_HOUR : detectBrowserTimeFormat;
 +};
 +
  /**
