@@ -1,5 +1,30 @@
+diff --git a/apps/web/modules/bookings/components/BookEventForm/BookEventForm.tsx b/apps/web/modules/bookings/components/BookEventForm/BookEventForm.tsx
+index 8ebb8a3..8f44582 100644
+--- a/apps/web/modules/bookings/components/BookEventForm/BookEventForm.tsx
++++ b/apps/web/modules/bookings/components/BookEventForm/BookEventForm.tsx
+@@ -22,6 +22,9 @@ import type { IUseBookingErrors, IUseBookingLoadingStates } from "../../hooks/us
+ import { BookingFields } from "./BookingFields";
+ import { FormSkeleton } from "./Skeleton";
+ 
++// rūsc: see the terms line below.
++const SHOW_CAL_TERMS = false;
++
+ type BookEventFormProps = {
+   onCancel?: () => void;
+   onSubmit: () => void;
+@@ -174,7 +177,9 @@ export const BookEventForm = ({
+           </div>
+         ) : null}
+ 
+-        {!isPlatform && (
++        {/* rūsc: no "you agree to Cal.diy's Terms" line, which linked to cal.com;
++            the site's booking page links the studio's own terms. */}
++        {!isPlatform && SHOW_CAL_TERMS && (
+           <div className="my-3 w-full text-xs text-subtle">
+             <ServerTrans
+               t={t}
 diff --git a/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx b/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
-index 4290fa1296..2a983180ba 100644
+index 4290fa1..2a98318 100644
 --- a/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
 +++ b/apps/web/modules/bookings/views/bookings-single-view.getServerSideProps.tsx
 @@ -4,7 +4,6 @@ import getBookingInfo from "@calcom/features/bookings/lib/getBookingInfo";

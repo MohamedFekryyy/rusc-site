@@ -1,5 +1,5 @@
 diff --git a/packages/features/bookings/lib/handleSeats/handleSeats.ts b/packages/features/bookings/lib/handleSeats/handleSeats.ts
-index a8dd8b8c4e..f534af7cbc 100644
+index a8dd8b8..f534af7 100644
 --- a/packages/features/bookings/lib/handleSeats/handleSeats.ts
 +++ b/packages/features/bookings/lib/handleSeats/handleSeats.ts
 @@ -52,7 +52,7 @@ const handleSeats = async (
@@ -11,3 +11,19 @@ index a8dd8b8c4e..f534af7cbc 100644
      },
      select: {
        uid: true,
+diff --git a/packages/features/bookings/repositories/BookingRepository.ts b/packages/features/bookings/repositories/BookingRepository.ts
+index 76fb7bb..fbe87c2 100644
+--- a/packages/features/bookings/repositories/BookingRepository.ts
++++ b/packages/features/bookings/repositories/BookingRepository.ts
+@@ -1404,7 +1404,10 @@ export class BookingRepository implements IBookingRepository {
+           gte: dateFrom,
+           lte: dateTo,
+         },
+-        status: BookingStatus.ACCEPTED,
++        // rūsc: a class is booked PENDING until paid, and its places are held
++        // meanwhile (rūsc admin frees them if unpaid). Count them as taken, so
++        // the booker shows the places really left and a held-full class is full.
++        status: { in: [BookingStatus.ACCEPTED, BookingStatus.PENDING] },
+       },
+       select: {
+         uid: true,
