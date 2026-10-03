@@ -1,5 +1,5 @@
 diff --git a/packages/i18n/locales/en/common.json b/packages/i18n/locales/en/common.json
-index d57c59fed3..56fce80483 100644
+index d57c59f..4f57e79 100644
 --- a/packages/i18n/locales/en/common.json
 +++ b/packages/i18n/locales/en/common.json
 @@ -118,7 +118,7 @@
@@ -66,8 +66,19 @@ index d57c59fed3..56fce80483 100644
    "reschedule_fail": "Could not reschedule the meeting.",
    "share_additional_notes": "Please share anything that will help prepare for our meeting.",
    "booking_confirmation": "Confirm your {{eventTypeTitle}} with {{profileName}}",
+@@ -1475,8 +1475,8 @@
+   "duplicate": "Duplicate",
+   "offer_seats": "Offer seats",
+   "offer_seats_description": "Offer seats for booking. This automatically disables guest & opt-in bookings. <0>Learn more</0>",
+-  "seats_available_one": "Seat available",
+-  "seats_available_other": "Seats available",
++  "seats_available_one": "place available",
++  "seats_available_other": "places available",
+   "seats_nearly_full": "Seats almost full",
+   "seats_half_full": "Seats filling fast",
+   "number_of_seats": "Number of seats per booking",
 diff --git a/packages/i18n/locales/fr/common.json b/packages/i18n/locales/fr/common.json
-index 3e643e8e88..0383a7a766 100644
+index 3e643e8..65cd3ce 100644
 --- a/packages/i18n/locales/fr/common.json
 +++ b/packages/i18n/locales/fr/common.json
 @@ -117,7 +117,7 @@
@@ -133,3 +144,14 @@ index 3e643e8e88..0383a7a766 100644
    "reschedule_fail": "Le rendez-vous n'a pas pu être replanifié.",
    "share_additional_notes": "Merci de renseigner tout ce qui aidera à préparer notre rendez-vous.",
    "booking_confirmation": "Confirmez votre {{eventTypeTitle}} avec {{profileName}}",
+@@ -1460,8 +1460,8 @@
+   "duplicate": "Dupliquer",
+   "offer_seats": "Proposer des places",
+   "offer_seats_description": "Proposez des places de réservation. Cela désactive automatiquement les réservations d'invités et d'opt-in.",
+-  "seats_available_one": "Place disponible",
+-  "seats_available_other": "Places disponibles",
++  "seats_available_one": "place disponible",
++  "seats_available_other": "places disponibles",
+   "seats_nearly_full": "Places presque toutes occupées",
+   "seats_half_full": "Les places partent vite",
+   "number_of_seats": "Nombre de places par réservation",

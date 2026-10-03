@@ -1,5 +1,5 @@
 diff --git a/apps/web/modules/bookings/hooks/useBookings.ts b/apps/web/modules/bookings/hooks/useBookings.ts
-index 4dea974c4d..17108e1112 100644
+index 4dea974..fff25b0 100644
 --- a/apps/web/modules/bookings/hooks/useBookings.ts
 +++ b/apps/web/modules/bookings/hooks/useBookings.ts
 @@ -21,6 +21,7 @@ import { useMutation } from "@tanstack/react-query";
@@ -18,7 +18,22 @@ index 4dea974c4d..17108e1112 100644
    const bookerFormErrorRef = useRef<HTMLDivElement>(null);
  
    const duration = useBookerStoreContext((state) => state.selectedDuration);
-@@ -264,6 +266,12 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+@@ -214,8 +216,13 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+           })
+         );
+       } else {
++        // rūsc: how many places the booker asked for (the "number of places"
++        // selector of seats-count.patch keeps one entry per extra place in
++        // responses.guests). Cal books one; the site adds the others.
++        const placesAsked = bookingForm.getValues("responses") as unknown as { guests?: unknown } | null;
++        const ruscPlaces = (Array.isArray(placesAsked?.guests) ? placesAsked.guests.length : 0) + 1;
+         sdkActionManager?.fire("bookingSuccessful", {
+-          booking: booking,
++          booking: { ...booking, ruscPlaces },
+           eventType: event.data,
+           date: booking?.startTime?.toString() || "",
+           duration: validDuration,
+@@ -264,6 +271,12 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
          rescheduledBy, // ensure further reschedules performed on the success page are recorded correctly
        };
  
@@ -31,7 +46,7 @@ index 4dea974c4d..17108e1112 100644
        bookingSuccessRedirect({
          successRedirectUrl: event?.data?.successRedirectUrl || "",
          query,
-@@ -381,6 +389,10 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
+@@ -381,6 +394,10 @@ export const useBookings = ({ event, hashedLink, bookingForm, metadata, isBookin
          });
        }
  

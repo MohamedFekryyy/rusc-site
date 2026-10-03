@@ -1,5 +1,5 @@
 diff --git a/apps/web/modules/form-builder/components/Components.tsx b/apps/web/modules/form-builder/components/Components.tsx
-index c493145f79..7688edea62 100644
+index c493145..7688ede 100644
 --- a/apps/web/modules/form-builder/components/Components.tsx
 +++ b/apps/web/modules/form-builder/components/Components.tsx
 @@ -245,81 +245,51 @@ export const Components: Record<FieldType, Component> = {
@@ -126,91 +126,27 @@ index c493145f79..7688edea62 100644
        );
      },
    },
-diff --git a/packages/features/bookings/lib/bookingCreateBodySchema.ts b/packages/features/bookings/lib/bookingCreateBodySchema.ts
-index c8f4b60da0..9112a17cc0 100644
---- a/packages/features/bookings/lib/bookingCreateBodySchema.ts
-+++ b/packages/features/bookings/lib/bookingCreateBodySchema.ts
-@@ -22,6 +22,7 @@ export const bookingCreateBodySchema = z.object({
-   hashedLink: z.string().nullish(),
-   seatReferenceUid: z.string().optional(),
-   orgSlug: z.string().optional(),
-+  seats: z.number().int().min(1).max(100).optional(),
-   teamMemberEmail: z.string().nullish(),
-   crmOwnerRecordType: z.string().nullish(),
-   crmRecordId: z.string().nullish(),
 diff --git a/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx b/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
-index c604656a01..6f431a48a3 100644
+index c604656..6adbde3 100644
 --- a/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
 +++ b/packages/features/bookings/lib/client/booking-event-form/booking-to-mutation-input-mapper.tsx
-@@ -61,8 +61,14 @@ export const mapBookingToMutationInput = ({
+@@ -61,8 +61,16 @@ export const mapBookingToMutationInput = ({
    const _isDryRun = isDryRunProp !== undefined ? isDryRunProp : isBookingDryRun(searchParams);
    const dub_id = searchParams?.get("dub_id");
  
-+  // rūsc: "number of places" selector. The booker's guests field holds one
-+  // entry per extra place; total requested seats = booker + guests.
-+  const guests = (values as { responses?: { guests?: string[] } })?.responses?.guests;
-+  const seats = (Array.isArray(guests) ? guests.length : 0) + 1;
++  // rūsc: the "number of places" selector (form-builder Components.tsx) keeps
++  // one empty entry per extra place in responses.guests. Cal books one place,
++  // the booker's own; the site adds the others through rūsc admin
++  // (useBookings.ts passes the count on), so they never reach Cal as guests.
++  const formResponses = (values as { responses?: Record<string, unknown> | null }).responses;
++  const { guests: _places, ...responsesWithoutPlaces } = formResponses ?? {};
 +
    return {
      ...values,
-+    seats,
++    ...(formResponses ? { responses: responsesWithoutPlaces } : {}),
      user: username,
      start: dayjs(date).format(),
      end: dayjs(date)
-diff --git a/packages/features/bookings/lib/service/RegularBookingService.ts b/packages/features/bookings/lib/service/RegularBookingService.ts
-index 644a80a3e3..873ffb6a0e 100644
---- a/packages/features/bookings/lib/service/RegularBookingService.ts
-+++ b/packages/features/bookings/lib/service/RegularBookingService.ts
-@@ -568,6 +568,7 @@ async function handler(
-     routedTeamMemberIds,
-     rrHostSubsetIds,
-     _isDryRun: isDryRun = false,
-+    seats: requestedSeats,
-     ...reqBody
-   } = bookingData;
- 
-@@ -1795,6 +1796,41 @@ async function handler(
-           },
-         });
-         evt.attendeeSeatId = uniqueAttendeeId;
-+
-+        // rūsc: book N anonymous places from one booker (no guest emails).
-+        // The initial booking above created 1 attendee + 1 seat for the booker.
-+        // For each additional requested place, create an anonymous attendee +
-+        // seat under the same booking uid, capped at the remaining seat count.
-+        const totalSeats = eventType.seatsPerTimeSlot ?? 0;
-+        if (requestedSeats && requestedSeats > 1 && totalSeats > 0) {
-+          const alreadyBooked = booking.attendees.length;
-+          const extraCount = Math.min(
-+            requestedSeats - 1,
-+            Math.max(0, totalSeats - alreadyBooked)
-+          );
-+          for (let i = 0; i < extraCount; i++) {
-+            const anonUid = uuid();
-+            await deps.prismaClient.bookingSeat.create({
-+              data: {
-+                referenceUid: anonUid,
-+                data: {
-+                  description: additionalNotes,
-+                  responses,
-+                },
-+                metadata: reqBody.metadata,
-+                booking: { connect: { id: booking.id } },
-+                attendee: {
-+                  create: {
-+                    email: `${anonUid}@anonymous.invalid`,
-+                    name: `Place ${alreadyBooked + i + 1}`,
-+                    timeZone: reqBody.timeZone ?? "UTC",
-+                    locale: attendeeLanguage ?? "en",
-+                  },
-+                },
-+              },
-+            });
-+          }
-+        }
-       }
-     } else {
-       const { booking: dryRunBooking, troubleshooterData: _troubleshooterData } = buildDryRunBooking({
 diff --git a/packages/i18n/locales/en/common.json b/packages/i18n/locales/en/common.json
 index d57c59fed3..809e6d9035 100644
 --- a/packages/i18n/locales/en/common.json

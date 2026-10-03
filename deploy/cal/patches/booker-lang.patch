@@ -1,5 +1,5 @@
 diff --git a/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx b/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
-index dee7aa70e2..e8f78b47dd 100644
+index dee7aa7..e8f78b4 100644
 --- a/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
 +++ b/apps/web/app/(booking-page-wrapper)/[user]/[type]/embed/page.tsx
 @@ -26,7 +26,8 @@ const ServerPage = async ({ params, searchParams }: ServerPageProps) => {
@@ -13,7 +13,7 @@ index dee7aa70e2..e8f78b47dd 100644
      const ns = "common";
      const translations = await loadTranslations(locale, ns);
 diff --git a/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx b/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
-index 5eb9e6e9a5..f826a3ec96 100644
+index 5eb9e6e..f826a3e 100644
 --- a/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
 +++ b/apps/web/app/(booking-page-wrapper)/[user]/[type]/page.tsx
 @@ -19,7 +19,11 @@ const ServerPage = async ({ params, searchParams }: PageProps): Promise<JSX.Elem
@@ -29,3 +29,60 @@ index 5eb9e6e9a5..f826a3ec96 100644
    if (locale) {
      const ns = "common";
      const translations = await loadTranslations(locale, ns);
+diff --git a/apps/web/modules/bookings/components/EventMeta.tsx b/apps/web/modules/bookings/components/EventMeta.tsx
+index 9fca96d..4b1555b 100644
+--- a/apps/web/modules/bookings/components/EventMeta.tsx
++++ b/apps/web/modules/bookings/components/EventMeta.tsx
+@@ -143,7 +143,11 @@ export const EventMeta = ({
+     : isHalfFull
+       ? "text-yellow-500"
+       : "text-bookinghighlight";
+-  const userLocale = locale ?? navigator.language;
++  // rūsc: the site passes its page language as ?lang= (booker-lang.patch), and
++  // the title and description follow it like the rest of the booker. Without
++  // this, a French page showed the English title to an English browser.
++  const requestedLang = new URLSearchParams(window.location.search).get("lang");
++  const userLocale = requestedLang || locale || navigator.language;
+   const translatedDescription = getTranslatedField(
+     event?.fieldTranslations ?? [],
+     EventTypeAutoTranslatedField.DESCRIPTION,
+diff --git a/packages/features/bookings/lib/timePreferences.ts b/packages/features/bookings/lib/timePreferences.ts
+index 6b04041..e97cf2f 100644
+--- a/packages/features/bookings/lib/timePreferences.ts
++++ b/packages/features/bookings/lib/timePreferences.ts
+@@ -1,6 +1,11 @@
+ import { create } from "zustand";
+ 
+-import { TimeFormat, detectBrowserTimeFormat, setIs24hClockInLocalStorage } from "@calcom/lib/timeFormat";
++import {
++  TimeFormat,
++  detectBrowserTimeFormat,
++  getIs24hClockFromLocalStorage,
++  setIs24hClockInLocalStorage,
++} from "@calcom/lib/timeFormat";
+ import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
+ import { localStorage } from "@calcom/lib/webstorage";
+ 
+@@ -13,13 +18,21 @@ type TimePreferencesStore = {
+ 
+ const timezoneLocalStorageKey = "timeOption.preferredTimeZone";
+ 
++// rūsc: the French booker (?lang=fr, booker-lang.patch) shows 24-hour times, as
++// in France, unless the visitor picked a format; otherwise the browser decides.
++const initialTimeFormat = (): TimePreferencesStore["timeFormat"] => {
++  const lang = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("lang");
++  if (lang === "fr" && getIs24hClockFromLocalStorage() === null) return TimeFormat.TWENTY_FOUR_HOUR;
++  return detectBrowserTimeFormat;
++};
++
+ /**
+  * This hook is NOT inside the user feature, since
+  * these settings only apply to the booker component. They will not reflect
+  * any changes made in the user settings.
+  */
+ export const timePreferencesStore = create<TimePreferencesStore>((set) => ({
+-  timeFormat: detectBrowserTimeFormat,
++  timeFormat: initialTimeFormat(),
+   setTimeFormat: (format: TimeFormat.TWELVE_HOUR | TimeFormat.TWENTY_FOUR_HOUR) => {
+     setIs24hClockInLocalStorage(format === TimeFormat.TWENTY_FOUR_HOUR);
+     set({ timeFormat: format });
