@@ -6,8 +6,9 @@ import { offerByKey } from "@/lib/cal";
 import { applyCode, cart, cartTotal, clearAppliedCode, linePrice, useAppliedCode, useCart } from "@/lib/cart";
 import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
-import { formatPrice, formatSlot } from "@/lib/format";
+import { formatPrice, formatSlot, formatTime } from "@/lib/format";
 import { getToken } from "@/lib/auth";
+import { addPlace, placesState, releasePlaces, removePlace, type PlaceState } from "@/lib/places";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
 
 const TEXT = {
@@ -37,6 +38,13 @@ const TEXT = {
     codePlaceholder: "Vous avez un code ? Ex. RUSC-XXXX-XXXX",
     codeApply: "Utiliser ce code",
     codeHint: "Un bon cadeau d’un montant peut régler une partie de votre panier ; le reste est payé par carte.",
+    lessPlace: "Une place de moins",
+    morePlace: "Une place de plus",
+    heldUntil: (time: string, many: boolean) =>
+      many ? `Places gardées jusqu’à ${time} : payez pour les confirmer.` : `Place gardée jusqu’à ${time} : payez pour la confirmer.`,
+    full: "Il n’y a plus de place libre dans ce cours.",
+    released: (title: string) => `« ${title} » n’a pas été payé à temps : la place a été libérée. Vous pouvez la réserver à nouveau.`,
+    placesGone: "Une place de votre panier vient d’être libérée : vérifiez le panier, puis payez.",
   },
   en: {
     empty: "Your cart is empty.",
@@ -64,6 +72,13 @@ const TEXT = {
     codePlaceholder: "Have a code? e.g. RUSC-XXXX-XXXX",
     codeApply: "Use this code",
     codeHint: "A gift voucher of an amount can pay for part of your cart; the rest is paid by card.",
+    lessPlace: "One place less",
+    morePlace: "One more place",
+    heldUntil: (time: string, many: boolean) =>
+      many ? `Places held until ${time}: pay to confirm them.` : `Place held until ${time}: pay to confirm it.`,
+    full: "There are no free places left in this class.",
+    released: (title: string) => `“${title}” wasn’t paid in time, so the place was freed. You can book it again.`,
+    placesGone: "A place in your cart was just freed: check your cart, then pay.",
   },
 };
 
@@ -75,6 +90,7 @@ const stepper: CSSProperties = {
   width: "28px", height: "28px", border: "1px solid var(--line)", background: "transparent",
   borderRadius: "50%", cursor: "pointer", color: "var(--ink)", fontSize: "15px", lineHeight: 1,
 };
+const stepperOff: CSSProperties = { ...stepper, opacity: 0.35, cursor: "default" };
 const textButton: CSSProperties = {
   background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--muted)",
   fontSize: "12px", letterSpacing: ".08em", textTransform: "uppercase", textDecoration: "underline",
@@ -102,6 +118,54 @@ export default function CartView({ lang }: { lang: Lang }) {
   // How much the applied code covered (returned by checkout), shown on the
   // thanks screen.
   const [covered, setCovered] = useState<{ code: string; cents: number } | null>(null);
+  // Classes: their places as rūsc admin holds them (lib/places.ts), by seat.
+  const [placeInfo, setPlaceInfo] = useState<Record<string, PlaceState>>({});
+  const [busySeat, setBusySeat] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  const seatKey = items.map((i) => i.booking?.seat).filter(Boolean).join(",");
+
+  // Check the classes against rūsc admin: on load, then every minute. A place
+  // that ran out unpaid leaves the cart (and says so); one paid elsewhere too.
+  useEffect(() => {
+    if (!seatKey || stage !== "cart") return;
+    let alive = true;
+    const check = () =>
+      placesState(seatKey.split(",")).then((states) => {
+        if (!alive || !states) return;
+        for (const state of states) {
+          const item = cart.items().find((i) => i.booking?.seat === state.seat);
+          if (!item) continue;
+          if (!state.ok || !state.unpaid) {
+            cart.remove(item.id);
+            if (!state.ok) setNotice(t.released(offerByKey(item.key)?.[lang].title ?? ""));
+          } else if (state.unpaid !== item.qty) {
+            cart.setQty(item.id, state.unpaid);
+          }
+        }
+        setPlaceInfo(Object.fromEntries(states.filter((s) => s.ok && s.seat).map((s) => [s.seat!, s])));
+      });
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [seatKey, refresh, stage, lang, t]);
+
+  // + and − on a class: a place for a friend, added or removed in rūsc admin.
+  async function changePlaces(id: string, seat: string, op: "add" | "remove") {
+    setBusySeat(seat);
+    const state = await (op === "add" ? addPlace(seat) : removePlace(seat));
+    setBusySeat(null);
+    if (!state.ok) {
+      setRefresh((n) => n + 1);
+      return;
+    }
+    if (state.unpaid) cart.setQty(id, state.unpaid);
+    setPlaceInfo((info) => ({ ...info, [seat]: state }));
+    setNotice(state.note === "full" ? t.full : null);
+  }
 
   useEffect(() => {
     const host = checkoutRef.current;
@@ -123,6 +187,13 @@ export default function CartView({ lang }: { lang: Lang }) {
               // The applied code (W3) pays for part of product totals.
               body: JSON.stringify({ lang, items: cart.items(), token: getToken(), code: appliedCodeRef.current }),
             });
+            // A place was freed meanwhile: back to the cart, which checks again.
+            if (res.status === 409) {
+              cancelled = true;
+              setNotice(t.placesGone);
+              setStage("cart");
+              setRefresh((n) => n + 1);
+            }
             if (!res.ok) throw new Error(`checkout ${res.status}`);
             const data = (await res.json()) as { clientSecret: string; id: string; codeCovered: { code: string; cents: number } | null };
             orderRef.current = data.id;
@@ -164,7 +235,7 @@ export default function CartView({ lang }: { lang: Lang }) {
       cancelled = true;
       embedded?.destroy();
     };
-  }, [stage, lang]);
+  }, [stage, lang, t]);
 
   if (stage === "done") {
     return (
@@ -202,6 +273,7 @@ export default function CartView({ lang }: { lang: Lang }) {
   if (!items.length) {
     return (
       <div style={{ ...panel, textAlign: "center" }}>
+        {notice && <p role="status" style={{ color: "var(--accent)", marginBottom: "14px" }}>{notice}</p>}
         <p style={{ color: "var(--muted)", marginBottom: "24px" }}>{t.empty}</p>
         <a className="btn guest" href={BOOKING[lang]}>{t.browse}</a>
       </div>
@@ -222,9 +294,18 @@ export default function CartView({ lang }: { lang: Lang }) {
   const total = cartTotal(items);
   return (
     <div style={panel}>
+      {notice && (
+        <p role="status" style={{ ...note, margin: "0 0 18px", color: "var(--accent)" }}>
+          {notice}
+        </p>
+      )}
       <div className="rows">
         {items.map((item) => {
           const offer = offerByKey(item.key)!;
+          // A class booked on the site: its places live in rūsc admin.
+          const seat = item.booking?.seat;
+          const place = seat ? placeInfo[seat] : undefined;
+          const busy = !!seat && busySeat === seat;
           return (
             <div className="row" key={item.id} style={{ alignItems: "center" }}>
               <span className="lbl">
@@ -232,12 +313,43 @@ export default function CartView({ lang }: { lang: Lang }) {
                 <small>
                   {item.booking ? formatSlot(item.booking.start, lang) : item.amount ? t.anyClass : offer[lang].unit}
                 </small>
-                <button type="button" style={{ ...textButton, marginTop: "6px" }} onClick={() => cart.remove(item.id)}>
+                {place?.expiresAt && <small>{t.heldUntil(formatTime(place.expiresAt, lang), item.qty > 1)}</small>}
+                <button
+                  type="button"
+                  style={{ ...textButton, marginTop: "6px" }}
+                  onClick={() => {
+                    // Frees the places at once, so they don't stay taken unpaid.
+                    if (seat) releasePlaces(seat);
+                    cart.remove(item.id);
+                  }}
+                >
                   {t.remove}
                 </button>
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-                {!item.booking && (
+                {seat ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
+                    <button
+                      type="button"
+                      style={busy || item.qty <= 1 ? stepperOff : stepper}
+                      aria-label={t.lessPlace}
+                      disabled={busy || item.qty <= 1}
+                      onClick={() => changePlaces(item.id, seat, "remove")}
+                    >
+                      −
+                    </button>
+                    <span style={{ minWidth: "18px", textAlign: "center" }}>{item.qty}</span>
+                    <button
+                      type="button"
+                      style={busy || place?.left === 0 ? stepperOff : stepper}
+                      aria-label={t.morePlace}
+                      disabled={busy || place?.left === 0}
+                      onClick={() => changePlaces(item.id, seat, "add")}
+                    >
+                      +
+                    </button>
+                  </span>
+                ) : !item.booking && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
                     <button type="button" style={stepper} aria-label={t.less} onClick={() => cart.setQty(item.id, item.qty - 1)}>−</button>
                     <span style={{ minWidth: "18px", textAlign: "center" }}>{item.qty}</span>

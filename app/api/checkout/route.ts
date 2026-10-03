@@ -4,6 +4,7 @@ import { amountBounds, offerByKey, validAmount } from "@/lib/cal";
 import { coverCode, releaseCodeHold } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatSlot } from "@/lib/format";
+import { placesForCheckout } from "@/lib/places";
 import { memberDiscountEnabled, memberDiscountable, memberPrice, MEMBER_DISCOUNT_PERCENT } from "@/lib/pricing";
 import type { Lang } from "@/lib/routes";
 import { getStripe } from "@/lib/stripe";
@@ -58,10 +59,27 @@ export async function POST(request: Request) {
   const token = readToken(request, body);
   const isMember = memberDiscountEnabled() && (await resolveMember(token));
 
+  // Classes: the places to pay for, from rūsc admin (never from the browser):
+  // the class, and how many of the person's places are still unpaid. Their
+  // hold lasts while the Stripe session is open.
+  const seatOf = (item: IncomingItem) => (typeof item.booking?.seat === "string" && item.booking.seat ? item.booking.seat.slice(0, 100) : null);
+  const seats = incoming.map(seatOf).filter((s): s is string => !!s);
+  const held = await placesForCheckout(seats);
+  if (!held) return bad("checkout_unavailable", 503);
+  const places = new Map(held.map((p) => [p.seat, p]));
+  // A place freed before payment (ran out, removed in another tab): the cart
+  // refreshes and says so.
+  if (seats.some((s) => !places.get(s)?.ok)) return bad("places_gone", 409);
+
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   const summary: string[] = [];
   for (const item of incoming) {
-    const offer = typeof item?.key === "string" ? offerByKey(item.key) : undefined;
+    const seat = seatOf(item);
+    const place = seat ? places.get(seat) : undefined;
+    // Already paid (in another tab): nothing to charge.
+    if (place && !place.unpaid) continue;
+    const key = place?.offer ?? item?.key;
+    const offer = typeof key === "string" ? offerByKey(key) : undefined;
     if (!offer) return bad("unknown_item");
 
     // Whether this line is discounted: members get -10% on sessions and
@@ -81,15 +99,15 @@ export async function POST(request: Request) {
     let bookingUid = "";
     if (offer.kind === "session") {
       const uid = item.booking?.uid;
-      const start = item.booking?.start;
+      const start = place?.start ?? item.booking?.start;
       if (typeof uid !== "string" || typeof start !== "string" || Number.isNaN(Date.parse(start))) {
         return bad("session_without_booking");
       }
       name += ` — ${formatSlot(start, lang)}`;
-      // The person's seat in the class if known (what rūsc admin marks paid),
-      // else the Cal booking.
-      const seat = item.booking?.seat;
-      bookingUid = (typeof seat === "string" && seat ? seat : uid).slice(0, 64);
+      // The person's seat in the class if known (what rūsc admin marks paid,
+      // with the extra places of its group), else the Cal booking.
+      bookingUid = (seat ?? uid).slice(0, 64);
+      qty = place?.unpaid ?? 1;
     } else {
       qty = Math.max(1, Math.min(20, Math.floor(Number(item.qty)) || 1));
     }
@@ -107,6 +125,7 @@ export async function POST(request: Request) {
     // <key>[:<amount in cents>]x<qty>[@<seat>]: rūsc admin reads it from the metadata.
     summary.push(`${offer.key}${amountBounds(offer.key) ? `:${unitAmount}` : ""}x${qty}${bookingUid ? `@${bookingUid}` : ""}`);
   }
+  if (!lineItems.length) return bad("empty_cart");
 
   // A code the customer entered on the cart page (W3): a euro-valued code that
   // covers part of the total. Server-side only — the browser supplies the code
@@ -163,6 +182,10 @@ export async function POST(request: Request) {
       line_items: lineItems,
       discounts: coupon ? [{ coupon: coupon.id }] : undefined,
       metadata,
+      // Places are held for 40 minutes from here (rūsc admin): the session
+      // closes before (Stripe's shortest is 30 minutes), so nobody pays for a
+      // place that was freed.
+      ...(seats.length ? { expires_at: Math.floor(Date.now() / 1000) + 31 * 60 } : {}),
     });
   } catch (error) {
     // If the session can't be created, give back the reserved code balance.

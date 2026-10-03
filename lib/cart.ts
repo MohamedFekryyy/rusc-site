@@ -159,13 +159,14 @@ export const cart = {
         : [...items, { id, key, qty: 1, amount }],
     );
   },
-  // A dated booking: one line per place booked (two people in the same class
-  // are two seats of the same Cal booking).
-  addBooking(key: OfferKey, booking: CartBooking) {
+  // A dated booking: one line per person who booked, with the places they
+  // hold (theirs and their friends', lib/places.ts). Two people booking the
+  // same class are two seats of the same Cal booking, so two lines.
+  addBooking(key: OfferKey, booking: CartBooking, places = 1) {
     load();
     const id = booking.seat ?? booking.uid;
     if (items.some((i) => i.id === id)) return;
-    write([...items, { id, key, qty: 1, booking }]);
+    write([...items, { id, key, qty: Math.max(1, Math.min(places, MAX_QTY)), booking }]);
   },
   setQty(id: string, qty: number) {
     load();

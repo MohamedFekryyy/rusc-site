@@ -15,3 +15,8 @@ export function formatSlot(iso: string, lang: Lang) {
     timeZone: "Europe/Paris",
   }).format(new Date(iso));
 }
+
+// A time of day, in the studio's time zone: "14:32" (fr) / "14:32" (en).
+export function formatTime(iso: string, lang: Lang) {
+  return new Intl.DateTimeFormat(LOCALE[lang], { timeStyle: "short", timeZone: "Europe/Paris" }).format(new Date(iso));
+}

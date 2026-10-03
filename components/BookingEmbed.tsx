@@ -15,6 +15,7 @@ import {
 import { getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
+import { holdPlaces, type PlaceState } from "@/lib/places";
 import { CART, HOME, PAGES, bookingHref, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
@@ -31,6 +32,9 @@ const TEXT = {
     viewCart: "Voir le panier",
     keepBrowsing: "Continuer",
     slotAdded: "Créneau ajouté au panier : il est confirmé une fois le panier payé.",
+    placesAdded: (n: number) => `${n} places ajoutées au panier : elles sont confirmées une fois le panier payé.`,
+    heldFor: (many: boolean) => (many ? "Vos places sont gardées 30 minutes." : "Votre place est gardée 30 minutes."),
+    onlyLeft: (n: number) => `Il ne restait que ${n} place${n > 1 ? "s" : ""} dans ce cours.`,
     slotPaid: "Votre place est réservée. Merci.",
     bookedTitle: "À l’atelier",
     bookedText: "On vous attend à l’atelier rūsc, 99 Promenade Marie-Paradis à Chamonix. Venez les mains libres : le tablier, la terre et un bon moment sont déjà là.",
@@ -54,6 +58,8 @@ const TEXT = {
       error: "Vérification impossible pour le moment, réessayez.",
     } as Record<string, string>,
     slotCode: (left: string) => `Réservé avec votre code : il vous reste ${left}.`,
+    slotCodePart: (paid: number, rest: number) =>
+      `Votre code a réglé ${paid} place${paid > 1 ? "s" : ""} ; ${rest > 1 ? `les ${rest} autres sont` : "l’autre est"} dans votre panier.`,
     slotCodeFailed: "Votre code n’a pas pu être utilisé : la séance est dans votre panier.",
   },
   en: {
@@ -68,6 +74,9 @@ const TEXT = {
     viewCart: "View cart",
     keepBrowsing: "Keep browsing",
     slotAdded: "Slot added to your cart: it’s confirmed once the cart is paid.",
+    placesAdded: (n: number) => `${n} places added to your cart: they’re confirmed once the cart is paid.`,
+    heldFor: (many: boolean) => (many ? "We’ll hold your places for 30 minutes." : "We’ll hold your place for 30 minutes."),
+    onlyLeft: (n: number) => `Only ${n} place${n > 1 ? "s were" : " was"} left in this class.`,
     slotPaid: "Your place is reserved. Thank you.",
     bookedTitle: "At the studio",
     bookedText: "We’ll see you at rūsc, 99 Promenade Marie-Paradis in Chamonix. Come with your hands free: the apron, the clay and a good time are already there.",
@@ -91,6 +100,8 @@ const TEXT = {
       error: "Can’t check codes right now, please try again.",
     } as Record<string, string>,
     slotCode: (left: string) => `Booked with your code: ${left} left.`,
+    slotCodePart: (paid: number, rest: number) =>
+      `Your code paid for ${paid} place${paid > 1 ? "s" : ""}; the other${rest > 1 ? ` ${rest} are` : " is"} in your cart.`,
     slotCodeFailed: "Your code couldn’t be used: the class is in your cart.",
   },
 };
@@ -143,8 +154,43 @@ const linkButton: CSSProperties = {
 type CalBooking = { uid?: string; startTime?: string; endTime?: string; paymentRequired?: boolean };
 // Cal's older bookingSuccessful event carries the whole booking, including
 // the attendee's own seat reference in a class (several people per slot).
-type CalBookingV1 = { booking?: CalBooking & { seatReferenceUid?: string | null } };
-type Booked = { kind: "cart" | "paid" | "code" | "codeFailed"; left?: string };
+// ruscPlaces: how many places the booker asked for (its "number of places",
+// deploy/cal/patches/seats-count.patch). Cal books the booker's own.
+type CalBookingV1 = { booking?: CalBooking & { seatReferenceUid?: string | null; ruscPlaces?: number } };
+// What became of the places just booked: in the cart (unpaid of them), paid
+// in Cal, or taken off a code (all, some, or none of them). total < asked
+// when the class had fewer places free.
+type Booked = {
+  kind: "cart" | "paid" | "code" | "codePart" | "codeFailed";
+  left?: string;
+  unpaid?: number;
+  paidByCode?: number;
+  total?: number;
+  asked?: number;
+};
+
+// The places just booked: the extra places asked for and the hold on unpaid
+// ones (rūsc admin, lib/places.ts), then the code in use pays for as many of
+// them as it covers. What's left unpaid goes to the cart.
+async function settlePlaces(seat: string, asked: number, code: string | null) {
+  let state: PlaceState | null = asked > 1 || !code ? await holdPlaces(seat, asked) : null;
+  let paidByCode = 0;
+  let codeResult: CodeResult | null = null;
+  if (code) {
+    const seats = [seat, ...(state?.ok ? (state.extras ?? []) : [])];
+    for (const s of seats) {
+      const result = await redeemCode(code, s);
+      if (!result.ok) break;
+      paidByCode += 1;
+      codeResult = result;
+    }
+    state = paidByCode < seats.length ? await holdPlaces(seat, asked) : null;
+  }
+  // rūsc admin out of reach: the booker's own place still goes to the cart.
+  const unpaid = state ? (state.ok ? (state.unpaid ?? 0) : 1) : 0;
+  const total = (state?.ok ? state.places : undefined) ?? paidByCode + unpaid;
+  return { unpaid, total, paidByCode, codeResult };
+}
 
 type CalQueue = ((...args: unknown[]) => void) & {
   q: unknown[];
@@ -320,9 +366,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       },
     });
     // A place was booked. This event comes first and carries the whole
-    // booking, with this person's seat: the place is taken off the code in use,
-    // or goes to the cart (paid there) with its seat. If the code can't be
-    // used, it goes to the cart too.
+    // booking, with this person's seat and the number of places they asked
+    // for: rūsc admin adds the others and holds the unpaid ones, the code in
+    // use pays for what it covers, and the rest goes to the cart (paid there).
     cal.ns[ns]("on", {
       action: "bookingSuccessful",
       callback: (event: CustomEvent<{ data?: CalBookingV1 }>) => {
@@ -330,25 +376,23 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         if (activeNs.current !== ns || !booking?.uid || !booking.startTime) return;
         handledRef.current = booking.uid;
         const seat = booking.seatReferenceUid ?? undefined;
-        const toCart = () => cart.addBooking(offer.key, { uid: booking.uid!, seat, start: booking.startTime!, end: booking.endTime });
+        const asked = Math.max(1, Math.min(20, Math.floor(Number(booking.ruscPlaces)) || 1));
+        const slot = { uid: booking.uid, seat, start: booking.startTime, end: booking.endTime };
         // Bring the result into view: the cart message ("added, pay to confirm")
         // must be what the visitor sees first, not Cal's own confirmation.
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-        const usedCode = codeRef.current;
-        if (!usedCode || !seat) {
-          toCart();
-          setBooked({ kind: "cart" });
+        if (!seat) {
+          cart.addBooking(offer.key, slot);
+          setBooked({ kind: "cart", unpaid: 1, total: 1, asked: 1 });
           return;
         }
-        redeemCode(usedCode, seat).then((result) => {
+        const usedCode = codeRef.current;
+        settlePlaces(seat, asked, usedCode).then(({ unpaid, total, paidByCode, codeResult }) => {
           if (activeNs.current !== ns) return;
-          if (result.ok) {
-            setBooked({ kind: "code", left: formatBalance(result, lang) });
-            setCode(result);
-          } else {
-            toCart();
-            setBooked({ kind: "codeFailed" });
-          }
+          if (unpaid) cart.addBooking(offer.key, slot, unpaid);
+          if (codeResult) setCode(codeResult);
+          const kind = !usedCode ? "cart" : !unpaid ? "code" : paidByCode ? "codePart" : "codeFailed";
+          setBooked({ kind, unpaid, total, asked, paidByCode, left: codeResult ? formatBalance(codeResult, lang) : undefined });
         });
       },
     });
@@ -369,7 +413,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         // Bring the result into view: the cart message ("added, pay to confirm")
         // must be what the visitor sees first, not Cal's own confirmation.
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
-        setBooked({ kind: data.paymentRequired ? "paid" : "cart" });
+        setBooked(data.paymentRequired ? { kind: "paid" } : { kind: "cart", unpaid: 1 });
       },
     });
     cal.ns[ns]("inline", {
@@ -468,18 +512,29 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               </p>
               <h3 style={{ fontSize: "24px", marginBottom: "10px", color: "var(--accent)" }}>
                 {booked.kind === "cart"
-                  ? t.slotAdded
+                  ? (booked.unpaid ?? 1) > 1
+                    ? t.placesAdded(booked.unpaid ?? 1)
+                    : t.slotAdded
                   : booked.kind === "code"
                     ? t.slotCode(booked.left ?? "")
-                    : booked.kind === "codeFailed"
-                      ? t.slotCodeFailed
-                      : t.slotPaid}
+                    : booked.kind === "codePart"
+                      ? t.slotCodePart(booked.paidByCode ?? 1, booked.unpaid ?? 1)
+                      : booked.kind === "codeFailed"
+                        ? t.slotCodeFailed
+                        : t.slotPaid}
               </h3>
-              {booked.kind !== "cart" && booked.kind !== "codeFailed" && (
+              {/* Fewer places free than asked; and how long unpaid ones are kept. */}
+              {(booked.total ?? 1) < (booked.asked ?? 1) && (
+                <p style={{ color: "var(--ochre)", maxWidth: "460px", margin: "0 auto 8px" }}>{t.onlyLeft(booked.total ?? 1)}</p>
+              )}
+              {!!booked.unpaid && (
+                <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 14px" }}>{t.heldFor(booked.unpaid > 1)}</p>
+              )}
+              {!booked.unpaid && booked.kind !== "cart" && booked.kind !== "codeFailed" && (
                 <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 14px" }}>{t.bookedText}</p>
               )}
               <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 22px", fontSize: "14.5px" }}>{t.bookedNext}</p>
-              {(booked.kind === "cart" || booked.kind === "codeFailed") ? (
+              {booked.unpaid ? (
                 <a className="btn member" href={CART[lang]} style={{ padding: "9px 18px", fontSize: "11px" }}>
                   {t.viewCart}
                 </a>
@@ -510,8 +565,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               </a>
             </div>
           ) : (
-            // Cal.com mounts the booker here (see the effect above).
-            <div key={offer.key} id="bk-bookings" ref={hostRef} />
+            // Cal.com mounts the booker here (see the effect above). Once booked
+            // it stays on its filled form: hidden, so it can't be sent twice.
+            <div key={offer.key} id="bk-bookings" ref={hostRef} style={booked ? { display: "none" } : undefined} />
           )}
         </div>
       ) : (
