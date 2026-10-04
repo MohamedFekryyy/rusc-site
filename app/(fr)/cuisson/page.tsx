@@ -17,6 +17,7 @@ export default function Cuisson() {
         <p style={{ fontSize: "15.5px" }}>Votre pièce n&rsquo;est pas terminée à la fin du cours — elle commence seulement son parcours. Deux passages au four sont nécessaires, et entre les deux, plusieurs étapes.</p>
         <p style={{ fontSize: "15.5px" }}><strong>Le dégourdi — 980&nbsp;°C.</strong> Une première cuisson lente qui élimine toute l&rsquo;eau contenue dans la terre et rend la pièce solide et poreuse. C&rsquo;est cette étape qui permet ensuite de l&rsquo;émailler sans qu&rsquo;elle s&rsquo;effondre ou se brise.</p>
         <p style={{ fontSize: "15.5px" }}><strong>L&rsquo;émail, puis la cuisson finale — 1280&nbsp;°C.</strong> La pièce est émaillée, séchée, puis enfournée une seconde fois à très haute température. C&rsquo;est là que l&rsquo;émail fond, vitrifie et devient cette surface lisse et lumineuse. Grès et porcelaine exigent cette température pour être durables.</p>
+        <p style={{ fontSize: "15.5px" }}>La cuisson et l&rsquo;émaillage comportent une part d&rsquo;aléa&nbsp;: la terre et l&rsquo;émail réagissent au feu, et une pièce peut se fissurer, gauchir ou éclater malgré tout le soin apporté. Nous faisons le maximum pour limiter ce risque, mais il reste inhérent au travail de la terre et il ne peut pas être entièrement garanti.</p>
 
         <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>pourquoi le temps compte</h3>
         <ul style={{ paddingLeft: "20px", fontSize: "15.5px", lineHeight: 1.6 }}>

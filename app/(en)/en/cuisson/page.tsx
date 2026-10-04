@@ -16,6 +16,7 @@ export default function Cuisson() {
         <p style={{ fontSize: "15.5px" }}>Your piece isn&rsquo;t finished when the course ends — it is only beginning its journey. It goes through the kiln twice, and there are several steps in between.</p>
         <p style={{ fontSize: "15.5px" }}><strong>The bisque firing — 980&nbsp;°C.</strong> A slow first firing that removes all the water in the clay and makes the piece solid and porous. This is what allows it to be glazed afterwards without collapsing or breaking.</p>
         <p style={{ fontSize: "15.5px" }}><strong>Glazing, then the final firing — 1280&nbsp;°C.</strong> The piece is glazed, dried, then fired a second time at very high temperature. This is when the glaze melts, vitrifies and becomes that smooth, luminous surface. Stoneware and porcelain need this temperature to be truly durable.</p>
+        <p style={{ fontSize: "15.5px" }}>Firing and glazing are, in part, a matter of chance&nbsp;: clay and glaze react to the fire, and a piece can crack, warp or burst despite all our care. We do everything we can to limit that risk, but it is inherent to working with clay and cannot be fully guaranteed.</p>
 
         <h3 style={{ fontSize: "20px", margin: "26px 0 10px" }}>why time matters</h3>
         <ul style={{ paddingLeft: "20px", fontSize: "15.5px", lineHeight: 1.6 }}>
