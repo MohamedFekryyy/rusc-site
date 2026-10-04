@@ -1299,6 +1299,55 @@ async function horairesClose(form) {
   return { closed, skipped };
 }
 
+// ---------------------------------------------------------------- email (Resend)
+// Transactional emails go through Resend (https://api.resend.com/emails), the
+// same service Cal uses. The API key is RESEND_API_KEY (Fly secret on
+// rusc-admin); the sender domain studio-rusc.com is verified there. Sending is
+// best-effort: a failed email never blocks the action it accompanies.
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+const EMAIL_FROM = "rūsc <rrose@studio-rusc.com>";
+
+async function sendEmail(to, subject, text) {
+  if (!RESEND_API_KEY) return;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text }),
+    });
+    if (!res.ok) console.error("resend send failed", res.status, await res.text().catch(() => ""));
+  } catch (error) {
+    console.error("resend send error", error);
+  }
+}
+
+// Welcome email for a brand-new account (member or not): every signup gets it,
+// a simple hello and what the space opens. The richer "welcome member" email is
+// separate and sent only when a membership (adhesion) is bought.
+async function sendSignupWelcome(name, email) {
+  const first = String(name ?? "").split(/\s+/)[0] || "";
+  const subject = "Bienvenue à rūsc";
+  const text = [
+    `Bonjour ${first},`,
+    "",
+    "Bienvenue chez rūsc. Votre espace est prêt.",
+    "",
+    "Ce que vous pouvez faire dès maintenant :",
+    "- Réserver un cours ou un stage.",
+    "- Acheter un carnet ou un bon cadeau.",
+    "- Suivre vos réservations et vos carnets dans votre espace (studio-rusc.com → Connexion).",
+    "",
+    "Vous souhaitez aller plus loin ? L'atelier libre vous attend : un espace en autonomie, réservé aux membres, après une initiation de deux heures.",
+    "",
+    "À très vite, les mains dans la terre.",
+    "",
+    "Lena · Studio rūsc",
+    "99 Promenade Marie-Paradis · 74400 Chamonix-Mont-Blanc",
+    "studio-rusc.com · @studiorusc",
+  ].join("\n");
+  await sendEmail(email, subject, text);
+}
+
 // ---------------------------------------------------------------- member accounts
 // The site's Connexion page (lib/auth.ts): sign up, sign in, the member's
 // space (membership, codes, bookings). Passwords are kept as scrypt hashes,
@@ -1415,6 +1464,8 @@ async function authApi(req, url) {
       [email, name, await hashPassword(password)],
     );
     if (!created.rowCount) return [409, { error: "email_taken" }];
+    // Welcome email (best-effort, never blocks the signup) to every new account.
+    sendSignupWelcome(created.rows[0].name, created.rows[0].email);
     return [200, { token: await newToken(created.rows[0].id, "session", days), user: await publicUser(created.rows[0]) }];
   }
   if (path === "/login") {

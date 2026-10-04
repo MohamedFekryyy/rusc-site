@@ -4,6 +4,8 @@ export const EMAIL = "info@studio-rusc.com";
 // Studio contact line (Lena).
 export const PHONE = "+33 7 82 73 96 97";
 export const PHONE_HREF = "tel:+33782739697";
+// WhatsApp direct link (wa.me) with a pre-filled greeting.
+export const WHATSAPP_HREF = "https://wa.me/33782739697?text=" + encodeURIComponent("Bonjour rūsc, je vous écris depuis le site.");
 export const INSTAGRAM = "https://www.instagram.com/studiorusc";
 export const INSTAGRAM_HANDLE = "@studiorusc";
 
