@@ -325,6 +325,12 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       const key = adder?.dataset.cart;
       if (adder && isOfferKey(key)) {
         event.preventDefault();
+        // Members-only offers (open studio passes) can't be added by a guest.
+        const gatedKey = offerByKey(key);
+        if (gatedKey && gatedKey.tone === "member" && key !== "adhesion" && !member?.member) {
+          setToast(t.membersOnlyTitle);
+          return;
+        }
         const bounds = amountBounds(key);
         if (bounds) {
           // A gift voucher of any amount: the field beside the button, in whole euros.
