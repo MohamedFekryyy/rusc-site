@@ -1,7 +1,7 @@
 import Image, { type StaticImageData } from "next/image";
 import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, Wine, type LucideIcon } from "lucide-react";
 import type { Offer, OfferKey } from "@/lib/cal";
-import { bookingHref, type Lang } from "@/lib/routes";
+import { bookingHref, PAGES, type Lang } from "@/lib/routes";
 import atelier01 from "@/assets/photos/atelier-01.jpg";
 import atelier03 from "@/assets/photos/atelier-03.jpg";
 import atelier04 from "@/assets/photos/atelier-04.jpg";
@@ -48,12 +48,24 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
 
 const AMOUNT_LABEL = { fr: "Montant en euros", en: "Amount in euros" };
 
+// Members-only notice / CTA for an open-studio card shown to a non-member.
+const MEMBER_LOCK = {
+  fr: { text: "Réservé aux membres — adhérez d’abord pour réserver l’atelier libre.", cta: "Devenir membre" },
+  en: { text: "Members only — join first to book the open studio.", cta: "Become a member" },
+} as const;
+
 // One offer on the booking page, styled like the cards of the Cours and
 // Stages pages. Workshops open their booker; cards, membership and gift
 // vouchers go straight to the cart.
-export default function OfferCard({ offer, lang }: { offer: Offer; lang: Lang }) {
+//
+// `isMember` gates the members-only offers (atelier-libre-*): for a
+// non-member the button is replaced by a "members only" notice linking to the
+// membership page. The membership offer itself (adhesion, tone "member") is
+// always clickable — it's how a visitor becomes a member.
+export default function OfferCard({ offer, lang, isMember }: { offer: Offer; lang: Lang; isMember: boolean }) {
   const { image, icon: Icon } = MEDIA[offer.key];
   const t = offer[lang];
+  const membersOnly = offer.tone === "member" && offer.key !== "adhesion" && !isMember;
   return (
     <article className="card">
       <Image className="thumb" src={image} alt="" sizes="(max-width: 640px) 100vw, 360px" />
@@ -63,7 +75,14 @@ export default function OfferCard({ offer, lang }: { offer: Offer; lang: Lang })
       </p>
       <h3>{t.title}</h3>
       <p className="price">{t.unit}</p>
-      {offer.kind === "product" && "amount" in offer ? (
+      {membersOnly ? (
+        <div style={{ textAlign: "left" }}>
+          <p style={{ color: "var(--muted)", fontSize: "14px", margin: "0 0 12px" }}>{MEMBER_LOCK[lang].text}</p>
+          <a className="btn member" href={PAGES.membres[lang]} style={{ display: "inline-block", padding: "9px 16px", fontSize: "12px" }}>
+            {MEMBER_LOCK[lang].cta}
+          </a>
+        </div>
+      ) : offer.kind === "product" && "amount" in offer ? (
         // A gift voucher of any amount: BookingEmbed reads the field next to the button.
         <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, fontSize: "15px" }}>

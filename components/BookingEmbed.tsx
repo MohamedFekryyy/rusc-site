@@ -614,7 +614,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       ) : (
         <div className="grid">
           {offersIn(view).map((o) => (
-            <OfferCard key={o.key} offer={o} lang={lang} />
+            <OfferCard key={o.key} offer={o} lang={lang} isMember={!sessionKnown || !!member?.member} />
           ))}
         </div>
       )}
