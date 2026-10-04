@@ -62,6 +62,9 @@ const TEXT = {
     slotCodePart: (paid: number, rest: number) =>
       `Votre code a réglé ${paid} place${paid > 1 ? "s" : ""} ; ${rest > 1 ? `les ${rest} autres sont` : "l’autre est"} dans votre panier.`,
     slotCodeFailed: "Votre code n’a pas pu être utilisé : la séance est dans votre panier.",
+    membersOnlyTitle: "Réservé aux membres",
+    membersOnlyBody: "L’atelier libre est réservé aux membres. Adhérez d’abord (50 € / an), connectez-vous, puis revenez réserver.",
+    membersOnlyCta: "Devenir membre",
   },
   en: {
     tabs:{ schedule: "Courses & workshops", catalog: "Membership & cards", gifts: "Gift vouchers" },
@@ -105,6 +108,9 @@ const TEXT = {
     slotCodePart: (paid: number, rest: number) =>
       `Your code paid for ${paid} place${paid > 1 ? "s" : ""}; the other${rest > 1 ? ` ${rest} are` : " is"} in your cart.`,
     slotCodeFailed: "Your code couldn’t be used: the class is in your cart.",
+    membersOnlyTitle: "Members only",
+    membersOnlyBody: "Open studio is for members only. Join first (€50 / year), sign in, then come back to book.",
+    membersOnlyCta: "Become a member",
   },
 };
 
@@ -266,25 +272,31 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   // A signed-in member (Connexion page): their name and e-mail are filled in
   // Cal's booker, so the booking shows in their space.
   const [member, setMember] = useState<AuthUser | null>(null);
+  // Whether the session is known to be settled (member or not) yet: while
+  // empty, the booker for a members-only offer must not mount.
+  const [sessionKnown, setSessionKnown] = useState(false);
   useEffect(() => {
     let alive = true;
     getSession()
       .then((user) => {
-        if (alive && user) setMember(user);
+        if (alive) { if (user) setMember(user); setSessionKnown(true); }
       })
-      .catch(() => undefined);
+      .catch(() => { if (alive) setSessionKnown(true); });
     return () => {
       alive = false;
     };
   }, []);
+  // Title of the offer just added to the cart (confirmation toast).
+  const [toast, setToast] = useState<string | null>(null);
+  const offer = offerKey ? offerByKey(offerKey) : undefined;
+  // Members-only offers (open studio) require an active membership to book.
+  const memberGated = offer ? offer.tone === "member" && offer.key !== "adhesion" : false;
+  const needsMember = memberGated && sessionKnown && !member?.member;
   const [codeBusy, setCodeBusy] = useState(false);
   // The code as the Cal callbacks see it, and the booking the first success
   // event already handled (Cal then sends a second one for the same booking).
   const codeRef = useRef<string | null>(null);
   const handledRef = useRef<string | null>(null);
-  // Title of the offer just added to the cart (confirmation toast).
-  const [toast, setToast] = useState<string | null>(null);
-  const offer = offerKey ? offerByKey(offerKey) : undefined;
 
   useEffect(() => {
     function open(next: BookingView, key?: string | null) {
@@ -352,7 +364,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   // Mount the Cal.com booker of the chosen offer.
   useEffect(() => {
     const host = hostRef.current;
-    if (!offer || offer.kind !== "session" || !host) return;
+    // Members-only sessions (open studio) don't mount for a non-member: the
+    // members-only notice is shown instead (needsMember above).
+    if (!offer || offer.kind !== "session" || !host || (memberGated && needsMember)) return;
     const cal = getCal();
     const ns = `rusc${++namespaces}`;
     activeNs.current = ns;
@@ -552,7 +566,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               )}
             </div>
           )}
-          {offer.kind === "product" ? (
+          {needsMember ? (
+            <div key="members-only" style={{ textAlign: "center", padding: "48px 20px" }}>
+              <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "14px" }}>
+                {t.membersOnlyTitle}
+              </p>
+              <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 20px" }}>{t.membersOnlyBody}</p>
+              <a className="btn member" href={PAGES.membres[lang]} style={{ display: "inline-block", padding: "10px 20px" }}>
+                {t.membersOnlyCta}
+              </a>
+            </div>
+          ) : offer.kind === "product" ? (
             <div key="product" style={productBox}>
               <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "10px" }}>
                 {offer[lang].tag}
