@@ -93,7 +93,7 @@ export default function AuthForm({ lang, resetToken }: { lang: Lang; resetToken?
     setBusy(true);
     try {
       if (mode === "reset" && resetToken) await resetPassword(resetToken, password, remember);
-      else if (mode === "signup") await signUp(nom.trim(), email.trim(), password, remember);
+      else if (mode === "signup") await signUp(nom.trim(), email.trim(), password, remember, lang);
       else await logIn(email.trim(), password, remember);
       if (mode === "reset") window.history.replaceState(null, "", window.location.pathname);
     } catch (e) {

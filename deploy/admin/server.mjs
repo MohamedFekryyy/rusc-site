@@ -1323,29 +1323,49 @@ async function sendEmail(to, subject, text) {
 
 // Welcome email for a brand-new account (member or not): every signup gets it,
 // a simple hello and what the space opens. The richer "welcome member" email is
-// separate and sent only when a membership (adhesion) is bought.
-async function sendSignupWelcome(name, email) {
+// separate and sent only when a membership (adhesion) is bought. Sent in the
+// language the visitor used to sign up (fr or en).
+async function sendSignupWelcome(name, email, lang) {
   const first = String(name ?? "").split(/\s+/)[0] || "";
-  const subject = "Bienvenue à rūsc";
-  const text = [
-    `Bonjour ${first},`,
-    "",
-    "Bienvenue chez rūsc. Votre espace est prêt.",
-    "",
-    "Ce que vous pouvez faire dès maintenant :",
-    "- Réserver un cours ou un stage.",
-    "- Acheter un carnet ou un bon cadeau.",
-    "- Suivre vos réservations et vos carnets dans votre espace (studio-rusc.com → Connexion).",
-    "",
-    "Vous souhaitez aller plus loin ? L'atelier libre vous attend : un espace en autonomie, réservé aux membres, après une initiation de deux heures.",
-    "",
-    "À très vite, les mains dans la terre.",
-    "",
-    "Lena · Studio rūsc",
-    "99 Promenade Marie-Paradis · 74400 Chamonix-Mont-Blanc",
-    "studio-rusc.com · @studiorusc",
-  ].join("\n");
-  await sendEmail(email, subject, text);
+  const en = String(lang ?? "").toLowerCase() === "en";
+  const subject = en ? "Welcome to rūsc" : "Bienvenue à rūsc";
+  const signature = en
+    ? ["Lena · Studio rūsc", "99 Promenade Marie-Paradis · 74400 Chamonix-Mont-Blanc", "studio-rusc.com · @studiorusc"]
+    : ["Lena · Studio rūsc", "99 Promenade Marie-Paradis · 74400 Chamonix-Mont-Blanc", "studio-rusc.com · @studiorusc"];
+  const text = en
+    ? [
+        `Hello ${first},`,
+        "",
+        "Welcome to rūsc. Your space is ready.",
+        "",
+        "What you can do right away:",
+        "- Book a class or a workshop.",
+        "- Buy a card or a gift voucher.",
+        "- Follow your bookings and cards in your space (studio-rusc.com → Log in).",
+        "",
+        "Want to go further? The open studio awaits: a space in autonomy, reserved for members, after a two-hour initiation.",
+        "",
+        "See you soon, hands in the clay.",
+        "",
+        ...signature,
+      ]
+    : [
+        `Bonjour ${first},`,
+        "",
+        "Bienvenue chez rūsc. Votre espace est prêt.",
+        "",
+        "Ce que vous pouvez faire dès maintenant :",
+        "- Réserver un cours ou un stage.",
+        "- Acheter un carnet ou un bon cadeau.",
+        "- Suivre vos réservations et vos carnets dans votre espace (studio-rusc.com → Connexion).",
+        "",
+        "Vous souhaitez aller plus loin ? L'atelier libre vous attend : un espace en autonomie, réservé aux membres, après une initiation de deux heures.",
+        "",
+        "À très vite, les mains dans la terre.",
+        "",
+        ...signature,
+      ];
+  await sendEmail(email, subject, text.join("\n"));
 }
 
 // ---------------------------------------------------------------- member accounts
@@ -1464,8 +1484,11 @@ async function authApi(req, url) {
       [email, name, await hashPassword(password)],
     );
     if (!created.rowCount) return [409, { error: "email_taken" }];
-    // Welcome email (best-effort, never blocks the signup) to every new account.
-    sendSignupWelcome(created.rows[0].name, created.rows[0].email);
+    // Welcome email (best-effort, never blocks the signup) in the visitor's
+    // interface language, sent to every new account.
+    const wantsEn = String(input.lang ?? "").toLowerCase() === "en";
+    const cookieEn = /(?:^|;\s*)rusc_lang=en(?:;|$)/.test(req.headers.cookie ?? "");
+    sendSignupWelcome(created.rows[0].name, created.rows[0].email, wantsEn || cookieEn ? "en" : "fr");
     return [200, { token: await newToken(created.rows[0].id, "session", days), user: await publicUser(created.rows[0]) }];
   }
   if (path === "/login") {

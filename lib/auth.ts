@@ -115,8 +115,8 @@ async function signIn(path: string, body: Record<string, unknown>, remember: boo
   return result;
 }
 
-export const signUp = (name: string, email: string, password: string, remember = true) =>
-  signIn("/signup", { name, email, password }, remember);
+export const signUp = (name: string, email: string, password: string, remember = true, lang?: string) =>
+  signIn("/signup", { name, email, password, ...(lang ? { lang } : {}) }, remember);
 
 export const logIn = (email: string, password: string, remember = true) => signIn("/login", { email, password }, remember);
 
