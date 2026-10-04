@@ -120,6 +120,9 @@ export default function CartView({ lang }: { lang: Lang }) {
   // cart (and held), so nothing is lost.
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pay") === "1") {
+      // Once, after hydration: the server can't see ?pay=1, so reading it in
+      // useState would mismatch the prerendered cart.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStage(PUBLISHABLE_KEY ? "checkout" : "unavailable");
     }
   }, []);
