@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { gilda, jost } from "../fonts";
+import KeepPlace from "@/components/KeepPlace";
 import SmoothScroll from "@/components/SmoothScroll";
 import { SITE_URL } from "@/lib/site";
 import "@/styles/globals.css";
@@ -17,6 +18,7 @@ export default function FrenchLayout({ children }: { children: ReactNode }) {
       <body>
         <SmoothScroll />
         {children}
+        <KeepPlace />
       </body>
     </html>
   );

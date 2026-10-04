@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, type MouseEvent } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
 import { AUTH_EVENT, getToken } from "@/lib/auth";
 import { cartCount, useCart } from "@/lib/cart";
-import { BOOKING, CART, HOME, LOGIN, PAGES, type Lang, type PageKey } from "@/lib/routes";
+import { savePlace } from "@/lib/keepPlace";
+import { BOOKING, CART, HOME, LOGIN, PAGES, TERMS, type Lang, type PageKey } from "@/lib/routes";
 
-export type NavPage = "home" | "booking" | "cart" | "connexion" | PageKey;
+export type NavPage = "home" | "booking" | "cart" | "connexion" | "terms" | PageKey;
 
 // Menu order (validated by Raquel): Ūs · Espace membre · Cours · Stages ·
 // Privatisation · Résidence d'artiste · Expo · Cuisson · Contact.
@@ -94,7 +95,13 @@ export default function Header({ lang, page }: Props) {
   const labels = LABELS[lang];
   const cta = CTA[lang];
   // FR/EN switch keeps you on the same page when possible.
-  const same = page === "home" ? HOME : page === "booking" ? BOOKING : page === "cart" ? CART : page === "connexion" ? LOGIN : PAGES[page];
+  const same =
+    page === "home" ? HOME
+    : page === "booking" ? BOOKING
+    : page === "cart" ? CART
+    : page === "connexion" ? LOGIN
+    : page === "terms" ? TERMS
+    : PAGES[page];
   // On the booking page, keep the selected tab or offer across the switch
   // (?view=… / ?workshop=…), so the customer lands on the same product.
   // Read reactively from the URL (SSR has no window; client reads after hydration).
@@ -109,6 +116,8 @@ export default function Header({ lang, page }: Props) {
   const enHref = same.en + bookingQuery;
   const count = cartCount(useCart());
   const close = () => setOpen(false);
+  // ...and at the same place on it (lib/keepPlace.ts).
+  const keepPlace = (event: MouseEvent<HTMLAnchorElement>) => savePlace(event.currentTarget.href);
 
   return (
     <>
@@ -138,8 +147,8 @@ export default function Header({ lang, page }: Props) {
         {/* Right: lang switch + login + cart + Réserver (Réserver far right) */}
         <div className="nav-right">
           <span className="lang lang-top">
-            <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
-            <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
+            <a href={frHref} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
+            <a href={enHref} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
           </span>
           {/* Login / account: the sign-in page, or the member's space once signed in. */}
           <a className="auth" href={LOGIN[lang]}>
@@ -177,8 +186,8 @@ export default function Header({ lang, page }: Props) {
           ))}
         </nav>
         <span className="lang">
-          <a href={frHref} className={lang === "fr" ? "on" : undefined}>FR</a>
-          <a href={enHref} className={lang === "en" ? "on" : undefined}>EN</a>
+          <a href={frHref} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
+          <a href={enHref} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
         </span>
       </div>
       {open && <div className="panel-scrim" onClick={close} />}

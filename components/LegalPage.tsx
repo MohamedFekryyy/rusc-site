@@ -18,7 +18,7 @@ type Props = {
 export default function LegalPage({ home, back, lang, children }: Props) {
   return (
     <>
-      <Header lang={lang} page="home" />
+      <Header lang={lang} page="terms" />
 
       <main className="legal">
         {children}
