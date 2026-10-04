@@ -82,6 +82,13 @@ export async function POST(request: Request) {
     const offer = typeof key === "string" ? offerByKey(key) : undefined;
     if (!offer) return bad("unknown_item");
 
+    // Members-only offers (open studio slots/passes, except the membership
+    // itself which anyone can buy): a non-member cannot put them in a cart.
+    // The browser's flag is never trusted — membership is resolved server-side.
+    if (offer.tone === "member" && offer.key !== "adhesion" && !isMember) {
+      return bad("members_only");
+    }
+
     // Whether this line is discounted: members get -10% on sessions and
     // carnets (never on the membership itself, nor on gift vouchers).
     const discounted = isMember && memberDiscountable(offer.key);

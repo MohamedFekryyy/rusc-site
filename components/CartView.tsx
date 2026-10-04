@@ -45,6 +45,8 @@ const TEXT = {
     full: "Il n’y a plus de place libre dans ce cours.",
     released: (title: string) => `« ${title} » n’a pas été payé à temps : la place a été libérée. Vous pouvez la réserver à nouveau.`,
     placesGone: "Une place de votre panier vient d’être libérée : vérifiez le panier, puis payez.",
+    membersOnly: "L’atelier libre est réservé aux membres. Adhérez d’abord (50 € / an), puis revenez réserver.",
+    membersOnlySeat: "Ce créneau est réservé aux membres : retirez-le du panier pour continuer.",
   },
   en: {
     empty: "Your cart is empty.",
@@ -79,6 +81,8 @@ const TEXT = {
     full: "There are no free places left in this class.",
     released: (title: string) => `“${title}” wasn’t paid in time, so the place was freed. You can book it again.`,
     placesGone: "A place in your cart was just freed: check your cart, then pay.",
+    membersOnly: "Open studio is for members only. Join first (€50 / year), then come back to book.",
+    membersOnlySeat: "This slot is members-only: remove it from your cart to continue.",
   },
 };
 
@@ -201,6 +205,17 @@ export default function CartView({ lang }: { lang: Lang }) {
               setNotice(t.placesGone);
               setStage("cart");
               setRefresh((n) => n + 1);
+            }
+            // A members-only item (open studio) in the cart of a non-member.
+            if (res.status === 400) {
+              let err = "";
+              try { err = ((await res.json()) as { error?: string }).error ?? ""; } catch { err = ""; }
+              if (err === "members_only") {
+                cancelled = true;
+                setNotice(items.some((i) => offerByKey(i.key)?.kind === "session") ? t.membersOnlySeat : t.membersOnly);
+                setStage("cart");
+                setRefresh((n) => n + 1);
+              }
             }
             if (!res.ok) throw new Error(`checkout ${res.status}`);
             const data = (await res.json()) as { clientSecret: string; id: string; codeCovered: { code: string; cents: number } | null };

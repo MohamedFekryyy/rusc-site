@@ -16,12 +16,14 @@ export function memberDiscountEnabled(): boolean {
   return MEMBER_DISCOUNT_PERCENT > 0;
 }
 
-// Which offers the discount applies to: sessions (classes, stages) and carnets.
-// Membership itself (adhesion) and gift vouchers (bon-cadeau-*) keep their
-// price — a member gets 10% off their classes, not off renewing membership or
-// off a voucher bought for someone else.
+// Which offers the discount applies to: everything a member buys EXCEPT
+// open studio (atelier-libre-*, members-only), the membership itself
+// (adhesion) and gift vouchers (bon-cadeau-*). A member gets 10% off their
+// classes, carnets and stages — not off open studio, renewing membership, or
+// a voucher bought for someone else.
 export function memberDiscountable(key: OfferKey): boolean {
   if (key === "adhesion") return false;
+  if (key.startsWith("atelier-libre-")) return false;
   return !key.startsWith("bon-cadeau-");
 }
 
