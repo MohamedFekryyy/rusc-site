@@ -291,7 +291,11 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const offer = offerKey ? offerByKey(offerKey) : undefined;
   // Members-only offers (open studio) require an active membership to book.
   const memberGated = offer ? offer.tone === "member" && offer.key !== "adhesion" : false;
-  const needsMember = memberGated && sessionKnown && !member?.member;
+  // While the session hasn't resolved yet, treat members-only offers as gated
+  // (do NOT mount the booker): a non-member could otherwise grab a slot before
+  // getSession() returns. needsMember turns false only once we know the visitor
+  // is an active member.
+  const needsMember = memberGated && !member?.member;
   const [codeBusy, setCodeBusy] = useState(false);
   // The code as the Cal callbacks see it, and the booking the first success
   // event already handled (Cal then sends a second one for the same booking).
