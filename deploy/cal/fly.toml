@@ -20,7 +20,7 @@ swap_size_mb = 1024
   # start.sh waits for this address before running the migrations.
   DATABASE_HOST = "rusc-cal-db.internal:5432"
   # Booking emails go through Resend; its API key is a secret (EMAIL_SERVER_PASSWORD).
-  EMAIL_FROM = "rrose@studio-rusc.com"
+  EMAIL_FROM = "info@studio-rusc.com"
   EMAIL_FROM_NAME = "rūsc"
   EMAIL_SERVER_HOST = "smtp.resend.com"
   EMAIL_SERVER_PORT = "465"

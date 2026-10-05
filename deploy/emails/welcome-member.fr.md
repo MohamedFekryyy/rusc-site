@@ -1,6 +1,6 @@
 # Bienvenue membre (FR)
 
-Expéditeur : rūsc · rrose@studio-rusc.com
+Expéditeur : rūsc · info@studio-rusc.com
 Objet : Bienvenue à rūsc — votre adhésion est active
 
 ---

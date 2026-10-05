@@ -8,7 +8,7 @@ their wording; the actual sending is wired in the code noted under each one.
 | `confirmation-booking-payment` | A booking is paid (Stripe) or confirmed (code/voucher) | Cal.diy → Resend | Cal.diy i18n strings (already patched "meeting"→"class" in `deploy/cal/patches/rusc-wording.patch`); SMTP config in `deploy/cal/fly.toml` |
 | `welcome-member` | A membership (`adhesion`) is paid | rusc-admin → Resend | `deploy/admin/server.mjs` — `recordOrder`, the `adhesion` branch |
 
-Both are sent from `rrose@studio-rusc.com` ("rūsc") through Resend
+Both are sent from `info@studio-rusc.com` ("rūsc") through Resend
 (`smtp.resend.com:465`). Nothing actually sends until `studio-rusc.com` is
 authenticated in Resend and its DNS records (SPF/DKIM/DMARC) are live at
 Squarespace — see `deploy/cal/README.md` § "Emails (Resend)".

@@ -231,6 +231,10 @@ CREATE TABLE IF NOT EXISTS rusc.holds (
   expires_at timestamptz NOT NULL,
   released_at timestamptz              -- freed: ran out, or removed from the cart
 );
+CREATE TABLE IF NOT EXISTS rusc.unsubscribed (
+  email text PRIMARY KEY,               -- lower(email), refusé du mailing
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS holds_open ON rusc.holds (expires_at) WHERE released_at IS NULL;
 
 RESET ROLE;

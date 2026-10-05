@@ -1305,7 +1305,7 @@ async function horairesClose(form) {
 // rusc-admin); the sender domain studio-rusc.com is verified there. Sending is
 // best-effort: a failed email never blocks the action it accompanies.
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const EMAIL_FROM = "rūsc <rrose@studio-rusc.com>";
+const EMAIL_FROM = "rūsc <info@studio-rusc.com>";
 
 async function sendEmail(to, subject, text) {
   if (!RESEND_API_KEY) return;
@@ -1929,6 +1929,14 @@ async function handle(req, res, url) {
       return send(res, 303, "", { location: target, "set-cookie": `rusc_lang=${to}; Path=/; Secure; SameSite=Lax; Max-Age=31536000` });
     }
     if (url.pathname === "/health") return send(res, 200, { ok: true });
+    // Mailing opt-out: a link from our emails removes that address. Public, no auth.
+    if (url.pathname === "/unsubscribe") {
+      const em = String(url.searchParams.get("email") ?? "").trim().toLowerCase();
+      if (EMAIL.test(em)) {
+        await db.query("INSERT INTO rusc.unsubscribed (email) VALUES ($1) ON CONFLICT (email) DO NOTHING", [em]);
+      }
+      return send(res, 200, page(tr("Désinscription", "Unsubscribed"), `<h1 class="brand">${brand(20)}</h1><p>${tr("Vous ne recevrez plus ces messages. Merci.", "You will no longer receive these messages. Thank you.")}</p>`));
+    }
     // Cal's cron loop calls this every few minutes (deploy/cal/cron.sh): it
     // wakes rūsc admin, which then frees unpaid places whose hold ran out.
     if (url.pathname === "/tasks/release-places") {

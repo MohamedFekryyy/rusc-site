@@ -1,6 +1,6 @@
 # Welcome, member (EN)
 
-From: rūsc · rrose@studio-rusc.com
+From: rūsc · info@studio-rusc.com
 Subject: Welcome to rūsc — your membership is active
 
 ---

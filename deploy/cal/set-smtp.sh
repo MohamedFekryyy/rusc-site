@@ -1,7 +1,7 @@
 #!/bin/sh
 # Saves Resend's API key in the booking server (Fly app rusc-cal), so Cal
 # sends its booking e-mails (confirmations, cancellations, review requests)
-# from rrose@studio-rusc.com (fly.toml). Run it yourself:
+# from info@studio-rusc.com (fly.toml). Run it yourself:
 #   sh deploy/cal/set-smtp.sh
 #
 # Resend → API Keys. Create an API key (re_...). It doubles as the SMTP

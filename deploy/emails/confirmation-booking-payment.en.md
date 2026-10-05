@@ -1,6 +1,6 @@
 # Confirmation — booking + payment (EN)
 
-From: rūsc · rrose@studio-rusc.com
+From: rūsc · info@studio-rusc.com
 Subject: Your booking at rūsc is confirmed
 
 ---
@@ -21,7 +21,7 @@ _(block shown only when a Stripe charge was made)_
 
 ---
 
-Cancel or reschedule free of charge: write to rrose@studio-rusc.com at least 24 h in advance.
+Cancel or reschedule free of charge: write to info@studio-rusc.com at least 24 h in advance.
 
 rūsc · Chamonix
 @studiorusc

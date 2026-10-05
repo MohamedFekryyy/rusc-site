@@ -1,6 +1,6 @@
 # Confirmation — réservation + paiement (FR)
 
-Expéditeur : rūsc · rrose@studio-rusc.com
+Expéditeur : rūsc · info@studio-rusc.com
 Objet : Votre réservation chez rūsc est confirmée
 
 ---
@@ -21,7 +21,7 @@ _(bloc affiché uniquement si un paiement Stripe a été encaissé)_
 
 ---
 
-Annuler ou reporter sans frais : écrivez-nous à rrose@studio-rusc.com au moins 24 h à l'avance.
+Annuler ou reporter sans frais : écrivez-nous à info@studio-rusc.com au moins 24 h à l'avance.
 
 rūsc · Chamonix
 @studiorusc
