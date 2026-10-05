@@ -563,13 +563,17 @@ const IMPORT_ORIGIN = "https://secure.acuityscheduling.com";
 const SITE_ORIGIN = process.env.SITE_ORIGIN ?? "https://rusc-preview.vercel.app";
 
 // Stripe's signature: header "t=<time>,v1=<hex>…", HMAC-SHA256 of "<t>.<body>".
-function stripeEvent(body, header) {
-  if (!WEBHOOK_SECRET || !header) return null;
+// Stripe's signature check; `problem` says why a delivery is refused (for the log).
+function stripeCheck(body, header) {
+  if (!WEBHOOK_SECRET) return { problem: "no STRIPE_WEBHOOK_SECRET set" };
+  if (!header) return { problem: "no Stripe-Signature header" };
   const time = header.match(/(?:^|,)t=(\d+)/)?.[1];
   const signatures = [...header.matchAll(/(?:^|,)v1=([0-9a-f]+)/g)].map((m) => m[1]);
-  if (!time || !signatures.length || Math.abs(Date.now() / 1000 - Number(time)) > 300) return null;
+  if (!time || !signatures.length) return { problem: "malformed Stripe-Signature header" };
+  if (Math.abs(Date.now() / 1000 - Number(time)) > 300) return { problem: "timestamp older than 5 minutes" };
   const expected = createHmac("sha256", WEBHOOK_SECRET).update(`${time}.${body}`).digest("hex");
-  return signatures.some((signature) => sameText(signature, expected)) ? JSON.parse(body) : null;
+  if (!signatures.some((signature) => sameText(signature, expected))) return { problem: "signature doesn't match STRIPE_WEBHOOK_SECRET" };
+  return { event: JSON.parse(body) };
 }
 
 const addMonths = (months) => {
@@ -1948,8 +1952,14 @@ async function handle(req, res, url) {
 
     if (url.pathname === "/stripe/webhook" && req.method === "POST") {
       const body = await readBody(req, 512 * 1024);
-      const event = stripeEvent(body, req.headers["stripe-signature"]);
-      if (!event) return send(res, 400, { ok: false });
+      // One log line per delivery (event id and type, never customer data),
+      // so `fly logs -a rusc-admin` shows whether Stripe reaches us and why not.
+      const { event, problem } = stripeCheck(body, req.headers["stripe-signature"]);
+      if (!event) {
+        console.log(`stripe webhook refused: ${problem}`);
+        return send(res, 400, { ok: false });
+      }
+      console.log(`stripe webhook ${event.id} ${event.type} ${event.livemode ? "live" : "test"}`);
       if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
         await recordOrder(event.data.object);
       } else if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
