@@ -1306,6 +1306,7 @@ async function horairesClose(form) {
 // best-effort: a failed email never blocks the action it accompanies.
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const EMAIL_FROM = "rūsc <info@studio-rusc.com>";
+const REPLY_TO = "info@studio-rusc.com";
 
 async function sendEmail(to, subject, text) {
   if (!RESEND_API_KEY) return;
@@ -1313,7 +1314,7 @@ async function sendEmail(to, subject, text) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text }),
+      body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text, reply_to: REPLY_TO }),
     });
     if (!res.ok) console.error("resend send failed", res.status, await res.text().catch(() => ""));
   } catch (error) {
