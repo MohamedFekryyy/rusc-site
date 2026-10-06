@@ -35,7 +35,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
 Keep this section current; the migration log below keeps the history.
 
 **Live**
-- **Site:** https://rusc-preview.vercel.app (Vercel, built from `main`).
+- **Site:** https://studio-rusc.com and www (on Vercel, checked 2026-10-06: `server: Vercel`, today's build), also https://rusc-preview.vercel.app; built from `main`. Whether the other switch-day steps were done (Acuity imports re-run, Acuity stopped) isn't recorded here: ask the owner.
 - **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`) at https://booking.studio-rusc.com (the site's `NEXT_PUBLIC_CAL_ORIGIN`), one event type per class, embedded in the booking pages. Bookable until 30 minutes after a class starts (step 28). The booker follows the page's language, French in 24-hour time (step 34).
 - **Places** (step 34): a class booked on the site goes to the cart, its places held 30 minutes (40 while paying), then freed unless paid. "Nombre de places" in the booker and + / − in the cart add or remove places for friends, up to the class's seats; "Retirer" frees them at once. Payment is per place (`rusc.paid_seats`, codes, Acuity).
 - **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`. Until 2026-10-03 the webhook failed on any cart with a class (step 34); no real order had been paid yet.
@@ -59,10 +59,7 @@ Keep this section current; the migration log below keeps the history.
 - **A small real purchase** in the live cart, then a refund in Stripe: a 10 € gift voucher, and one class. It checks payment, webhook, Commandes, the paid place in Cours and the code on the thank-you screen.
 - **Booking emails (Resend):** the key in `rusc-cal` is valid, but studio-rusc.com isn't verified in Resend yet: add its 4 DNS records at Squarespace. Until then every Cal e-mail fails (logged, nothing sent). The sender is `EMAIL_FROM` in `deploy/cal/fly.toml`, now `rrose@studio-rusc.com`: pick the studio's address before e-mails go out.
 - **One booking to check:** tournage, 22 October, unpaid, made on 3 October under a business address (not Gmail). It doesn't expire on its own. The 11 other unpaid test bookings of 2–3 October were freed on 2026-10-03 (owner's decision).
-- **Domains, at switch time:**
-  - studio-rusc.com on Vercel;
-  - optionally `booking.` and `admin.` on Fly;
-  - then `SITE_ORIGIN` in `deploy/admin/fly.toml`.
+- **Domains:** studio-rusc.com is on Vercel (done), `booking.` serves Cal, and `SITE_ORIGIN` in `deploy/admin/fly.toml` is already `https://studio-rusc.com`. Optional: `admin.` on Fly.
 - **Acuity key:** reset it in Acuity after the switch. Its copies in Vercel were removed (step 33).
 
 **Decisions for Raquel**
