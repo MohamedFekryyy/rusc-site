@@ -844,4 +844,7 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - no console errors.
 
   Not tried: a booking through the live Cal booker. It needs a member account on the live site, which agents don't create; the first one is the studio's or a member's.
+- **Deployed** (`d52beef8`): rūsc admin on Fly first, then the site (Vercel success).
+  - Live, rūsc admin's `/health`, `/api/classes` and `/api/places` answer 200, and a hold with `hours` for an unknown seat answers `gone` as before.
+  - The live booking page loads the picker's code. As a visitor it shows the members-only notice (no picker, as meant), with no console errors.
 
