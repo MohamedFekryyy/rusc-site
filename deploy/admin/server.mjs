@@ -1163,6 +1163,59 @@ async function coursDay(day) {
   );
 }
 
+// ---------------------------------------------------------------- Calendrier équipe (.ics)
+// A calendar feed the team adds once to their phone (Google / iPhone) so every
+// booking shows with the student's name and contact details, like the old
+// Acuity system. Each event is one booked seat; the description holds phone,
+// email and how they paid. Served authenticated at /admin/cal.ics.
+
+const icsEscape = (s) => String(s ?? "").replace(/[\\;,]/g, (c) => ({ "\\": "\\\\", ";": "\\;", ",": "\\," })[c]).replace(/\n/g, "\\n");
+const icsStamp = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+async function calFeed() {
+  const from = parisToday();
+  const to = addDays(from, 90);
+  const rows = await db.query(
+    `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, b."endTime" AT TIME ZONE 'UTC' AS ends,
+            e.slug, e.title, a.name, a.email, a."phoneNumber" AS phone,
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit,
+            ps.order_id AS paid_order, x.pay AS acuity_pay
+       FROM public."Booking" b
+       JOIN public."EventType" e ON e.id = b."eventTypeId"
+       JOIN public."Attendee" a ON a."bookingId" = b.id
+       LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
+       LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
+       LEFT JOIN rusc.codes c ON c.key = u.key
+       LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
+       LEFT JOIN rusc.acuity_seats x ON x.seat_uid = s."referenceUid"
+      WHERE b.status IN ('accepted', 'pending')
+        AND b."startTime" AT TIME ZONE 'UTC' >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
+        AND b."startTime" AT TIME ZONE 'UTC' < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
+      ORDER BY 1, a.name`,
+    [from, to],
+  );
+  const events = rows.rows.map((r) => {
+    const start = new Date(r.starts);
+    const end = new Date(r.ends);
+    const title = OFFERS[r.slug] ? offerLabel(r.slug) : r.title;
+    const pay = r.code
+      ? `Code ${r.code}`
+      : r.paid_order ? "Payé en ligne" : r.acuity_pay ? "Payé (Acuity)" : "En attente de paiement";
+    const desc = [`Élève : ${r.name || "—"}`, `Téléphone : ${r.phone || "—"}`, `Email : ${r.email || "—"}`, `Paiement : ${pay}`].join("\n");
+    return [
+      "BEGIN:VEVENT",
+      `UID:${r.slug || r.title}-${icsStamp(start)}-${icsEscape(r.email || r.name || "")}@rusc`,
+      `DTSTAMP:${icsStamp(new Date())}`,
+      `DTSTART:${icsStamp(start)}`,
+      `DTEND:${icsStamp(end)}`,
+      `SUMMARY:${icsEscape(title)} — ${icsEscape(r.name || "")}`,
+      `DESCRIPTION:${icsEscape(desc)}`,
+      "END:VEVENT",
+    ].join("\r\n");
+  });
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rūsc//Booking//FR", "CALSCALE:GREGORIAN", ...events, "END:VCALENDAR"].join("\r\n");
+}
+
 // ---------------------------------------------------------------- Horaires
 // The classes' hours: Cal's Availability rows of each class's schedule (one
 // schedule per class, deploy/cal/seed-classes.mjs). Weekly rows have days
@@ -2148,6 +2201,7 @@ async function handle(req, res, url) {
       }
       if (url.pathname === "/admin" || url.pathname === "/admin/") return send(res, 303, "", { location: "/admin/cours" });
       if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
+      if (url.pathname === "/admin/cal.ics") return send(res, 200, await calFeed(), { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-cache" });
       if (url.pathname === "/admin/codes") return send(res, 200, await adminHome(url));
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
