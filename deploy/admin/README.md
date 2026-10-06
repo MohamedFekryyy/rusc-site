@@ -40,6 +40,8 @@ The studio creates a class from the admin, and it works like the nine built in: 
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
 
+On a phone, list tables stack into labelled rows. Actions that change what customers can book (removing hours, closing days, pausing a code, taking a class off the site) ask for confirmation first.
+
 | | |
 |---|---|
 | Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |

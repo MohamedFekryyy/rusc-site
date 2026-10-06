@@ -701,3 +701,14 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - The French phone header squeezed the logo to 16 px and its "oser l'art" ran under the FR/EN pill: on phones the account link is an Iconsax `User` icon like the cart (named for screen readers), and the logo block clips; the logo is back to 63 px.
   - The cart's last item lost its bottom border; the Total row's line is the only one.
 - **Motion** (`styles/home.css`, all inside `prefers-reduced-motion: no-preference`): cards and section titles rise 16 px and fade in as they come on screen (a CSS scroll-driven animation, no script, ignored where unsupported); the booking page's list or chosen class fades in when it changes; "added to your cart" rises in; the member's meters fill from the left. The FR/EN crossfade is step 40's.
+
+### 43. rūsc admin: phones, quieter lists, safer actions (2026-10-06)
+- **Owner's request:** "now admin improvements". Audited every page in the local preview (`deploy/admin/preview.mjs`, made-up data; agents don't sign in to the live admin), at 390 and 1280 px.
+- **Found:** the admin was already light (no script, about 10 KB, no layout shift), but on a phone the Clients, Codes and Commandes tables ran off the screen (pages 585, 509 and 443 px wide); Cours gave every empty class a full box and squeezed how each person paid into a narrow column on phones; Horaires repeated a full "add hours" form under every class; "Retirer" took hours off the booking calendar with no confirmation; Codes put its creation form above the list the studio uses most.
+- **Changes** (`deploy/admin/server.mjs`):
+  - Phones: tables with headers stack into rows, each cell labelled with its column (a small script in `page()` copies the headers into `data-label`; empty cells are hidden); a class's people list puts the payment under each name. Every page now fits 390 px.
+  - Cours: a class nobody has booked is one quiet line; a full class says "complet · 7 / 7"; the first days read "Aujourd'hui · …" and "Demain · …".
+  - Horaires: each class's add form folds behind "+ Ajouter un horaire". Removing hours and closing days ask for confirmation (reopening doesn't).
+  - Codes: search and list first; "+ Nouveau code" unfolds the form (open when a preset or a client is given, and the preset switch keeps them); each balance has a small meter (a notch per class or hour, or a bar), also on a code's page and in a client's codes. A client's page has "+ Nouveau code" with their name and e-mail filled in. Pausing a code and taking a class off the site ask for confirmation.
+  - Polish: quiet row hover, a visible keyboard focus, saved notes and opened forms settle in (off for reduced motion).
+- **Checked** in the preview: every page at 390 and 1280 px fits and has no layout shift; FR and EN; the folds open; the confirmations are on Retirer and Fermer but not on Rouvrir; the client shortcut opens the form with the holder filled.

@@ -986,6 +986,35 @@ const STYLE = `
   fieldset.photos input:checked+img{border-color:var(--accent)}fieldset.photos input:focus-visible+img{outline:2px solid var(--ink);outline-offset:1px}
   form.box .wide{grid-column:1/-1}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}form.box h3{grid-column:1/-1;margin:6px 0 -4px;font-size:14px}
   @media (max-width:700px){.cal{display:block;border:0}.cal .dow,.cal .cell.empty,.cal .cell.out{display:none}.cal .cell{min-height:0;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--line)}.cal .cell.today{box-shadow:none}.cal .n{display:none}.cal .w{display:block;font-weight:600;margin-bottom:4px}.chip{padding:6px 8px;font-size:14px}}
+  /* Polish: quiet hover on list rows, a clear keyboard focus. */
+  tbody tr{transition:background .15s}tbody tr:hover{background:rgba(255,255,255,.55)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* Cours: a class nobody booked yet is one quiet line; a full one is flagged. */
+  .session.empty{padding:9px 14px;margin-bottom:8px}.session.empty .head{margin:0}.session.empty .head b{font-weight:500}
+  .pill.full{border-color:var(--warn);color:var(--warn)}
+  /* Forms that fold away (Horaires' "add hours", Codes' "new code"). */
+  details.add>summary,details.new>summary{cursor:pointer;color:var(--accent);font-size:14px;list-style:none;display:inline-block;margin-top:10px}
+  details.add>summary::-webkit-details-marker,details.new>summary::-webkit-details-marker{display:none}
+  details.new>summary{border:1px solid var(--accent);padding:6px 14px;margin:4px 0 0}details.new[open]>summary{margin-bottom:12px}
+  /* A code's balance at a glance: a notch per class or hour, or a bar. */
+  .meter{display:flex;gap:2px;max-width:150px;margin-top:6px}.meter i{flex:1;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--f),var(--line) var(--f))}
+  .meter-wide .meter{max-width:320px;margin:0 0 12px}
+  /* Motion: saved notes and opened forms settle in; nothing for reduced motion. */
+  @media (prefers-reduced-motion:no-preference){
+    @keyframes admin-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+    .flash,details[open]>form{animation:admin-in .3s cubic-bezier(.22,1,.36,1) both}
+  }
+  /* Phones: list tables stack into rows, each cell labelled with its column
+     (page()'s script copies the headers into data-label); a class's people
+     list puts how each paid under their name. */
+  @media (max-width:700px){
+    table:has(>thead) thead{display:none}
+    table:has(>thead),table:has(>thead) tbody,table:has(>thead) tr,table:has(>thead) td{display:block;width:100%}
+    table:has(>thead) tr{padding:10px 0;border-bottom:1px solid var(--line)}
+    table:has(>thead) td{border:0;padding:2px 0}table:has(>thead) td:empty{display:none}
+    table:has(>thead) td[data-label]:not(:first-child)::before{content:attr(data-label) " · ";color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+    table.people tr{display:block;padding:8px 0;border-bottom:1px solid var(--line)}table.people tr:last-child{border-bottom:0}table.people td{display:block;border:0;padding:3px 0}
+  }
 `;
 // Icons: Heroicons 2.2 (MIT, Tailwind Labs, heroicons.com), inlined. Only where
 // they carry meaning: a payment state, a control, a kind of contact, where a
@@ -1022,8 +1051,12 @@ const LOGO = readFileSync(new URL("./logo.webp", import.meta.url));
 const brand = (height) =>
   `<img class="logo" src="/logo.webp" alt="rūsc" width="${Math.round((height * 719) / 118)}" height="${height}"><span>admin</span>`;
 
+// Each table cell gets its column's header as data-label, for the phone
+// layout (STYLE, max-width 700px).
+const LABEL_CELLS = `document.querySelectorAll("table").forEach(function(t){var h=[].map.call(t.querySelectorAll("thead th"),function(th){return th.textContent.trim()});if(!h.length)return;t.querySelectorAll("tbody tr").forEach(function(tr){[].forEach.call(tr.children,function(td,i){if(h[i])td.setAttribute("data-label",h[i])})})})`;
+
 const page = (title, body) =>
-  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
+  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main><script>${LABEL_CELLS}</script></body></html>`;
 
 // FR · EN links: the page's own address comes back after the switch.
 function langSwitch() {
@@ -1224,7 +1257,7 @@ function payment(p) {
 
 const people = (list) =>
   list.length
-    ? `<table><tbody>${list
+    ? `<table class="people"><tbody>${list
         .map((p) => {
           // An extra place booked for a friend has no contact of its own.
           const reachable = p.email && !String(p.email).endsWith(ANONYMOUS);
@@ -1243,9 +1276,14 @@ const placesTaken = (s) => (s.seats ? `${s.people.length}/${s.seats}` : `${s.peo
 
 // One class, with its people; the calendar links to it by its id.
 const sessionId = (s) => `c${s.time.replace(":", "")}-${s.slug.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()}`;
-const sessionBox = (s) =>
-  `<div class="session" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(sessionLabel(s))}</b>
-     <span class="pill">${s.seats ? `${s.people.length} / ${s.seats} ${tr("places", "places")}` : `${s.people.length} ${tr("inscrits", "booked")}`}</span></div>${people(s.people)}</div>`;
+// A class nobody has booked yet is one quiet line; a full one says so.
+const sessionBox = (s) => {
+  const taken = s.people.length;
+  const full = s.seats && taken >= s.seats;
+  const count = s.seats ? `${taken} / ${s.seats} ${tr("places", "places")}` : `${taken} ${tr("inscrits", "booked")}`;
+  return `<div class="session${taken ? "" : " empty"}" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(sessionLabel(s))}</b>
+     <span class="pill${full ? " full" : ""}">${full ? `${tr("complet", "full")} · ` : ""}${count}</span>${taken ? "" : `<span class="muted small">${tr("personne pour l’instant", "nobody yet")}</span>`}</div>${taken ? people(s.people) : ""}</div>`;
+};
 
 // List · Calendar, at the top of Cours.
 function coursTabs(active) {
@@ -1260,13 +1298,19 @@ async function coursPage(url) {
   return coursList(url);
 }
 
+// "Aujourd’hui · mardi 6 octobre", "Demain · …", then the plain day.
+const dayTitle = (day, today) => {
+  const near = day === today ? tr("Aujourd’hui", "Today") : day === addDays(today, 1) ? tr("Demain", "Tomorrow") : "";
+  return near ? `${near} · ${weekday(noon(day))}` : weekday(noon(day));
+};
+
 // The coming days, class by class.
 async function coursList(url) {
   const days = Math.min(Math.max(Number(url.searchParams.get("jours")) || 14, 1), 60);
   const today = parisToday();
   const byDay = await loadSessions(today, addDays(today, days));
   const body = [...byDay.entries()]
-    .map(([day, list]) => `<h2 class="day">${esc(weekday(noon(day)))}</h2>${list.map(sessionBox).join("")}`)
+    .map(([day, list]) => `<h2 class="day">${esc(dayTitle(day, today))}</h2>${list.map(sessionBox).join("")}`)
     .join("");
   return shell(
     "cours",
@@ -1422,8 +1466,10 @@ async function horairesPage(url) {
       ? tr(`${Number(url.searchParams.get("closed")) || 0} jour(s)-cours fermés.`, `${Number(url.searchParams.get("closed")) || 0} class-day(s) closed.`) +
         (Number(url.searchParams.get("skipped")) ? ` ${tr(`${Number(url.searchParams.get("skipped"))} déjà occupés par une date, laissés tels quels.`, `${Number(url.searchParams.get("skipped"))} already had a date, left as they were.`)}` : "")
       : "";
-  const removeButton = (id, label) =>
-    `<form method="post" action="/admin/horaires/remove" style="display:inline"><input type="hidden" name="id" value="${id}"><button class="plain small" type="submit">${label}</button></form>`;
+  // Removing hours takes them off the booking calendar at once: ask first.
+  const removeButton = (id, label, ask) =>
+    `<form method="post" action="/admin/horaires/remove" style="display:inline"${ask ? ` onsubmit="return confirm(${esc(JSON.stringify(ask))})"` : ""}><input type="hidden" name="id" value="${id}"><button class="plain small" type="submit">${label}</button></form>`;
+  const askRemove = tr("Retirer cet horaire ? Il disparaît du calendrier de réservation (les réservations faites restent).", "Remove these hours? They leave the booking calendar (bookings already made stay).");
   const dayOptions = [1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}">${esc(weekdayName(d))}</option>`).join("");
   const blocks = classes
     .map((c) => {
@@ -1433,8 +1479,8 @@ async function horairesPage(url) {
       const past = c.rows.filter((r) => r.date && r.date < today).length;
       const line = (label, action) => `<tr><td>${label}</td><td style="text-align:right">${action}</td></tr>`;
       const lines = [
-        ...weekly.map((r) => line(`${esc(r.days.map(weekdayName).join(", "))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove")))),
-        ...dated.map((r) => line(`${esc(fmtDate(r.date))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove")))),
+        ...weekly.map((r) => line(`${esc(r.days.map(weekdayName).join(", "))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove"), askRemove))),
+        ...dated.map((r) => line(`${esc(fmtDate(r.date))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove"), askRemove))),
         ...closed.map((r) => line(`<span class="off">${tr("Fermé le", "Closed on")} ${esc(fmtDate(r.date))}</span>`, removeButton(r.id, tr("Rouvrir", "Reopen")))),
       ].join("");
       const openStudio = c.slug === "atelier-libre-1h";
@@ -1447,6 +1493,7 @@ async function horairesPage(url) {
           ${row ? `<a class="small" href="/admin/cours/offre/${esc(c.slug)}">${tr("Modifier", "Edit")}</a>` : ""}</div>
         ${lines ? `<table><tbody>${lines}</tbody></table>` : `<p class="muted" style="margin:0">${tr("Aucun horaire.", "No hours.")}</p>`}
         ${past ? `<p class="muted small">${tr(`${past} date(s) passée(s) masquée(s).`, `${past} past date(s) hidden.`)}</p>` : ""}
+        <details class="add"><summary>${tr("+ Ajouter un horaire", "+ Add hours")}</summary>
         <form class="box" method="post" action="/admin/horaires/add" style="margin-top:10px">
           <input type="hidden" name="class" value="${c.id}">
           <label>${tr("Chaque semaine le", "Every week on")}<select name="day"><option value="">—</option>${dayOptions}</select></label>
@@ -1456,6 +1503,7 @@ async function horairesPage(url) {
           <div><button type="submit">${tr("Ajouter", "Add")}</button></div>
         </form>
         ${openStudio ? `<p class="muted small">${tr("Atelier libre : une plage de début à fin, découpée en créneaux d’une heure.", "Open studio: a span from start to end, cut into one-hour slots.")}</p>` : `<p class="muted small">${tr(`Sans fin, le cours dure ${c.length} min.`, `Without an end, the class lasts ${c.length} min.`)}</p>`}
+        </details>
       </div>`;
     })
     .join("");
@@ -1469,7 +1517,7 @@ async function horairesPage(url) {
      <p class="muted">${tr("Les horaires des cours, tels que Cal les propose à la réservation. Les réservations déjà faites ne bougent pas.", "The classes’ hours, as Cal offers them for booking. Bookings already made don’t move.")}</p>
      ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
      <h2>${tr("Fermer des jours (vacances, jours fériés)", "Close days (holidays)")}</h2>
-     <form class="box" method="post" action="/admin/horaires/close">
+     <form class="box" method="post" action="/admin/horaires/close" onsubmit="return confirm(${esc(JSON.stringify(tr("Fermer ces jours pour les cours cochés ? Ils disparaissent du calendrier de réservation.", "Close these days for the ticked classes? They leave the booking calendar.")))})">
        <label>${tr("Du", "From")}<input name="from" type="date" min="${today}" required></label>
        <label>${tr("Au (inclus)", "To (included)")}<input name="to" type="date" min="${today}"></label>
        <fieldset><legend>${tr("Cours fermés", "Classes closed")}</legend>${classBoxes}</fieldset>
@@ -1824,7 +1872,7 @@ async function classEditPage(key, flash) {
        ${tr("Un changement s’y voit en moins d’une minute.", "A change shows there within a minute.")}</p>
      ${c.builtin ? `<p class="muted small">${icon("exclamation-circle")} ${tr("Les pages de présentation du site (Cours, Stages, Membres, accueil) gardent leur propre texte et leurs prix : à changer à part.", "The site’s own pages (Courses, Workshops, Members, home) keep their own text and prices: change those separately.")}</p>` : ""}
      ${classForm(c)}
-     <form method="post" action="/admin/cours/offre/${esc(key)}/site" style="margin-top:12px">
+     <form method="post" action="/admin/cours/offre/${esc(key)}/site" style="margin-top:12px"${c.active ? ` onsubmit="return confirm(${esc(JSON.stringify(tr("Retirer ce cours de la page Réserver ? Les réservations faites restent.", "Take this class off the booking page? Bookings already made stay.")))})"` : ""}>
        <button class="plain" type="submit">${c.active ? tr("Retirer du site (les réservations faites restent)", "Take off the site (bookings made stay)") : tr("Remettre sur le site", "Put back on the site")}</button>
      </form>`,
   );
@@ -2311,7 +2359,7 @@ async function clientPage(id, flash) {
     .join("");
   const codeRows = codes.rows
     .map((k) => `<tr><td><a href="/admin/codes/${esc(k.key)}"><b>${esc(k.display)}</b></a><br><span class="muted">${esc(k.label)}</span></td>
-      <td>${esc(fmtAmount(k.unit, k.remaining))} <span class="muted">${tr("sur", "of")} ${esc(fmtAmount(k.unit, k.initial))}</span></td><td>${esc(fmtDate(k.expires_on))}</td></tr>`)
+      <td>${esc(fmtAmount(k.unit, k.remaining))} <span class="muted">${tr("sur", "of")} ${esc(fmtAmount(k.unit, k.initial))}</span>${meter(k.remaining, k.initial, k.unit)}</td><td>${esc(fmtDate(k.expires_on))}</td></tr>`)
     .join("");
   const orderRows = [
     ...orders.rows.map((o) => `<tr><td>${esc(fmtDateTime(o.created_at))}</td><td><a href="/admin/commandes#${esc(o.id)}">${tr("En ligne", "Online")}</a></td><td>${esc(fmtAmount("euros", num(o.amount)))}</td></tr>`),
@@ -2337,7 +2385,7 @@ async function clientPage(id, flash) {
      ${c.notes ? `<h2>${tr("Notes (Acuity)", "Notes (Acuity)")}</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
      ${Array.isArray(c.others) && c.others.length ? `<h2>${tr("Aussi à cet e-mail", "Also under this e-mail")}</h2><ul>${c.others.map((o) => `<li>${esc([o.first_name, o.last_name].filter(Boolean).join(" ") || "—")}${o.phone ? ` · <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>` : ""}${o.notes ? `<br><span class="muted" style="white-space:pre-wrap">${esc(o.notes)}</span>` : ""}</li>`).join("")}</ul>` : ""}
      <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
-     <h2>${tr("Codes", "Codes")}</h2>
+     <div class="titlebar"><h2>${tr("Codes", "Codes")}</h2><a class="action" href="/admin/codes?holder=${encodeURIComponent([clientName(c), c.email].filter(Boolean).join(" · "))}#nouveau">${tr("+ Nouveau code", "+ New code")}</a></div>
      ${codeRows ? `<table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th></tr></thead><tbody>${codeRows}</tbody></table>` : `<p class="muted">${tr("Aucun code à son nom.", "No codes in their name.")}</p>`}
      <h2>${tr("Réservations", "Bookings")} (${visits.length})</h2>
      ${visitRows ? `<table><thead><tr><th>${tr("Quand", "When")}</th><th>${tr("Cours", "Class")}</th><th>${tr("Paiement", "Payment")}</th></tr></thead><tbody>${visitRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}
@@ -2353,14 +2401,27 @@ function offerBoxes(selected) {
     .join("")}</fieldset>`;
 }
 
-function newCodeForm(presetId) {
+// A code's balance at a glance, as in the member's space on the site: one notch
+// per class or hour for a card of up to 20, otherwise a bar.
+function meter(remaining, initial, unit) {
+  const left = num(remaining);
+  const total = num(initial);
+  if (unit !== "euros" && Number.isInteger(total) && total >= 2 && total <= 20) {
+    const notches = Array.from({ length: total }, (_, i) => `<i style="--f:${Math.round(Math.min(1, Math.max(0, left - i)) * 100)}%"></i>`);
+    return `<span class="meter" aria-hidden="true">${notches.join("")}</span>`;
+  }
+  const share = total > 0 ? Math.min(1, Math.max(0, left / total)) : 0;
+  return `<span class="meter" aria-hidden="true"><i style="--f:${Math.round(share * 100)}%"></i></span>`;
+}
+
+function newCodeForm(presetId, holder = "") {
   const p = PRESETS.find((x) => x.id === presetId) ?? PRESETS[1];
   const expiry = new Date();
   expiry.setMonth(expiry.getMonth() + p.months);
   return `
   <form class="box" method="post" action="/admin/codes">
     <label>Type
-      <select name="preset" onchange="location.search='?preset='+this.value">
+      <select name="preset" onchange="const q=new URLSearchParams(location.search);q.set('preset',this.value);location.href='?'+q+'#nouveau'">
         ${PRESETS.map((x) => `<option value="${x.id}"${x.id === p.id ? " selected" : ""}>${esc(tr(x.label, x.en))}</option>`).join("")}
       </select></label>
     <label>${tr("Intitulé (ce que voit le client)", "Label (what the customer sees)")}<input name="label" value="${esc(tr(p.label, p.en))}" required maxlength="80"></label>
@@ -2368,9 +2429,9 @@ function newCodeForm(presetId) {
       <span style="display:flex;gap:6px"><input name="amount" type="number" min="0.5" step="0.5" value="${p.amount}" required style="width:100px">
       <select name="unit">${Object.entries(UNIT).map(([u, t]) => `<option value="${u}"${u === p.unit ? " selected" : ""}>${tr(...t.many)}</option>`).join("")}</select></span></label>
     <label>${tr("Valable jusqu’au", "Valid until")}<input name="expires_on" type="date" value="${isoDate(expiry)}"></label>
-    <label>${tr("Client (nom, e-mail)", "Customer (name, email)")}<input name="holder" maxlength="120" placeholder="${tr("facultatif", "optional")}"></label>
+    <label>${tr("Client (nom, e-mail)", "Customer (name, email)")}<input name="holder" maxlength="120" placeholder="${tr("facultatif", "optional")}" value="${esc(holder)}"></label>
     <label>Note<input name="note" maxlength="200" placeholder="${tr("ex. payé en espèces le 24/09", "e.g. paid in cash on 24/09")}"></label>
-    <label>Code<input name="code" maxlength="40" placeholder="${tr("laisser vide : créé automatiquement", "leave empty: made for you")}"></label>
+    <label>Code<input name="code" maxlength="40" placeholder="${tr("auto si vide", "auto if empty")}"></label>
     ${offerBoxes(presetOffers(p))}
     <div><button type="submit">${tr("Créer le code", "Create the code")}</button></div>
   </form>`;
@@ -2392,7 +2453,7 @@ async function adminHome(url) {
       const expired = c.expires_on && isoDate(c.expires_on) < today;
       const state = !c.active ? `<span class="pill off">${tr("en pause", "paused")}</span>` : expired ? `<span class="pill off">${tr("expiré", "expired")}</span>` : "";
       return `<tr><td><a href="/admin/codes/${esc(c.key)}"><b>${esc(c.display)}</b></a> ${state}<br><span class="muted">${esc(c.label)}</span></td>
-        <td>${esc(fmtAmount(c.unit, c.remaining))}<br><span class="muted">${tr("sur", "of")} ${esc(fmtAmount(c.unit, c.initial))}</span></td>
+        <td>${esc(fmtAmount(c.unit, c.remaining))} <span class="muted">${tr("sur", "of")} ${esc(fmtAmount(c.unit, c.initial))}</span>${meter(c.remaining, c.initial, c.unit)}</td>
         <td>${esc(fmtDate(c.expires_on))}</td><td>${esc(c.holder ?? "")}</td><td>${num(c.bookings)}</td><td>${sourceLabel(c.source)}</td></tr>`;
     })
     .join("");
@@ -2400,7 +2461,8 @@ async function adminHome(url) {
     "codes",
     "Codes",
     `<h1>Codes</h1><p class="muted">${tr("Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.", "Class cards, gift vouchers and studio codes. A customer uses their code on the site’s booking page: each booking is taken off here.")}</p>
-     <h2>${tr("Nouveau code", "New code")}</h2>${newCodeForm(url.searchParams.get("preset"))}
+     <details class="new" id="nouveau"${["preset", "nouveau", "holder"].some((k) => url.searchParams.has(k)) ? " open" : ""}><summary>${tr("+ Nouveau code", "+ New code")}</summary>
+       ${newCodeForm(url.searchParams.get("preset"), String(url.searchParams.get("holder") ?? "").slice(0, 120))}</details>
      <h2>${tr("Tous les codes", "All codes")}</h2>
      <form class="search" method="get" action="/admin/codes"><span class="field">${icon("magnifying-glass")}<input name="q" type="search" value="${esc(q)}" placeholder="${tr("Chercher un code, un client, un type", "Search a code, a customer, a type")}" aria-label="${tr("Chercher", "Search")}"></span><button class="plain">${tr("Chercher", "Search")}</button></form>
      <table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th><th>${tr("Client", "Customer")}</th><th>${tr("Réservations", "Bookings")}</th><th>${tr("Origine", "Source")}</th></tr></thead><tbody>${list || `<tr><td colspan="6" class="muted">${tr("Aucun code.", "No codes.")}</td></tr>`}</tbody></table>`,
@@ -2450,6 +2512,7 @@ async function adminCode(key, flash) {
      <h1 style="margin-top:14px">${esc(c.label)}</h1>
      <p>${tr("Reste", "Left:")} <b>${esc(fmtAmount(c.unit, c.remaining))}</b> ${tr("sur", "of")} ${esc(fmtAmount(c.unit, c.initial))} · ${tr("valable jusqu’au", "valid until")} ${esc(fmtDate(c.expires_on))}
        ${!c.active ? ` · <span class="off">${tr("en pause", "paused")}</span>` : ""}</p>
+     <div class="meter-wide">${meter(c.remaining, c.initial, c.unit)}</div>
      <p class="muted">${tr("Pour", "For")} : ${c.offers.map((k) => esc(offerLabel(k))).join(", ")}${c.holder ? ` · ${tr("Client", "Customer")} : ${esc(c.holder)}` : ""}${c.note ? ` · ${esc(c.note)}` : ""}</p><p>${sourceLabel(c.source)}</p>
      <h2>${tr("Ajuster le solde", "Adjust the balance")}</h2>
      <form class="box" method="post" action="/admin/codes/${esc(c.key)}/adjust">
@@ -2457,7 +2520,7 @@ async function adminCode(key, flash) {
        <label>${tr("Raison", "Reason")}<input name="note" maxlength="200" required placeholder="${tr("ex. séance réservée par téléphone", "e.g. class booked by phone")}"></label>
        <div><button type="submit">${tr("Enregistrer", "Save")}</button></div>
      </form>
-     <form method="post" action="/admin/codes/${esc(c.key)}/active" style="margin-top:12px">
+     <form method="post" action="/admin/codes/${esc(c.key)}/active" style="margin-top:12px"${c.active ? ` onsubmit="return confirm(${esc(JSON.stringify(tr("Mettre ce code en pause ? Il ne paiera plus aucun cours jusqu’à sa réactivation.", "Pause this code? It won’t pay for any class until it’s reactivated.")))})"` : ""}>
        <input type="hidden" name="active" value="${c.active ? "0" : "1"}">
        <button class="plain" type="submit">${c.active ? tr("Mettre en pause (le code ne marche plus)", "Pause (the code stops working)") : tr("Réactiver le code", "Reactivate the code")}</button>
      </form>
