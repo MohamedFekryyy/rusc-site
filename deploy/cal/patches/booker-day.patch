@@ -1,0 +1,21 @@
+diff --git a/apps/web/modules/bookings/components/BookerWebWrapper.tsx b/apps/web/modules/bookings/components/BookerWebWrapper.tsx
+--- a/apps/web/modules/bookings/components/BookerWebWrapper.tsx
++++ b/apps/web/modules/bookings/components/BookerWebWrapper.tsx
+@@ -65,6 +65,17 @@
+     // This event isn't processed by BookingPageTagManager because BookingPageTagManager hasn't loaded when it is fired. I think we should have a queue in fire method to handle this.
+     sdkActionManager?.fire("navigatedToBooker", {});
+   }, []);
++  // rūsc: tell the embedding site which month and day the booker shows, so its
++  // FR/EN switch can reopen the booker on the same day (?month= and ?date= on
++  // the calLink, which the booker store already reads). Not one of Cal's typed
++  // events, hence the cast; the parent's embed passes any event name through.
++  const ruscMonth = useBookerStoreContext((state) => state.month);
++  useEffect(() => {
++    (sdkActionManager as unknown as { fire: (name: string, data: Record<string, string | null>) => void } | null)?.fire(
++      "ruscBookerDay",
++      { month: ruscMonth ?? null, date: selectedDate ?? null }
++    );
++  }, [ruscMonth, selectedDate]);
+   useInitializeBookerStore({
+     ...props,
+     eventId: props.entity.eventTypeId ?? event?.data?.id,

@@ -250,6 +250,15 @@ function getCal(): CalQueue {
   return cal;
 }
 
+// The month and day to open the booker on, from the page's address (set by
+// the booker itself, then carried by the FR/EN switch): "&month=…&date=…".
+function bookerDay() {
+  const params = new URLSearchParams(window.location.search);
+  const month = params.get("month");
+  const date = params.get("date");
+  return (month && /^\d{4}-\d{2}$/.test(month) ? `&month=${month}` : "") + (date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? `&date=${date}` : "");
+}
+
 // A Cal.com namespace holds a single embed, so each offer gets a new one.
 let namespaces = 0;
 
@@ -411,6 +420,21 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     host.appendChild(el);
     cal("init", ns, { origin: CAL_ORIGIN });
     cal.ns[ns]("ui", UI);
+    // The month and day the booker shows go in the page's address
+    // (deploy/cal/patches/booker-day.patch), so FR/EN reopens it on them.
+    cal.ns[ns]("on", {
+      action: "ruscBookerDay",
+      callback: (event: CustomEvent<{ data?: { month?: string | null; date?: string | null } }>) => {
+        if (activeNs.current !== ns) return;
+        const { month, date } = event.detail?.data ?? {};
+        const url = new URL(window.location.href);
+        for (const [name, value, shape] of [["month", month, /^\d{4}-\d{2}$/], ["date", date, /^\d{4}-\d{2}-\d{2}$/]] as const) {
+          if (value && shape.test(value)) url.searchParams.set(name, value);
+          else url.searchParams.delete(name);
+        }
+        if (url.href !== window.location.href) replaceUrl(url.href);
+      },
+    });
     // Event type not created in Cal.com yet: say so, in the page's language.
     cal.ns[ns]("on", {
       action: "linkFailed",
@@ -475,7 +499,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       // turns config keys into query parameters too, and a second lang made
       // Cal read it as a list and fall back to French labels on the English
       // page (booker-lang.patch reads a single value).
-      calLink: offerCalLink(sessionKey, lang),
+      calLink: offerCalLink(sessionKey, lang) + bookerDay(),
       config: { layout: "month_view", theme: "light", ...(member ? { name: member.name, email: member.email } : {}) },
     });
     return () => {
