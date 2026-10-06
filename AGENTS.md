@@ -809,4 +809,5 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 
   None of it reloaded the page.
 - Preview (made-up data): the list, the day, the calendar, Codes, a client and Horaires at 390 and 1280 px, with no sideways scroll and no layout shift.
+- **Deployed** (`56c1d4ca`): rūsc admin on Fly; no database change. Live: the sign-in page carries the new script, and `/admin/clients/suggest` and `/admin/codes/check` ask for sign-in like every studio page. `/health`, `/api/classes` and `/api/places` answer 200. The only log error is the known one (step 36).
 
