@@ -639,6 +639,11 @@ async function recordOrder(session) {
           // until someone pays. Who paid is per place (paid_seats), since everyone
           // in a class shares one Cal booking.
           if (group) await client.query(`UPDATE public."Booking" SET status = 'accepted', paid = true WHERE id = $1`, [group.booking_id]);
+          // Confirm to the student by email (as the old Acuity system did),
+          // with the amount actually paid for the seat.
+          if (group && email) {
+            await sendBookingConfirmation(group, name, email, (cents ? Number(cents) / 100 : OFFERS[key]?.price ?? 0).toLocaleString(metadata.lang === "en" ? "en-GB" : "fr-FR"), metadata.lang);
+          }
         }
         continue;
       }
@@ -1324,6 +1329,42 @@ async function sendEmail(to, subject, text) {
   } catch (error) {
     console.error("resend send error", error);
   }
+}
+
+// Booking confirmation: sent to the student (and info@ in copy) the moment a
+// place becomes paid. Restores what the old Acuity system already did.
+async function sendBookingConfirmation(group, name, email, amount, lang) {
+  if (!email) return;
+  const en = String(lang ?? "").toLowerCase() === "en";
+  const title = OFFERS[group.slug] ? (en ? OFFERS[group.slug].en : OFFERS[group.slug].label) : group.title;
+  const start = new Date(group.start_time);
+  const end = new Date(group.end_time);
+  const dateFmt = start.toLocaleDateString(en ? "en-GB" : "fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  const timeFmt = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+  const endFmt = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  const first = String(name ?? "").split(/\s+/)[0] || "";
+  const subject = en ? "Your booking at rūsc is confirmed" : "Votre réservation chez rūsc est confirmée";
+  const addr = "99 Promenade Marie-Paradis, 74400 Chamonix-Mont-Blanc";
+  const sig = ["rūsc · Chamonix", "@studiorusc", en ? "— Dare art." : "— Osez l'art."];
+  const text = en
+    ? [
+        `Hello ${first},`, "",
+        "Your seat is booked at rūsc. See you soon, hands in the clay.", "",
+        `${title}`, `${dateFmt} · ${timeFmt} – ${endFmt}`, `rūsc · ${addr}, France`, "",
+        "Payment", `${amount} € paid`, "",
+        `Cancel or reschedule free of charge: write to ${REPLY_TO} at least 24 h in advance.`, "",
+        ...sig,
+      ]
+    : [
+        `Bonjour ${first},`, "",
+        "Votre place est réservée chez rūsc. À très vite, les mains dans la terre.", "",
+        `${title}`, `${dateFmt} · ${timeFmt} – ${endFmt}`, `rūsc · ${addr}`, "",
+        "Paiement", `${amount} € payés`, "",
+        `Annuler ou reporter sans frais : écrivez-nous à ${REPLY_TO} au moins 24 h à l'avance.`, "",
+        ...sig,
+      ];
+  await sendEmail(email, subject, text.join("\n"));
+  if (REPLY_TO && REPLY_TO !== email) await sendEmail(REPLY_TO, subject, `[copie] ${first || email} — ${title} — ${dateFmt} ${timeFmt}`);
 }
 
 // Welcome email for a brand-new account (member or not): every signup gets it,
