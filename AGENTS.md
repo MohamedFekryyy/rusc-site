@@ -775,5 +775,10 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
     - `/api/places` counting a desk-paid place as paid.
   - In the browser (a local copy accepting the http origin, deleted after): the switch, "Encaisser" and "Ajouter" by real clicks, each returning to its class with its note. FR and EN.
   - Preview (made-up data): every page at 390 and 1280 px, no sideways scroll.
+- **Deployed** (`bca010d3`, steps 44 and 45):
+  - `schema.sql` on the live database: both tables created, owned by `rusc_codes`; insert on `Booking` and its sequence read back as granted; the nine class rows untouched (`INSERT 0 0`).
+  - rūsc admin on Fly. Live: `/health`, `/login` (the new look, Geist), `/api/classes`, `/api/places` and `/tasks/release-places` answer 200, and `/admin/cours` asks for sign-in.
+  - The only log error is the known `cancel pending rows is not iterable` (step 36, caught).
+  - The desk features weren't used live (agents don't sign in to rūsc admin): the studio's first "Encaisser", tick or "Ajouter" is the first.
 - **Not done:** no e-mail goes to someone the studio adds (bookings made outside Cal's booker send none, and Resend isn't verified yet). Paying at the desk doesn't create an order in Commandes; the place's own line says how it was paid.
 
