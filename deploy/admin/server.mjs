@@ -563,6 +563,41 @@ async function releaseExpired() {
       client.release();
     }
   }
+  // Orphan clean-up: a booking still PENDING but never paid (no card, no code),
+  // whose hold has expired (or already released) and that is more than
+  // HOLD_MINUTES old, is cancelled and its seats removed so the slot frees.
+  // Without this, a client who books but never pays keeps the slot indefinitely.
+  await cancelUnpaidPending();
+}
+
+// Cancels Cal bookings that are still PENDING and unpaid, whose oldest hold has
+// expired and is older than the release tolerance. Covers the gap where a hold
+// was already marked released but the booking was never cancelled.
+async function cancelUnpaidPending() {
+  const rows = await db.query(
+    `SELECT DISTINCT b.id AS booking_id
+       FROM public."Booking" b
+       JOIN public."BookingSeat" s ON s."bookingId" = b.id
+       WHERE b.status = 'pending'
+         AND NOT EXISTS (SELECT 1 FROM rusc.paid_seats ps WHERE ps.seat_uid = s."referenceUid")
+         AND NOT EXISTS (SELECT 1 FROM rusc.uses u WHERE u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL)
+         AND NOT EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.seat_uid = s."referenceUid")
+         AND b."createdAt" < now() - make_interval(mins => 60)`,
+  );
+  for (const { booking_id } of rows) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1 AND status = 'pending'`, [booking_id]);
+      await client.query("COMMIT");
+      console.log("cancelled unpaid pending booking", booking_id);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("cancel pending", booking_id, error.message);
+    } finally {
+      client.release();
+    }
+  }
 }
 
 // ---------------------------------------------------------------- online orders
