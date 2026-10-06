@@ -20,6 +20,7 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 /* Cart: an Iconsax icon, its count in a small badge. */
 .cart{position:relative;display:inline-flex;align-items:center}
 .cart-icon{width:20px;height:20px;display:block}
+.auth-icon{display:none;width:20px;height:20px}
 .cart-count{position:absolute;top:1px;right:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent);color:var(--bg);font-size:10px;line-height:16px;letter-spacing:0;text-align:center}
 /* FR/EN in the header: the active language's green marker is its own
    element, so the language switch can slide it across (globals.css). */
@@ -68,6 +69,13 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .actions{display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap}
 .actions .btn{white-space:nowrap}
 .hero .actions{margin-top:34px}
+/* A row of buttons under the card grid ("Ūs") needs room to breathe. */
+.grid + .actions{margin-top:40px}
+/* The event banner: its text on the left, its button on the right, level with
+   the text's last line (stacked on phones). */
+.event-banner-inner{display:flex;align-items:flex-end;justify-content:space-between;gap:20px 48px}
+.event-banner-inner .txt{max-width:640px}
+.event-banner-inner .actions{flex:none}
 .btn{display:inline-block;font-family:var(--sans);font-size:12px;letter-spacing:.18em;text-transform:uppercase;padding:15px 34px;text-decoration:none;border:1px solid var(--ink);background:var(--ink);color:var(--bg);transition:all .2s}
 .btn:hover{background:transparent;color:var(--ink)}
 .btn.ghost{background:transparent;color:var(--ink)}
@@ -97,6 +105,9 @@ section{padding:clamp(48px,7vw,84px) 0}
 .card h3{font-size:24px;margin-bottom:10px}
 .card .k{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);margin-bottom:12px}
 .card p{color:var(--muted);font-size:16px;flex:1}
+/* Only the description stretches: the tag line keeps its height, so the
+   titles of a row line up whatever the length of their text. */
+.card p.k{flex:none}
 .card .price{margin-top:16px;font-size:14px;letter-spacing:.06em;color:var(--accent);font-weight:400}
 .card .btn{margin-top:20px;align-self:flex-start;padding:12px 26px;font-size:11px}
 
@@ -214,6 +225,7 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
      rule for every action cluster: hero, event banner, interior pages, CTA. */
   .actions{flex-direction:column;align-items:stretch;gap:12px}
   .actions .btn{display:block;width:100%;text-align:center;box-sizing:border-box}
+  .event-banner-inner{flex-direction:column;align-items:stretch}
 }
 
 /* Nav responsiveness: keep the right cluster from overflowing on small screens. */
@@ -340,5 +352,30 @@ html[lang="en"] .feature .txt li strong{color:inherit}
   .nav-right .lang.lang-top a{padding:3px 8px;font-size:10px}
   .nav-right .auth{grid-area:auth;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
   .nav-right .cart{grid-area:cart;justify-self:end;font-size:10.5px;padding:4px 0;letter-spacing:.06em}
+  /* Phones: the account link is an icon like the cart, so the logo keeps its room. */
+  .nav-right .auth .auth-label{display:none}
+  .nav-right .auth .auth-icon{display:block}
+  .nav .logo{overflow:hidden}
   .mobile-panel{padding-top:112px}
 }
+
+/* Motion (the owner's design rules): short, eased, and only where it orients
+   the eye. Only opacity and translate move, so the browser never re-lays out
+   the page. Nothing moves for visitors who ask for reduced motion. */
+@media (prefers-reduced-motion:no-preference){
+  @keyframes rusc-rise{from{opacity:0;translate:0 16px}to{opacity:1;translate:0 0}}
+  @keyframes rusc-fade{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+  @keyframes rusc-reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  /* Cards and section titles rise in as they come on screen (a scroll-driven
+     animation: no script; browsers without it show them as they are). */
+  @supports (animation-timeline:view()){
+    .card,.head{animation:rusc-rise linear both;animation-timeline:view();animation-range:entry 0% cover 18%}
+  }
+  /* The booking page: the list or the chosen class fades in when it changes. */
+  .bk-swap{animation:rusc-fade .4s cubic-bezier(.22,1,.36,1) both}
+  /* "Added to your cart" rises into view. */
+  .rusc-toast{animation:rusc-fade .3s cubic-bezier(.22,1,.36,1) both}
+  /* The member's meters fill from the left as the space opens. */
+  .meter{animation:rusc-reveal .8s cubic-bezier(.22,1,.36,1) .15s both}
+}
+

@@ -61,8 +61,10 @@ export function savePlace(href: string) {
 }
 
 // Runs inline at the end of <body> (see KeepPlace), once the page is parsed and
-// before it paints. Fonts and images can still move things a little, so it
-// settles once more when they're in, unless the visitor has scrolled since.
+// before it paints. Fonts, images and late content (the booking page's Cal
+// booker mounts after hydration and grows as it loads) still move things, so
+// for 8 seconds it settles again whenever the page's size changes, until the
+// visitor scrolls, taps or types.
 export const RESTORE_PLACE = `(function(){try{
 var s=sessionStorage.getItem(${JSON.stringify(KEY)});if(!s)return;
 sessionStorage.removeItem(${JSON.stringify(KEY)});
@@ -78,8 +80,10 @@ if(hit){var r=hit.getBoundingClientRect();y=scrollY+r.top+f*r.height-line;}
 else y=p.ratio*(document.documentElement.scrollHeight-innerHeight);
 scrollTo({top:Math.max(0,Math.round(y)),behavior:"instant"});
 return scrollY;}
-var at=go();
-function again(){if(Math.abs(scrollY-at)<2)at=go();}
+var at=go(),until=Date.now()+8000,moved=false;
+["wheel","touchstart","keydown","pointerdown"].forEach(function(n){addEventListener(n,function(){moved=true;},{passive:true,once:true});});
+function again(){if(!moved&&Date.now()<until&&Math.abs(scrollY-at)<2)at=go();}
+if(window.ResizeObserver){var ro=new ResizeObserver(again);ro.observe(document.documentElement);setTimeout(function(){ro.disconnect();},8000);}
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(again);
 addEventListener("load",again,{once:true});
 }catch(e){}})();`;

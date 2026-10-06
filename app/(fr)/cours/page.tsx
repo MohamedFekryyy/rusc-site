@@ -28,7 +28,7 @@ export default function Cours() {
       ]} />
       <div className="grid">
         <article className="card" id="tournage">
-          <Image className="thumb" src={ceramique2h} alt="Cours de tournage en céramique à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={ceramique2h} alt="Cours de tournage en céramique à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>tournage 2h</h3>
           <p>Ateliers de tournage en céramique avec un professeur expérimenté qui vous guidera dans vos premiers pas. À votre rythme, sur des cours de 2h vous apprendrez toutes les étapes nécessaires à la réalisation de vos poteries.</p>
@@ -37,7 +37,7 @@ export default function Cours() {
           <BookingButton lang="fr" workshop="atelier-ceramique-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
         <article className="card" id="modelage">
-          <Image className="thumb" src={modelage2h} alt="Cours de modelage de l’argile à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={modelage2h} alt="Cours de modelage de l’argile à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>modelage 2h</h3>
           <p>Que vous soyez débutants ou expérimentés, venez vous essayer au modelage et concevez vos propres créations.</p>
@@ -46,7 +46,7 @@ export default function Cours() {
           <BookingButton lang="fr" workshop="atelier-modelage-2h" tone="guest">S&rsquo;inscrire</BookingButton>
         </article>
         <article className="card" id="decor">
-          <Image className="thumb" src={decorACru} alt="Décor à cru — rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={decorACru} alt="Décor à cru — rūsc" />
           <p className="k">Cours d&rsquo;1&nbsp;h</p>
           <h3>décor à cru 1h</h3>
           <p>Un cours d&rsquo;une heure dédié au décor à cru, pour personnaliser vos pièces avant la cuisson.</p>
@@ -64,7 +64,7 @@ export default function Cours() {
           <BookingButton lang="fr" workshop="decor-a-cru-1h" tone="guest">Réserver</BookingButton>
         </article>
         <article className="card" id="enfant">
-          <Image className="thumb" src={enfant} alt="Cours enfant à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={enfant} alt="Cours enfant à rūsc" />
           <p className="k">Cours de 2&nbsp;h</p>
           <h3>cours enfant 2h</h3>
           <p>Pour les 7–12 ans. Tous les mercredis de 13h30 à 15h30 (hors vacances scolaires). Un temps ludique pour découvrir, façonner et créer.</p>
@@ -73,7 +73,7 @@ export default function Cours() {
           <BookingButton lang="fr" workshop="modelage-enfant" tone="guest">Réserver</BookingButton>
         </article>
         <article className="card" id="model-vivant">
-          <Image className="thumb" src={mv3h} alt="Cours de modèle vivant à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={mv3h} alt="Cours de modèle vivant à rūsc" />
           <p className="k">Cours de 3&nbsp;h</p>
           <h3>model vivant 3h</h3>
           <p>Un cours de trois heures autour du modèle vivant&nbsp;: observer, dessiner, façonner d&rsquo;après le corps en mouvement.</p>

@@ -520,7 +520,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       </nav>
 
       {offer ? (
-        <div className="bk-shell">
+        <div className="bk-shell bk-swap" key={`shell-${offer.key}`}>
           <div style={backBar}>
             <a href={bookingHref(lang, offer.view)} data-booking={offer.view} style={backLink}>
               <ArrowLeft size={14} color="currentColor" aria-hidden />
@@ -669,7 +669,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           )}
         </div>
       ) : (
-        <div className="grid">
+        <div className="grid bk-swap" key={`grid-${view}`}>
           {offersIn(view).map((o) => (
             <OfferCard key={o.key} offer={o} lang={lang} isMember={!sessionKnown || !!member?.member} />
           ))}
@@ -677,7 +677,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       )}
 
       {toast && (
-        <div role="status" style={toastBox}>
+        <div role="status" className="rusc-toast" style={toastBox}>
           {t.added(toast)}
           <a href={CART[lang]} style={toastLink}>{t.viewCart}</a>
         </div>

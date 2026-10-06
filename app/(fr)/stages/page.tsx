@@ -19,7 +19,7 @@ export default function Stages() {
     <SitePage lang="fr" page="stages" title="stages" sub={<>Immersion · 10h – 17h</>}>
       <div className="grid">
         <article className="card">
-          <Image className="thumb" src={ceramique2j} alt="Stage de tournage en grès sur deux jours à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={ceramique2j} alt="Stage de tournage en grès sur deux jours à rūsc" />
           <p className="k">2 jours</p>
           <h3>céramique 2j</h3>
           <p>Imprégnez-vous du métier de céramiste durant deux journées consécutives. Ouvert à tous, cet atelier vous permet de voir toutes les étapes de la création&nbsp;: du tournage à l’engobage en passant par le tournassage.</p>
@@ -28,7 +28,7 @@ export default function Stages() {
           <BookingButton lang="fr" workshop="atelier-ceramique-2j" tone="guest">S’inscrire</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" src={ceramique1j} alt="Stage de tournage en grès — une journée à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={ceramique1j} alt="Stage de tournage en grès — une journée à rūsc" />
           <p className="k">1 jour</p>
           <h3>céramique 1j</h3>
           <p>Que vous soyez débutant ou dans le cadre d’une reconversion professionnelle, nous vous guiderons afin de passer en revue toutes les étapes nécessaires au tournage d’une pièce en grès.</p>
@@ -37,7 +37,7 @@ export default function Stages() {
           <BookingButton lang="fr" workshop="atelier-ceramique-1j" tone="guest">S’inscrire</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" src={porcelaine} alt="Stage de tournage en porcelaine à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={porcelaine} alt="Stage de tournage en porcelaine à rūsc" />
           <p className="k">10h – 17h</p>
           <h3>porcelaine 1j</h3>
           <p>La porcelaine est une matière singulière&nbsp;: pure, exigeante, lumineuse. Peu d’ateliers permettent de l’aborder. Une fois par mois, nous proposons à nos élèves cette expérience rare&nbsp;: apprivoiser sa fragilité, explorer ses gestes précis et façonner leurs propres pièces au tour.</p>
@@ -46,7 +46,7 @@ export default function Stages() {
           <BookingButton lang="fr" workshop="porcelaine" tone="guest">S’inscrire</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" src={tapisserie} alt="Stage de tapisserie d’ameublement traditionnelle à rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={tapisserie} alt="Stage de tapisserie d’ameublement traditionnelle à rūsc" />
           <p className="k">2 jours</p>
           <h3>tapisserie 2j</h3>
           <p>Pour les débutants ou confirmés, venez apprendre toutes les étapes de la tapisserie d&rsquo;ameublement traditionnelle. Vous pouvez apporter votre projet personnel ou une chaise d&rsquo;école vous sera fournie pour pratiquer.</p>

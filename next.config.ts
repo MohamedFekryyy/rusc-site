@@ -3,8 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // URLs keep their trailing slash (/en/, /reserver/), as on the old site.
   trailingSlash: true,
-  // Photos are served as they are, without Vercel image optimisation.
-  images: { unoptimized: true },
+  // Photos are resized and converted to WebP for each screen (Vercel image
+  // optimisation): the originals run up to 3 MB. They're static imports, hashed,
+  // so a month's cache is safe and keeps re-encoding (and its cost) low.
+  images: { formats: ["image/webp"], qualities: [75], minimumCacheTTL: 2678400 },
   async redirects() {
     return [
       // URLs of the old static site

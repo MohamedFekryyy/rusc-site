@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart } from "iconsax-reactjs";
+import { ShoppingCart, User } from "iconsax-reactjs";
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
@@ -179,8 +179,10 @@ export default function Header({ lang, page }: Props) {
             <a href={enHref} hrefLang="en" lang="en" aria-label={LANG_NAME.en} aria-current={lang === "en" ? "true" : undefined} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
           </span>
           {/* Login / account: the sign-in page, or the member's space once signed in. */}
-          <a className="auth" href={LOGIN[lang]}>
-            {signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}
+          {/* A word on wide screens, an icon on phones (styles/home.css). */}
+          <a className="auth" href={LOGIN[lang]} aria-label={signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}>
+            <span className="auth-label">{signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}</span>
+            <User className="auth-icon" color="currentColor" aria-hidden />
           </a>
           {/* Cart (lib/cart.ts): an icon, with its item count live across the site. */}
           <a className="cart" href={CART[lang]} aria-label={count > 0 ? CART_COUNT[lang](count) : CART_LABEL[lang]} title={CART_LABEL[lang]}>

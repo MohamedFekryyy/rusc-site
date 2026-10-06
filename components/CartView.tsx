@@ -342,14 +342,15 @@ export default function CartView({ lang }: { lang: Lang }) {
         </p>
       )}
       <div className="rows">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const offer = offerByKey(item.key)!;
           // A class booked on the site: its places live in rūsc admin.
           const seat = item.booking?.seat;
           const place = seat ? placeInfo[seat] : undefined;
           const busy = !!seat && busySeat === seat;
           return (
-            <div className="row" key={item.id} style={{ alignItems: "center" }}>
+            // The Total row draws the line under the last item.
+            <div className="row" key={item.id} style={{ alignItems: "center", ...(index === items.length - 1 ? { borderBottom: 0 } : {}) }}>
               <span className="lbl">
                 {item.amount ? `${offer[lang].tag} · ${formatPrice(item.amount, lang)}` : offer[lang].title}
                 <small>

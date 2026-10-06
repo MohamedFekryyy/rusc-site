@@ -61,7 +61,7 @@ export default function Home() {
       <Header lang="en" page="home" />
 
       <section className="hero wrap">
-        <Image className="wordmark" src={logo} alt="rūsc" priority />
+        <Image className="wordmark" src={logo} alt="rūsc" loading="eager" />
         <span className="rule"></span>
         <h1 className="tagline">Pottery studio in Chamonix.</h1>
         <p className="intro">At rūsc, our courses are open to everyone, with no prerequisites. Curious beginners, amateurs looking for a creative moment, or enthusiasts wanting to deepen their practice: everyone finds their place.</p>
@@ -101,7 +101,7 @@ export default function Home() {
                     <Image src={c.img} alt={c.title} style={{ width: "auto", height: "auto", maxHeight: "220px" }} />
                   </div>
                 ) : (
-                  <Image className="thumb" src={c.img} alt={c.title} />
+                  <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={c.img} alt={c.title} />
                 )}
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>

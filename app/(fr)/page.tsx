@@ -99,7 +99,7 @@ export default function Home() {
       <Header lang="fr" page="home" />
 
       <section className="hero wrap">
-        <Image className="wordmark" src={logo} alt="rūsc" priority />
+        <Image className="wordmark" src={logo} alt="rūsc" loading="eager" />
         <span className="rule"></span>
         <h1 className="tagline">Atelier de poterie à Chamonix.</h1>
         <p className="intro">Chez rūsc, nos ateliers sont ouverts à toutes et à tous, sans prérequis. Débutants curieux, amateurs en quête d&rsquo;un moment créatif, ou passionnés souhaitant approfondir leur pratique : chacun trouve sa place.</p>
@@ -139,7 +139,7 @@ export default function Home() {
                     <Image src={c.img} alt={c.title} style={{ width: "auto", height: "auto", maxHeight: "220px" }} />
                   </div>
                 ) : (
-                  <Image className="thumb" src={c.img} alt={c.title} />
+                  <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={c.img} alt={c.title} />
                 )}
                 <p className="k">{c.tag}</p>
                 <h3>{c.title}</h3>

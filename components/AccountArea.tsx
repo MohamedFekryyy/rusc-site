@@ -103,7 +103,7 @@ function Meter({ remaining, initial, unit }: { remaining: number; initial: numbe
   const fill = "var(--accent)";
   if (notches) {
     return (
-      <div aria-hidden style={{ display: "flex", gap: "3px" }}>
+      <div aria-hidden className="meter" style={{ display: "flex", gap: "3px" }}>
         {Array.from({ length: notches }, (_, i) => {
           const part = Math.min(1, Math.max(0, remaining - i)) * 100;
           return <span key={i} style={{ flex: 1, height: "4px", borderRadius: "2px", background: `linear-gradient(90deg, ${fill} ${part}%, ${track} ${part}%)` }} />;
@@ -113,7 +113,7 @@ function Meter({ remaining, initial, unit }: { remaining: number; initial: numbe
   }
   const share = initial > 0 ? Math.min(1, Math.max(0, remaining / initial)) : 0;
   return (
-    <div aria-hidden style={{ height: "4px", borderRadius: "2px", background: track, overflow: "hidden" }}>
+    <div aria-hidden className="meter" style={{ height: "4px", borderRadius: "2px", background: track, overflow: "hidden" }}>
       <span style={{ display: "block", height: "100%", width: `${share * 100}%`, background: fill, borderRadius: "2px" }} />
     </div>
   );
@@ -210,7 +210,8 @@ export default function AccountArea({ lang }: { lang: Lang }) {
     }
   }
 
-  if (loading) return <p style={{ ...muted, textAlign: "center" }}>{t.loading}</p>;
+  // As tall as the sign-in form that usually follows, so the page doesn't jump.
+  if (loading) return <p style={{ ...muted, textAlign: "center", minHeight: "450px" }}>{t.loading}</p>;
   if (resetToken) return <AuthForm lang={lang} resetToken={resetToken} />;
   if (!account) return <AuthForm lang={lang} />;
 
