@@ -145,6 +145,16 @@ function refusal(code, offerKey, amount) {
   return null;
 }
 
+// The kind of a code/carnet, for the studio copy: "card10" (35 €/séance),
+// "card5" (42 €/séance), "gift" (bon cadeau), or null (not a carnet slip).
+function codeKind(code, offerKey) {
+  if (!code || code.unit !== "sessions") return null;
+  const n = num(code.initial);
+  if (n >= 10) return "card10";
+  if (n >= 5) return "card5";
+  return "gift";
+}
+
 async function readBody(req, limit = 16 * 1024) {
   let size = 0;
   const chunks = [];
@@ -315,7 +325,7 @@ async function apiRedeem(input) {
     await client.query("COMMIT");
     // Confirm by email to the student (and a copy to the studio), matching the
     // card-payment path in recordOrder.
-    if (seat.email) await sendBookingConfirmation(seat, seat.name, seat.email, null, null);
+    if (seat.email) await sendBookingConfirmation(seat, seat.name, seat.email, null, null, codeKind(code, seat.slug));
     return { ok: true, used: amount, ...publicCode(after.rows[0]) };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -1413,9 +1423,14 @@ async function sendEmail(to, subject, text) {
 
 // Booking confirmation: sent to the student (and info@ in copy) the moment a
 // place becomes paid. Restores what the old Acuity system already did.
-async function sendBookingConfirmation(group, name, email, amount, lang) {
+async function sendBookingConfirmation(group, name, email, amount, lang, kind) {
   if (!email) return;
   const en = String(lang ?? "").toLowerCase() === "en";
+  // kind: "card10" | "card5" | "gift" | null (drop-in / paid by card).
+  const nature = kind === "card10" ? (en ? "card · €35 per class" : "abonnement · 35 € la séance")
+    : kind === "card5" ? (en ? "card · €42 per class" : "abonnement · 42 € la séance")
+    : kind === "gift" ? (en ? "gift voucher" : "bon cadeau")
+    : null;
   const title = OFFERS[group.slug] ? (en ? OFFERS[group.slug].en : OFFERS[group.slug].label) : group.title;
   const start = new Date(group.start_time);
   const end = new Date(group.end_time);
@@ -1460,7 +1475,7 @@ async function sendBookingConfirmation(group, name, email, amount, lang) {
       "",
       `${title}`,
       `${dateFmt} · ${timeFmt} – ${endFmt}`,
-      paid != null ? `Payé : ${paid.toFixed(2).replace(".", ",")} €` : "Payé : —",
+      paid != null ? `Payé : ${paid.toFixed(2).replace(".", ",")} €` : `Payé : ${nature ?? "—"}`,
     ].join("\n");
     await sendEmail(REPLY_TO, `Nouvelle réservation — ${title} (${first || email})`, teamText);
   }
