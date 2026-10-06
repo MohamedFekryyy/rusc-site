@@ -274,7 +274,7 @@ async function apiRedeem(input) {
   // The booking just made in Cal: this attendee's seat.
   const booking = await db.query(
     `SELECT s."referenceUid" AS seat_uid, b.uid AS booking_uid, b."startTime" AS start_time,
-            b."endTime" AS end_time, b.status, e.slug, a.name, a.email
+            b."endTime" AS end_time, b.status, e.slug, a.name, a.email, a."phoneNumber" AS phone
        FROM public."BookingSeat" s
        JOIN public."Booking" b ON b.id = s."bookingId"
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -313,6 +313,9 @@ async function apiRedeem(input) {
     // Paid with the code: the place is confirmed, as a card payment would.
     await client.query(`UPDATE public."Booking" SET status = 'accepted' WHERE uid = $1 AND status = 'pending'`, [seat.booking_uid]);
     await client.query("COMMIT");
+    // Confirm by email to the student (and a copy to the studio), matching the
+    // card-payment path in recordOrder.
+    if (seat.email) await sendBookingConfirmation(seat, seat.name, seat.email, null, null);
     return { ok: true, used: amount, ...publicCode(after.rows[0]) };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -640,10 +643,8 @@ async function recordOrder(session) {
           // in a class shares one Cal booking.
           if (group) await client.query(`UPDATE public."Booking" SET status = 'accepted', paid = true WHERE id = $1`, [group.booking_id]);
           // Confirm to the student by email (as the old Acuity system did),
-          // with the amount actually paid for the seat.
-          if (group && email) {
-            await sendBookingConfirmation(group, name, email, (cents ? Number(cents) / 100 : OFFERS[key]?.price ?? 0).toLocaleString(metadata.lang === "en" ? "en-GB" : "fr-FR"), metadata.lang);
-          }
+          // with the amount actually paid for the seat, and CC the studio.
+          if (group && email) await sendBookingConfirmation(group, name, email, cents ? Number(cents) / 100 : null, metadata.lang);
         }
         continue;
       }
@@ -1345,13 +1346,17 @@ async function sendBookingConfirmation(group, name, email, amount, lang) {
   const first = String(name ?? "").split(/\s+/)[0] || "";
   const subject = en ? "Your booking at rūsc is confirmed" : "Votre réservation chez rūsc est confirmée";
   const addr = "99 Promenade Marie-Paradis, 74400 Chamonix-Mont-Blanc";
+  const paid = amount != null && Number(amount) > 0 ? Number(amount) : null;
   const sig = ["rūsc · Chamonix", "@studiorusc", en ? "— Dare art." : "— Osez l'art."];
+  const paymentLine = paid != null
+    ? (en ? `${paid.toFixed(2).replace(".", ",")} € paid` : `${paid.toFixed(2).replace(".", ",")} € payés`)
+    : null;
   const text = en
     ? [
         `Hello ${first},`, "",
         "Your seat is booked at rūsc. See you soon, hands in the clay.", "",
         `${title}`, `${dateFmt} · ${timeFmt} – ${endFmt}`, `rūsc · ${addr}, France`, "",
-        "Payment", `${amount} € paid`, "",
+        ...(paymentLine ? ["Payment", paymentLine, ""] : []),
         `Cancel or reschedule free of charge: write to ${REPLY_TO} at least 24 h in advance.`, "",
         ...sig,
       ]
@@ -1359,7 +1364,7 @@ async function sendBookingConfirmation(group, name, email, amount, lang) {
         `Bonjour ${first},`, "",
         "Votre place est réservée chez rūsc. À très vite, les mains dans la terre.", "",
         `${title}`, `${dateFmt} · ${timeFmt} – ${endFmt}`, `rūsc · ${addr}`, "",
-        "Paiement", `${amount} € payés`, "",
+        ...(paymentLine ? ["Paiement", paymentLine, ""] : []),
         `Annuler ou reporter sans frais : écrivez-nous à ${REPLY_TO} au moins 24 h à l'avance.`, "",
         ...sig,
       ];
@@ -1376,7 +1381,7 @@ async function sendBookingConfirmation(group, name, email, amount, lang) {
       "",
       `${title}`,
       `${dateFmt} · ${timeFmt} – ${endFmt}`,
-      `Payé : ${amount} €`,
+      paid != null ? `Payé : ${paid.toFixed(2).replace(".", ",")} €` : "Payé : —",
     ].join("\n");
     await sendEmail(REPLY_TO, `Nouvelle réservation — ${title} (${first || email})`, teamText);
   }
