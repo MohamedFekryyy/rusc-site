@@ -61,7 +61,8 @@ type OfferSource = {
 // Each session is ONE Cal event type, slug = its key (deploy/cal/seed-classes.mjs
 // creates them), so French and English visitors fill the same places. Its
 // French title and description have an English translation, which Cal's
-// booker shows to visitors whose browser is in English.
+// booker shows to visitors whose browser is in English. Classes the studio
+// creates in rūsc admin join these at run time (ClassOffer, below).
 export const OFFERS = [
   // Cours & stages
   {
@@ -171,11 +172,74 @@ export const OFFERS = [
   },
 ] as const satisfies readonly OfferSource[];
 
-export type Offer = (typeof OFFERS)[number];
-export type OfferKey = Offer["key"];
+// A class made in rūsc admin (Cours → Nouveau cours), on top of OFFERS. Like
+// the sessions above it is one Cal event type, slug = key, that rūsc admin
+// created; rūsc admin serves the list (GET /api/classes) and lib/classes.ts
+// loads it here. Always in "Cours & stages", for everyone, paid per place.
+// A hidden one (active false) isn't listed, but still names and prices the
+// places already in carts.
+export type ClassOffer = {
+  key: string;
+  view: "schedule";
+  tone: "guest";
+  kind: "session";
+  price: number;
+  minutes: number;
+  // One of the photos of components/OfferCard.tsx (PHOTOS).
+  image: string;
+  active: boolean;
+  made: true;
+  fr: OfferText;
+  en: OfferText;
+};
+
+export type StaticOffer = (typeof OFFERS)[number];
+export type StaticOfferKey = StaticOffer["key"];
+export type Offer = StaticOffer | ClassOffer;
+export type OfferKey = string;
+
+let classOffers: ClassOffer[] = [];
+
+const isText = (value: unknown): value is OfferText => {
+  const t = value as OfferText | null;
+  return !!t && [t.tag, t.title, t.unit, t.cta].every((s) => typeof s === "string") && !!t.title;
+};
+
+// A class as rūsc admin (or a cart line) gives it, if well formed.
+export function toClassOffer(raw: unknown): ClassOffer | null {
+  const c = raw as Partial<ClassOffer> | null;
+  if (!c || typeof c.key !== "string" || !/^[a-z0-9-]{1,60}$/.test(c.key) || OFFERS.some((o) => o.key === c.key)) return null;
+  if (!Number.isInteger(c.price) || (c.price as number) <= 0 || !isText(c.fr) || !isText(c.en)) return null;
+  return {
+    key: c.key, view: "schedule", tone: "guest", kind: "session", made: true,
+    price: c.price as number,
+    minutes: Number(c.minutes) || 120,
+    image: typeof c.image === "string" ? c.image : "",
+    active: c.active !== false,
+    fr: c.fr, en: c.en,
+  };
+}
+
+// The classes made in rūsc admin, as last loaded (lib/classes.ts). One that
+// hasn't changed keeps its object, so a booker already open stays mounted.
+export function setClassOffers(list: ClassOffer[]) {
+  const same = (a: ClassOffer, b: ClassOffer) => JSON.stringify(a) === JSON.stringify(b);
+  const next = list.map((c) => classOffers.find((o) => o.key === c.key && same(o, c)) ?? c);
+  // Classes only cart lines know (lib/cart.ts) stay until the list names them.
+  classOffers = [...next, ...classOffers.filter((o) => !next.some((c) => c.key === o.key))];
+}
+
+// A cart line's class, known before the list loads.
+export function rememberClassOffer(offer: ClassOffer) {
+  if (!classOffers.some((o) => o.key === offer.key)) classOffers = [...classOffers, offer];
+}
 
 export function offerByKey(key: string): Offer | undefined {
-  return OFFERS.find((o) => o.key === key);
+  return OFFERS.find((o) => o.key === key) ?? classOffers.find((o) => o.key === key);
+}
+
+export function isMadeClass(offer: Offer | undefined): offer is ClassOffer {
+  return !!offer && "made" in offer;
 }
 
 // Bounds of a gift voucher of any amount, if the offer is one.
@@ -195,8 +259,9 @@ export function isOfferKey(value: unknown): value is OfferKey {
   return typeof value === "string" && offerByKey(value) !== undefined;
 }
 
-export function offersIn(view: BookingView) {
-  return OFFERS.filter((o) => o.view === view);
+// A tab's offers: those above, then the classes made in rūsc admin it lists.
+export function offersIn(view: BookingView): Offer[] {
+  return [...OFFERS.filter((o) => o.view === view), ...classOffers.filter((o) => o.active && o.view === view)];
 }
 
 // The Cal event type of an offer, e.g. "raquel/porcelaine" (one for both languages).

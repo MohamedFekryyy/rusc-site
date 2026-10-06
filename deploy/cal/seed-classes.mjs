@@ -17,6 +17,10 @@
 // with scripts/continuity/acuity-classes.mjs); descriptions from the site's
 // Cours, Stages and Espace membre pages. Everything can be edited in Cal
 // afterwards, but a new run of this script puts these values back.
+//
+// Classes the studio creates in rūsc admin (Cours → Nouveau cours) aren't
+// listed here: rūsc admin makes their event types with the same settings, and
+// this script leaves them alone.
 
 const HOST = "raquel";
 // Bookable until 30 minutes after a class starts: a negative notice is a grace

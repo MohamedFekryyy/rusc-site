@@ -22,6 +22,18 @@ The menu:
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).
 - **Commandes / Orders:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
 - **Horaires / Timetable:** each class's weekly slots and coming dates, to add or remove, and days to close (holidays) or reopen, for all or some classes. It writes Cal's `Availability` rows directly (a date override from 00:00 to 00:00 closes a class that day), so the booking calendar and Cours follow at once. Bookings already made don't move. Open studio takes a span (start and end), cut into 1-hour slots; other classes last their length unless an end is given.
+- **+ Nouveau cours / New class** (on Cours and Horaires, `/admin/cours/nouveau`): a class beyond the nine of the site's `lib/cal.ts`. See "New classes" below.
+
+## New classes
+
+The studio creates a class from the admin, and it works like the nine built in: the site's booking page lists it, Cal books it, the cart holds and charges its places, codes pay for it, and Cours, Horaires, Commandes and the member's space name it.
+
+- **The form** asks for the French and English names, the price per place, the length, the places, the line above the name and an optional line after the price (FR and EN), the descriptions shown in the booker, a photo (one of the site's photos; small copies in `photos/`), which codes pay for it, and optionally a first session (a weekday or a date, and a start time). More hours are added in Horaires.
+- **In Cal** it makes, in one transaction, what `deploy/cal/seed-classes.mjs` makes for the others: a schedule, an event type hosted by `raquel` (slug = the class's key, made from its French name), with the English title and description as translations, seats, bookable until 30 minutes after the start, booked pending until paid, hidden from Cal's profile page, Paris time, 30-minute slot interval.
+- **The rest** goes in `rusc.classes`: names, price, photo, the codes it takes, and whether the site lists it. `GET /api/classes` serves them all, hidden ones included (carts may hold their places), and the site adds the active ones to "Cours & stages" (`lib/classes.ts`). The checkout route reads the price there on every payment, never from the browser.
+- **Codes:** "gift vouchers in euros" adds the class to every euro code valid for all classes (and to vouchers bought later); "2-hour class cards" adds it to every code valid for the 2-hour classes (carnets, a voucher for one 2-hour class), one session per booking. Unticking removes it.
+- **Editing** (`/admin/cours/offre/<key>`, "Modifier" in Horaires) changes all of the above. A new length moves the end of each slot that was one class long. "Retirer du site" hides it from the site; bookings, codes and orders stay. A class is never deleted.
+- The built-in classes are still edited in `lib/cal.ts` and `seed-classes.mjs`; that script leaves the admin's classes alone.
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
 
@@ -29,10 +41,10 @@ Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings
 |---|---|
 | Fly app | `rusc-admin`, region `ams`, 256 MB. It sleeps when unused and wakes in about a second, so it costs almost nothing. |
 | Address | https://rusc-admin.fly.dev |
-| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It reads Cal's bookings, seats, event types and attendees, and writes only the classes' timetable (`Availability`, for Horaires). |
-| Code | `server.mjs`: Node, one dependency (`pg`), server-rendered HTML with inline CSS, no build step. `logo.webp` is a copy of the site's `assets/logo-rusc-trim.webp`. |
+| Data | Schema `rusc` of the Cal.diy database (`schema.sql`), under its own role `rusc_codes`. It reads Cal's bookings, seats, event types and attendees, and writes the classes' timetable (`Availability`, for Horaires), places in a cart (`Attendee`, `BookingSeat`, a booking's status), and new classes (`EventType`, `Schedule`, `EventTypeTranslation`). |
+| Code | `server.mjs`: Node, one dependency (`pg`), server-rendered HTML with inline CSS, no build step. `logo.webp` is a copy of the site's `assets/logo-rusc-trim.webp`; `photos/` has small copies of the site's photos for the new-class form. |
 | Secrets (Fly) | `DATABASE_URL`, `CODES_ADMIN_PASSWORD` (the studio's), `STRIPE_WEBHOOK_SECRET`. `IMPORT_TOKEN` only during an Acuity import. |
-| Tables | Schema `rusc`, all owned by `rusc_codes`: codes, uses, orders, paid_seats, members, imports, acuity_seats, history, acuity_orders, clients, accounts, account_tokens. `schema.sql` also grants it write access to Cal's `Availability` (Horaires). |
+| Tables | Schema `rusc`, all owned by `rusc_codes`: codes, uses, orders, paid_seats, members, imports, acuity_seats, history, acuity_orders, clients, accounts, account_tokens, holds, classes. `schema.sql` also grants it what it writes in Cal's tables (above). |
 
 Cours also shows Acuity's appointments on past days (`rusc.history`), grouped into classes with how each person paid.
 

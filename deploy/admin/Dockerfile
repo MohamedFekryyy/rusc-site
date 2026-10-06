@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY server.mjs logo.webp ./
+COPY photos ./photos
 USER node
 ENV NODE_ENV=production PORT=8080
 EXPOSE 8080

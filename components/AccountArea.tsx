@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import AuthForm from "@/components/AuthForm";
 import { AUTH_EVENT, AuthError, addCode, getAccount, logOut, type AccountData, type AccountVisit } from "@/lib/auth";
 import { offerByKey, type OfferKey } from "@/lib/cal";
+import { loadClasses } from "@/lib/classes";
 import { formatBalance } from "@/lib/codes";
 import { BOOKING, bookingHref, type Lang } from "@/lib/routes";
 
@@ -96,10 +97,10 @@ export default function AccountArea({ lang }: { lang: Lang }) {
   // Signed out (no token), getAccount() answers null at once.
   useEffect(() => {
     let alive = true;
+    // With the classes made in rūsc admin, so theirs show in the page's language.
     const refresh = () =>
-      getAccount()
-        .catch(() => null)
-        .then((data) => {
+      Promise.all([getAccount().catch(() => null), loadClasses()])
+        .then(([data]) => {
           if (!alive) return;
           setAccount(data);
           setLoading(false);

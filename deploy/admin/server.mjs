@@ -11,9 +11,12 @@
 //   /admin/commandes  online orders (carnets and vouchers bought get their
 //                  code), then Acuity's orders
 //   /admin/horaires   the classes' hours in Cal: weekly slots, dates, closed days
+//   /admin/cours/nouveau  a new class: its Cal event type, price, photo, hours
+//                  (edited at /admin/cours/offre/<key>; see "classes made here")
 // Stripe calls POST /stripe/webhook (checkout.session.completed), checked with
 // the endpoint's signing secret STRIPE_WEBHOOK_SECRET.
 // Public API, called by the booking page (components/BookingEmbed.tsx):
+//   GET  /api/classes                  the classes made here (the site adds them to its own)
 //   POST /api/check   {code, offer}    what's left, and whether it covers that class
 //   POST /api/redeem  {code, seatUid}  takes the class just booked in Cal off the code
 //   GET  /api/order?id=cs_…            the codes an online order created (thank-you screen)
@@ -25,7 +28,8 @@
 // Data: schema "rusc" of the Cal.diy database (schema.sql). Of Cal's own
 // tables it reads bookings, seats, event types and attendees, and writes only:
 // the timetable (Availability), extra places and freed places (Attendee,
-// BookingSeat), and a booking's status once paid or empty (Booking).
+// BookingSeat), a booking's status once paid or empty (Booking), and the
+// classes made here (EventType, Schedule, EventTypeTranslation).
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import http from "node:http";
@@ -50,7 +54,9 @@ const LOCALE = () => (lang() === "en" ? "en-GB" : "fr-FR");
 // The classes a code can be used for: the offers of kind "session" in the
 // site's lib/cal.ts (same keys; each is one Cal event type, slug = key).
 // Keep in sync with it. Prices (TTC, euros) matter for codes worth an amount.
-const OFFERS = {
+// The classes made here (rusc.classes) join them in OFFERS at run time
+// (syncClasses).
+const BUILTIN = {
   "atelier-ceramique-2h": { label: "tournage 2h", en: "wheel throwing 2h", price: 50 },
   "atelier-modelage-2h": { label: "modelage 2h", en: "hand-building 2h", price: 50 },
   "decor-a-cru-1h": { label: "décor à cru 1h", en: "raw-glaze decoration 1h", price: 20 },
@@ -61,6 +67,7 @@ const OFFERS = {
   porcelaine: { label: "porcelaine 1 jour", en: "porcelain 1 day", price: 230 },
   "pot-and-wine": { label: "pot & wine", en: "pot & wine", price: 75 },
 };
+const OFFERS = { ...BUILTIN };
 const offerLabel = (key) => (OFFERS[key] ? tr(OFFERS[key].label, OFFERS[key].en) : key);
 const TWO_HOUR = ["atelier-ceramique-2h", "atelier-modelage-2h"];
 
@@ -74,8 +81,14 @@ const PRESETS = [
   { id: "cadeau2h", label: "Bon cadeau · cours 2h", en: "Gift voucher · 2h class", unit: "sessions", amount: 1, offers: TWO_HOUR, months: 6 },
   { id: "cadeau1j", label: "Bon cadeau · stage 1 jour", en: "Gift voucher · 1-day intensive", unit: "sessions", amount: 1, offers: ["atelier-ceramique-1j"], months: 6 },
   { id: "cadeau2j", label: "Bon cadeau · stage 2 jours", en: "Gift voucher · 2-day intensive", unit: "sessions", amount: 1, offers: ["atelier-ceramique-2j"], months: 6 },
-  { id: "montant", label: "Bon cadeau · montant", en: "Gift voucher · amount", unit: "euros", amount: 50, offers: Object.keys(OFFERS), months: 6 },
+  { id: "montant", label: "Bon cadeau · montant", en: "Gift voucher · amount", unit: "euros", amount: 50, offers: Object.keys(BUILTIN), months: 6 },
 ];
+// A preset's classes, with the classes made here that its codes pay for, as
+// chosen when each was made: gift vouchers in euros, or 2-hour class cards.
+function presetOffers(preset) {
+  const extra = [...CLASSES.values()].filter((c) => (preset.unit === "euros" ? c.euro_codes : preset.offers === TWO_HOUR && c.class_cards));
+  return [...preset.offers, ...extra.map((c) => c.key)];
+}
 // The cart's products (lib/cal.ts, kind "product") and what an online
 // purchase of each creates: a code from a preset above, or a membership.
 const PRODUCTS = {
@@ -104,6 +117,50 @@ const UNIT = {
   hours: { one: ["heure", "hour"], many: ["heures", "hours"] },
   euros: { one: ["€", "€"], many: ["€", "€"] },
 };
+
+// ---------------------------------------------------------------- classes made here
+// Cours → Nouveau cours: a class beyond those of lib/cal.ts. rūsc admin makes
+// its Cal event type (slug = key), schedule and English translation the way
+// deploy/cal/seed-classes.mjs makes the others, and keeps the rest in
+// rusc.classes: names, price, photo, which codes pay for it, whether the site
+// lists it. Its length and places live in Cal. The site reads them all from
+// GET /api/classes: its booking page lists the active ones, and its checkout
+// takes their price from there, never from the browser.
+let CLASSES = new Map(); // key → rusc.classes row, with Cal's length, seats and schedule
+let classesAt = 0;
+async function syncClasses(force = false) {
+  if (!force && Date.now() - classesAt < 30_000) return;
+  try {
+    const { rows } = await db.query(
+      `SELECT c.*, e.length, e."seatsPerTimeSlot" AS seats, e."scheduleId" AS schedule_id
+         FROM rusc.classes c JOIN public."EventType" e ON e.id = c.event_type_id ORDER BY c.created_at`,
+    );
+    classesAt = Date.now();
+    CLASSES = new Map(rows.map((row) => [row.key, row]));
+    for (const key of Object.keys(OFFERS)) if (!BUILTIN[key]) delete OFFERS[key];
+    for (const c of rows) OFFERS[c.key] = { label: c.title_fr, en: c.title_en, price: c.price_cents / 100, made: true };
+  } catch (error) {
+    console.error("classes", error.message);
+  }
+}
+
+// What the site needs to show and sell a class (lib/cal.ts, ClassOffer).
+function publicClass(c) {
+  const euros = c.price_cents / 100;
+  const digits = { minimumFractionDigits: euros % 1 ? 2 : 0 };
+  const price = { fr: `${euros.toLocaleString("fr-FR", digits)} €`, en: `€${euros.toLocaleString("en-GB", digits)}` };
+  return {
+    key: c.key,
+    price: c.price_cents,
+    minutes: c.length,
+    seats: c.seats,
+    image: c.image,
+    active: c.active,
+    fr: { tag: c.tag_fr, title: c.title_fr, unit: [price.fr, c.note_fr].filter(Boolean).join(" · "), cta: "Réserver" },
+    en: { tag: c.tag_en, title: c.title_en, unit: [price.en, c.note_en].filter(Boolean).join(" · "), cta: "Book" },
+  };
+}
+const apiClasses = () => ({ classes: [...CLASSES.values()].map(publicClass) });
 
 // ---------------------------------------------------------------- helpers
 
@@ -720,7 +777,7 @@ async function recordOrder(session) {
         await client.query(
           `INSERT INTO rusc.codes (key, display, label, unit, offers, initial, remaining, expires_on, holder, note, source, order_id)
            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'online', $10)`,
-          [codeKey, display, label, preset.unit, preset.offers, amount, addMonths(preset.months), holder, note, session.id],
+          [codeKey, display, label, preset.unit, presetOffers(preset), amount, addMonths(preset.months), holder, note, session.id],
         );
       }
     }
@@ -894,6 +951,14 @@ const STYLE = `
   .cal .date{align-self:flex-start;padding:0 3px;font-size:13px;color:var(--ink);text-decoration:none}.cal .w{display:none}.cal .past .chip{opacity:.6}
   .chip{display:flex;gap:4px;align-items:baseline;min-width:0;padding:2px 4px;font-size:12px;line-height:1.35;color:var(--ink);text-decoration:none;background:var(--bg);border-left:3px solid var(--line)}
   .chip .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chip.some{border-left-color:var(--accent)}.chip.full{border-left-color:var(--warn);background:#f3e3da}
+  .titlebar{display:flex;gap:8px 16px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+  a.action{display:inline-flex;align-items:center;padding:6px 14px;border:1px solid var(--accent);color:var(--accent);background:none;text-decoration:none;font-size:14px;white-space:nowrap}
+  nav.tabs{flex-wrap:wrap}nav.tabs a.action{margin-left:auto;border-color:var(--accent);background:none}
+  fieldset.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}fieldset.photos legend{margin-bottom:4px}
+  fieldset.photos label{display:block;position:relative;cursor:pointer}fieldset.photos input{position:absolute;opacity:0;pointer-events:none}
+  fieldset.photos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border:3px solid transparent}
+  fieldset.photos input:checked+img{border-color:var(--accent)}fieldset.photos input:focus-visible+img{outline:2px solid var(--ink);outline-offset:1px}
+  form.box .wide{grid-column:1/-1}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}form.box h3{grid-column:1/-1;margin:6px 0 -4px;font-size:14px}
   @media (max-width:700px){.cal{display:block;border:0}.cal .dow,.cal .cell.empty,.cal .cell.out{display:none}.cal .cell{min-height:0;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--line)}.cal .cell.today{box-shadow:none}.cal .n{display:none}.cal .w{display:block;font-weight:600;margin-bottom:4px}.chip{padding:6px 8px;font-size:14px}}
 `;
 // Icons: Heroicons 2.2 (MIT, Tailwind Labs, heroicons.com), inlined. Only where
@@ -1159,7 +1224,7 @@ const sessionBox = (s) =>
 // List · Calendar, at the top of Cours.
 function coursTabs(active) {
   const tabs = [["liste", "list-bullet", tr("Liste", "List"), "/admin/cours"], ["calendrier", "calendar-days", tr("Calendrier", "Calendar"), "/admin/cours?vue=calendrier"]];
-  return `<nav class="tabs">${tabs.map(([key, name, label, href]) => `<a href="${href}"${key === active ? ' aria-current="page"' : ""}>${icon(name)}${label}</a>`).join("")}</nav>`;
+  return `<nav class="tabs">${tabs.map(([key, name, label, href]) => `<a href="${href}"${key === active ? ' aria-current="page"' : ""}>${icon(name)}${label}</a>`).join("")}<a class="action" href="/admin/cours/nouveau">${tr("+ Nouveau cours", "+ New class")}</a></nav>`;
 }
 
 async function coursPage(url) {
@@ -1323,7 +1388,9 @@ async function horairesClasses() {
 async function horairesPage(url) {
   const classes = await horairesClasses();
   const today = parisToday();
-  const flash = url.searchParams.has("saved")
+  const flash = url.searchParams.has("created")
+    ? tr("Cours créé. Il est sur la page Réserver du site (Cours & stages) ; ses dates s’y réservent dès qu’il a des horaires ci-dessous.", "Class created. It’s on the site’s booking page (Courses & workshops); people can book it as soon as it has hours below.")
+    : url.searchParams.has("saved")
     ? tr("Enregistré. Le calendrier de réservation suit tout de suite.", "Saved. The booking calendar follows right away.")
     : url.searchParams.has("closed")
       ? tr(`${Number(url.searchParams.get("closed")) || 0} jour(s)-cours fermés.`, `${Number(url.searchParams.get("closed")) || 0} class-day(s) closed.`) +
@@ -1346,8 +1413,11 @@ async function horairesPage(url) {
       ].join("");
       const openStudio = c.slug === "atelier-libre-1h";
       const endField = `<label>${tr("Fin", "End")}<input name="end" type="time" step="1800" ${openStudio ? "required" : `placeholder="${tr("auto", "auto")}"`}></label>`;
+      const made = CLASSES.get(c.slug);
       return `<div class="session" id="${esc(c.slug)}"><div class="head"><b>${esc(OFFERS[c.slug] ? offerLabel(c.slug) : c.title)}</b>
-          <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}</span></div>
+          <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}${made ? ` · ${esc(fmtAmount("euros", made.price_cents / 100))}` : ""}</span>
+          ${made && !made.active ? `<span class="pill off">${tr("masqué du site", "hidden from the site")}</span>` : ""}
+          ${made ? `<a class="small" href="/admin/cours/offre/${esc(c.slug)}">${tr("Modifier", "Edit")}</a>` : ""}</div>
         ${lines ? `<table><tbody>${lines}</tbody></table>` : `<p class="muted" style="margin:0">${tr("Aucun horaire.", "No hours.")}</p>`}
         ${past ? `<p class="muted small">${tr(`${past} date(s) passée(s) masquée(s).`, `${past} past date(s) hidden.`)}</p>` : ""}
         <form class="box" method="post" action="/admin/horaires/add" style="margin-top:10px">
@@ -1368,7 +1438,7 @@ async function horairesPage(url) {
   return shell(
     "horaires",
     tr("Horaires", "Timetable"),
-    `<h1>${tr("Horaires", "Timetable")}</h1>
+    `<div class="titlebar"><h1>${tr("Horaires", "Timetable")}</h1><a class="action" href="/admin/cours/nouveau">${tr("+ Nouveau cours", "+ New class")}</a></div>
      <p class="muted">${tr("Les horaires des cours, tels que Cal les propose à la réservation. Les réservations déjà faites ne bougent pas.", "The classes’ hours, as Cal offers them for booking. Bookings already made don’t move.")}</p>
      ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
      <h2>${tr("Fermer des jours (vacances, jours fériés)", "Close days (holidays)")}</h2>
@@ -1382,26 +1452,39 @@ async function horairesPage(url) {
   );
 }
 
-async function horairesAdd(form) {
-  const cls = (await horairesClasses()).find((c) => String(c.id) === String(form.get("class")));
-  if (!cls) throw refused("Cours inconnu.", "Unknown class.");
-  const day = form.get("day");
+// A weekly slot or a dated one, from a form's day or date, start and end (by
+// default one class long).
+function slotFrom(form, length) {
+  const day = String(form.get("day") ?? "");
   const date = String(form.get("date") ?? "");
   const start = toMinutes(form.get("start"));
   if (start === null) throw refused("Heure de début invalide.", "Invalid start time.");
-  const end = form.get("end") ? toMinutes(form.get("end")) : start + cls.length;
+  const end = form.get("end") ? toMinutes(form.get("end")) : start + length;
   if (end === null || end <= start || end > 23 * 60 + 59) throw refused("Heure de fin invalide (après le début, avant minuit).", "Invalid end time (after the start, before midnight).");
-  if (end - start < cls.length) throw refused(`La plage doit durer au moins ${cls.length} min.`, `The span must last at least ${cls.length} min.`);
+  if (end - start < length) throw refused(`La plage doit durer au moins ${length} min.`, `The span must last at least ${length} min.`);
   if (isDay(date)) {
     if (date < parisToday()) throw refused("Cette date est passée.", "That date is past.");
-    // A dated row replaces the weekly hours that day: drop a closure first.
-    await db.query(`DELETE FROM public."Availability" WHERE "scheduleId" = $1 AND date = $2::date AND "startTime" = "endTime"`, [cls.schedule_id, date]);
-    await db.query(`INSERT INTO public."Availability" ("scheduleId", days, date, "startTime", "endTime") VALUES ($1, ARRAY[]::int[], $2::date, $3::time, $4::time)`, [cls.schedule_id, date, fromMinutes(start), fromMinutes(end)]);
-  } else if (/^[0-6]$/.test(String(day ?? ""))) {
-    await db.query(`INSERT INTO public."Availability" ("scheduleId", days, "startTime", "endTime") VALUES ($1, ARRAY[$2::int], $3::time, $4::time)`, [cls.schedule_id, Number(day), fromMinutes(start), fromMinutes(end)]);
-  } else {
-    throw refused("Choisissez un jour de la semaine ou une date.", "Pick a weekday or a date.");
+    return { date, start: fromMinutes(start), end: fromMinutes(end) };
   }
+  if (/^[0-6]$/.test(day)) return { day: Number(day), start: fromMinutes(start), end: fromMinutes(end) };
+  throw refused("Choisissez un jour de la semaine ou une date.", "Pick a weekday or a date.");
+}
+
+// q: the pool, or a client inside a transaction.
+async function insertSlot(q, scheduleId, slot) {
+  if (slot.date) {
+    // A dated row replaces the weekly hours that day: drop a closure first.
+    await q.query(`DELETE FROM public."Availability" WHERE "scheduleId" = $1 AND date = $2::date AND "startTime" = "endTime"`, [scheduleId, slot.date]);
+    await q.query(`INSERT INTO public."Availability" ("scheduleId", days, date, "startTime", "endTime") VALUES ($1, ARRAY[]::int[], $2::date, $3::time, $4::time)`, [scheduleId, slot.date, slot.start, slot.end]);
+  } else {
+    await q.query(`INSERT INTO public."Availability" ("scheduleId", days, "startTime", "endTime") VALUES ($1, ARRAY[$2::int], $3::time, $4::time)`, [scheduleId, slot.day, slot.start, slot.end]);
+  }
+}
+
+async function horairesAdd(form) {
+  const cls = (await horairesClasses()).find((c) => String(c.id) === String(form.get("class")));
+  if (!cls) throw refused("Cours inconnu.", "Unknown class.");
+  await insertSlot(db, cls.schedule_id, slotFrom(form, cls.length));
   return cls.slug;
 }
 
@@ -1435,6 +1518,272 @@ async function horairesClose(form) {
     }
   }
   return { closed, skipped };
+}
+
+// ---------------------------------------------------------------- Nouveau cours
+// The form behind a class made here (see "classes made here" above): create
+// at /admin/cours/nouveau, edit at /admin/cours/offre/<key>. Creating makes the
+// Cal event type with the same settings as deploy/cal/seed-classes.mjs, so it
+// books, holds places, takes codes and is paid like the others.
+
+const HOST = "raquel"; // the studio's Cal account, host of every class (lib/cal.ts, CAL_USERNAME)
+const TZ = "Europe/Paris";
+const ADDRESS = "rūsc, 99 Promenade Marie Paradis, 74400 Chamonix-Mont-Blanc";
+// Bookable until 30 minutes after the start (deploy/cal/patches/late-booking.patch).
+const NOTICE = -30;
+// The site's photos a class can show (PHOTOS in components/OfferCard.tsx), with
+// small copies in photos/ for the form.
+const PHOTOS = [
+  "atelier-03", "modelage-2h", "atelier-08", "atelier-07", "ceramique-1j", "ceramique-2j", "porcelaine", "atelier-05", "stages",
+  "atelier-01", "atelier-04", "atelier-10", "location", "membres", "us-01", "us-02", "us-04", "bon-cadeau",
+];
+const PHOTO_DIR = new URL("./photos/", import.meta.url);
+const PHOTO_FILES = new Map(PHOTOS.map((name) => [name, readFileSync(new URL(`${name}.jpg`, PHOTO_DIR))]));
+
+// "2 h", "1 h 30", "45 min"; the line above a class's name when none is given.
+const duration = (minutes) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? `${h} h${m ? ` ${String(m).padStart(2, "0")}` : ""}` : `${m} min`;
+};
+const defaultTag = (minutes, english) => `${minutes >= 300 ? (english ? "Workshop" : "Stage") : english ? "Course" : "Cours"} · ${duration(minutes)}`;
+
+// The form's values, checked.
+function classInput(form) {
+  const line = (name, max) => String(form.get(name) ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  const text = (name) => String(form.get(name) ?? "").replace(/\r\n?/g, "\n").trim().slice(0, 1000);
+  const titleFr = line("title_fr", 60);
+  if (!titleFr) throw refused("Il faut un nom.", "A name is needed.");
+  const price = Math.round(Number(String(form.get("price") ?? "").replace(",", ".")) * 100);
+  if (!Number.isInteger(price) || price < 100 || price > 200000) throw refused("Un prix entre 1 et 2 000 €.", "A price between €1 and €2,000.");
+  const minutes = Math.round(Number(form.get("minutes")));
+  if (!(minutes >= 15 && minutes <= 720)) throw refused("Une durée entre 15 et 720 minutes.", "A length between 15 and 720 minutes.");
+  const seats = Math.round(Number(form.get("seats")));
+  if (!(seats >= 1 && seats <= 30)) throw refused("Entre 1 et 30 places.", "Between 1 and 30 places.");
+  const image = String(form.get("image") ?? "");
+  return {
+    titleFr,
+    titleEn: line("title_en", 60) || titleFr,
+    tagFr: line("tag_fr", 60) || defaultTag(minutes, false),
+    tagEn: line("tag_en", 60) || defaultTag(minutes, true),
+    noteFr: line("note_fr", 80) || null,
+    noteEn: line("note_en", 80) || null,
+    descriptionFr: text("description_fr"),
+    descriptionEn: text("description_en"),
+    price,
+    minutes,
+    seats,
+    image: PHOTOS.includes(image) ? image : PHOTOS[0],
+    euroCodes: form.get("euro_codes") === "on",
+    classCards: form.get("class_cards") === "on",
+  };
+}
+
+// A new class's key (its Cal slug and the site's offer key), from its French
+// name: free in Cal and on the site, without the prefixes the site's member
+// prices read (lib/pricing.ts), and never ending in -fr or -en (old twins).
+function classKey(title, taken) {
+  let base = title.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40).replace(/-+$/, "") || "cours";
+  if (/^(atelier-libre|bon-cadeau|adhesion|carnet)/.test(base)) base = `cours-${base}`;
+  if (/-(fr|en)$/.test(base)) base += "-1";
+  let key = base;
+  for (let n = 2; taken.has(key); n++) key = `${base}-${n}`;
+  return key;
+}
+
+// The English title and description, which Cal's booker shows on the English pages.
+async function writeTranslations(client, key, eventTypeId, userId, v) {
+  await client.query(`DELETE FROM public."EventTypeTranslation" WHERE "eventTypeId" = $1`, [eventTypeId]);
+  for (const [field, text] of [["TITLE", v.titleEn], ["DESCRIPTION", v.descriptionEn]]) {
+    if (!text) continue;
+    await client.query(
+      `INSERT INTO public."EventTypeTranslation" (uid, "eventTypeId", field, "sourceLocale", "targetLocale", "translatedText", "createdBy", "updatedAt")
+       VALUES ($1, $2, $3, 'fr', 'en', $4, $5, now())`,
+      [`rusc-${key}-${field.toLowerCase()}-en`, eventTypeId, field, text, userId],
+    );
+  }
+}
+
+// Codes already sold that pay for every class (gift vouchers in euros) or for
+// the 2-hour classes (class cards, a voucher for one 2-hour class) pay for this
+// one too, or no longer, as the studio chose.
+async function shareCodes(client, key, v) {
+  const everyClass = Object.keys(BUILTIN).filter((k) => k !== "atelier-libre-1h");
+  for (const [on, unit, offers] of [[v.euroCodes, "euros", everyClass], [v.classCards, "sessions", TWO_HOUR]]) {
+    await client.query(
+      on
+        ? `UPDATE rusc.codes SET offers = array_append(offers, $1) WHERE unit = $2 AND offers @> $3::text[] AND NOT ($1 = ANY(offers))`
+        : `UPDATE rusc.codes SET offers = array_remove(offers, $1) WHERE unit = $2 AND offers @> $3::text[] AND $1 = ANY(offers)`,
+      [key, unit, offers],
+    );
+  }
+}
+
+async function hostId(client) {
+  const { rows } = await client.query("SELECT id FROM public.users WHERE username = $1", [HOST]);
+  if (!rows[0]) throw new Error(`no Cal user ${HOST}`);
+  return rows[0].id;
+}
+
+async function inTransaction(work) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function classCreate(form) {
+  const v = classInput(form);
+  // The first session, if one is given (checked before anything is made).
+  const first = form.get("start") || form.get("day") || form.get("date") ? slotFrom(form, v.minutes) : null;
+  const key = await inTransaction(async (client) => {
+    const userId = await hostId(client);
+    const slugs = await client.query(`SELECT slug FROM public."EventType" WHERE "userId" = $1 UNION SELECT key FROM rusc.classes`, [userId]);
+    const key = classKey(v.titleFr, new Set([...Object.keys(BUILTIN), ...Object.keys(PRODUCTS), ...slugs.rows.map((r) => r.slug)]));
+    const schedule = await client.query(`INSERT INTO public."Schedule" ("userId", name, "timeZone") VALUES ($1, $2, $3) RETURNING id`, [userId, `rūsc · ${v.titleFr}`, TZ]);
+    const scheduleId = schedule.rows[0].id;
+    // As seed-classes.mjs: places shown, attendees not; booked PENDING until paid
+    // (the cart); hidden from Cal's profile page (the site embeds it); Paris
+    // time; 30-minute slot interval, each window one class long.
+    const event = await client.query(
+      `INSERT INTO public."EventType" (title, slug, description, length, "userId", "scheduleId", "seatsPerTimeSlot", "minimumBookingNotice",
+         "seatsShowAvailabilityCount", "seatsShowAttendees", locations, "interfaceLanguage", "lockTimeZoneToggleOnBookingPage", "lockedTimeZone",
+         "disableGuests", "requiresConfirmation", hidden, "slotInterval", position)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, false, $9::jsonb, NULL, true, $10, false, true, true, 30, 0) RETURNING id`,
+      [v.titleFr, key, v.descriptionFr, v.minutes, userId, scheduleId, v.seats, NOTICE,
+        JSON.stringify([{ type: "inPerson", address: ADDRESS, displayLocationPublicly: true }]), TZ],
+    );
+    const eventTypeId = event.rows[0].id;
+    await client.query(`INSERT INTO public."_user_eventtype" ("A", "B") VALUES ($1, $2)`, [eventTypeId, userId]);
+    await writeTranslations(client, key, eventTypeId, userId, v);
+    await client.query(
+      `INSERT INTO rusc.classes (key, event_type_id, title_fr, title_en, tag_fr, tag_en, note_fr, note_en, description_fr, description_en,
+         price_cents, image, euro_codes, class_cards)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [key, eventTypeId, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image, v.euroCodes, v.classCards],
+    );
+    await shareCodes(client, key, v);
+    if (first) await insertSlot(client, scheduleId, first);
+    return key;
+  });
+  await syncClasses(true);
+  console.log("class created", key);
+  return key;
+}
+
+async function classUpdate(key, form) {
+  await syncClasses(true);
+  const c = CLASSES.get(key);
+  if (!c) throw refused("Cours introuvable.", "Class not found.");
+  const v = classInput(form);
+  await inTransaction(async (client) => {
+    const userId = await hostId(client);
+    await client.query(`UPDATE public."EventType" SET title = $2, description = $3, "seatsPerTimeSlot" = $4 WHERE id = $1`, [c.event_type_id, v.titleFr, v.descriptionFr, v.seats]);
+    if (v.minutes !== c.length) {
+      // Cal's trigger copies the new length into its bookings' summary.
+      await client.query(`UPDATE public."EventType" SET length = $2 WHERE id = $1`, [c.event_type_id, v.minutes]);
+      // Each window one class long stays one class long (one slot); longer
+      // spans are left as they are.
+      const rows = await client.query(`SELECT id, "startTime"::text AS start, "endTime"::text AS "end" FROM public."Availability" WHERE "scheduleId" = $1`, [c.schedule_id]);
+      for (const row of rows.rows) {
+        const start = toMinutes(hhmm(row.start));
+        const end = toMinutes(hhmm(row.end));
+        if (start !== end && end - start === c.length && start + v.minutes <= 23 * 60 + 59) {
+          await client.query(`UPDATE public."Availability" SET "endTime" = $2::time WHERE id = $1`, [row.id, fromMinutes(start + v.minutes)]);
+        }
+      }
+    }
+    if (c.schedule_id) await client.query(`UPDATE public."Schedule" SET name = $2 WHERE id = $1`, [c.schedule_id, `rūsc · ${v.titleFr}`]);
+    await writeTranslations(client, key, c.event_type_id, userId, v);
+    await client.query(
+      `UPDATE rusc.classes SET title_fr = $2, title_en = $3, tag_fr = $4, tag_en = $5, note_fr = $6, note_en = $7, description_fr = $8,
+         description_en = $9, price_cents = $10, image = $11, euro_codes = $12, class_cards = $13 WHERE key = $1`,
+      [key, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image, v.euroCodes, v.classCards],
+    );
+    await shareCodes(client, key, v);
+  });
+  await syncClasses(true);
+}
+
+// Listed on the site, or not. Bookings, codes and orders stay as they are.
+async function classToggle(key) {
+  await db.query("UPDATE rusc.classes SET active = NOT active WHERE key = $1", [key]);
+  await syncClasses(true);
+}
+
+function classForm(c) {
+  const value = (v) => (v === null || v === undefined ? "" : ` value="${esc(v)}"`);
+  const field = (label, name, attrs = "", cls = "") => `<label${cls ? ` class="${cls}"` : ""}>${label}<input name="${name}"${attrs}></label>`;
+  const area = (label, name, text) => `<label class="wide">${label}<textarea name="${name}" rows="3" maxlength="1000">${esc(text ?? "")}</textarea></label>`;
+  const image = c?.image ?? PHOTOS[0];
+  const photos = PHOTOS.map(
+    (name) => `<label title="${esc(name)}"><input type="radio" name="image" value="${esc(name)}"${name === image ? " checked" : ""}><img src="/photos/${esc(name)}.jpg" alt="${esc(name)}" width="120" height="90" loading="lazy"></label>`,
+  ).join("");
+  const dayOptions = [1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}">${esc(weekdayName(d))}</option>`).join("");
+  const today = parisToday();
+  return `<form class="box" method="post" action="${c ? `/admin/cours/offre/${esc(c.key)}` : "/admin/cours/nouveau"}">
+    <h3>${tr("Le cours", "The class")}</h3>
+    ${field(tr("Nom en français", "Name in French"), "title_fr", ` required maxlength="60" placeholder="${tr("ex. raku 1 jour", "e.g. raku 1 jour")}"${value(c?.title_fr)}`, "two")}
+    ${field(tr("Nom en anglais", "Name in English"), "title_en", ` required maxlength="60" placeholder="${tr("ex. raku 1 day", "e.g. raku 1 day")}"${value(c?.title_en)}`, "two")}
+    ${field(tr("Prix (€ TTC, par place)", "Price (€ incl. VAT, per place)"), "price", ` type="number" min="1" max="2000" step="0.5" required${value(c ? c.price_cents / 100 : null)}`)}
+    ${field(tr("Durée (minutes)", "Length (minutes)"), "minutes", ` type="number" min="15" max="720" step="15" required${value(c?.length ?? 120)}`)}
+    ${field(tr("Places", "Places"), "seats", ` type="number" min="1" max="30" required${value(c?.seats ?? 7)}`)}
+    <h3>${tr("Sur la page Réserver du site", "On the site’s booking page")}</h3>
+    ${field(tr("Au-dessus du nom (français)", "Above the name (French)"), "tag_fr", ` maxlength="60" placeholder="${tr("auto : Cours · 2 h", "auto: Cours · 2 h")}"${value(c?.tag_fr)}`)}
+    ${field(tr("Au-dessus du nom (anglais)", "Above the name (English)"), "tag_en", ` maxlength="60" placeholder="${tr("auto : Course · 2 h", "auto: Course · 2 h")}"${value(c?.tag_en)}`)}
+    ${field(tr("Après le prix (français)", "After the price (French)"), "note_fr", ` maxlength="80" placeholder="${tr("ex. apéro et modelage", "e.g. apéro et modelage")}"${value(c?.note_fr)}`)}
+    ${field(tr("Après le prix (anglais)", "After the price (English)"), "note_en", ` maxlength="80" placeholder="${tr("ex. drinks and hand-building", "e.g. drinks and hand-building")}"${value(c?.note_en)}`)}
+    ${area(tr("Description en français (dans le calendrier de réservation)", "Description in French (in the booking calendar)"), "description_fr", c?.description_fr)}
+    ${area(tr("Description en anglais", "Description in English"), "description_en", c?.description_en)}
+    <fieldset class="photos"><legend>${tr("Photo", "Photo")}</legend>${photos}</fieldset>
+    <fieldset><legend>${tr("Codes qui le paient", "Codes that pay for it")}</legend>
+      <label><input type="checkbox" name="euro_codes"${c ? (c.euro_codes ? " checked" : "") : " checked"}> ${tr("Bons cadeaux en euros (le prix du cours)", "Gift vouchers in euros (the class’s price)")}</label>
+      <label><input type="checkbox" name="class_cards"${c?.class_cards ? " checked" : ""}> ${tr("Carnets et bons « cours de 2 h » (une séance)", "2-hour class cards and vouchers (one session)")}</label></fieldset>
+    ${c ? "" : `<fieldset><legend>${tr("Première séance (facultatif, sinon dans Horaires)", "First session (optional, or later in Timetable)")}</legend>
+      <label>${tr("Chaque semaine le", "Every week on")} <select name="day"><option value="">—</option>${dayOptions}</select></label>
+      <label>${tr("ou le", "or on")} <input name="date" type="date" min="${today}"></label>
+      <label>${tr("à", "at")} <input name="start" type="time" step="1800"></label></fieldset>`}
+    <div><button type="submit">${c ? tr("Enregistrer", "Save") : tr("Créer le cours", "Create the class")}</button></div>
+  </form>`;
+}
+
+function classNewPage() {
+  return shell(
+    "horaires",
+    tr("Nouveau cours", "New class"),
+    `<p><a href="/admin/horaires">${tr("← Horaires", "← Timetable")}</a></p>
+     <h1>${tr("Nouveau cours", "New class")}</h1>
+     <p class="muted">${tr("Il s’ajoute à la page Réserver du site (Cours & stages), en français et en anglais. On le réserve et le paie (carte ou code) comme les autres cours ; il apparaît dans Cours et Horaires.", "It joins the site’s booking page (Courses & workshops), in French and English. People book it and pay for it (card or code) like the other classes; it shows in Classes and Timetable.")}</p>
+     ${classForm(null)}`,
+  );
+}
+
+async function classEditPage(key, flash) {
+  await syncClasses(true);
+  const c = CLASSES.get(key);
+  if (!c) return null;
+  return shell(
+    "horaires",
+    c.title_fr,
+    `<p><a href="/admin/horaires#${esc(key)}">${tr("← Horaires", "← Timetable")}</a></p>
+     ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
+     <div class="titlebar"><h1>${esc(tr(c.title_fr, c.title_en))}</h1><a class="action" href="/admin/horaires#${esc(key)}">${tr("Ses horaires", "Its hours")}</a></div>
+     <p class="muted">${c.active ? tr("Sur la page Réserver du site.", "On the site’s booking page.") : `<span class="off">${tr("Masqué : le site ne le propose plus.", "Hidden: the site no longer offers it.")}</span>`}
+       ${tr("Un changement s’y voit en moins d’une minute.", "A change shows there within a minute.")}</p>
+     ${classForm(c)}
+     <form method="post" action="/admin/cours/offre/${esc(key)}/site" style="margin-top:12px">
+       <button class="plain" type="submit">${c.active ? tr("Retirer du site (les réservations faites restent)", "Take off the site (bookings made stay)") : tr("Remettre sur le site", "Put back on the site")}</button>
+     </form>`,
+  );
 }
 
 // ---------------------------------------------------------------- email (Resend)
@@ -1978,7 +2327,7 @@ function newCodeForm(presetId) {
     <label>${tr("Client (nom, e-mail)", "Customer (name, email)")}<input name="holder" maxlength="120" placeholder="${tr("facultatif", "optional")}"></label>
     <label>Note<input name="note" maxlength="200" placeholder="${tr("ex. payé en espèces le 24/09", "e.g. paid in cash on 24/09")}"></label>
     <label>Code<input name="code" maxlength="40" placeholder="${tr("laisser vide : créé automatiquement", "leave empty: made for you")}"></label>
-    ${offerBoxes(p.offers)}
+    ${offerBoxes(presetOffers(p))}
     <div><button type="submit">${tr("Créer le code", "Create the code")}</button></div>
   </form>`;
 }
@@ -2120,6 +2469,8 @@ const langOf = (req) => (/(?:^|;\s*)rusc_lang=en(?:;|$)/.test(req.headers.cookie
 
 async function handle(req, res, url) {
   try {
+    // The classes made here, as of the last 30 seconds (OFFERS, codes, pages).
+    await syncClasses();
     // FR · EN switch: remembered for a year, then back to the same page.
     if (url.pathname === "/lang") {
       const to = url.searchParams.get("to") === "en" ? "en" : "fr";
@@ -2150,6 +2501,8 @@ async function handle(req, res, url) {
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/logo.webp") return send(res, 200, LOGO, { "content-type": "image/webp", "cache-control": "public, max-age=604800" });
+    const photo = url.pathname.match(/^\/photos\/([a-z0-9-]+)\.jpg$/);
+    if (photo && PHOTO_FILES.has(photo[1])) return send(res, 200, PHOTO_FILES.get(photo[1]), { "content-type": "image/jpeg", "cache-control": "public, max-age=604800" });
 
     if (url.pathname === "/stripe/webhook" && req.method === "POST") {
       const body = await readBody(req, 512 * 1024);
@@ -2194,6 +2547,10 @@ async function handle(req, res, url) {
     if (url.pathname.startsWith("/api/")) {
       const headers = cors(req);
       if (req.method === "OPTIONS") return send(res, 204, {}, headers);
+      // The site's booking page and checkout: a change here shows within a minute.
+      if (url.pathname === "/api/classes" && req.method === "GET") {
+        return send(res, 200, apiClasses(), { ...headers, "cache-control": "public, max-age=30" });
+      }
       if (url.pathname === "/api/order" && req.method === "GET") {
         if (limited(req, 60)) return send(res, 429, { paid: false, codes: [] }, headers);
         return send(res, 200, await apiOrder(String(url.searchParams.get("id") ?? "")), headers);
@@ -2253,6 +2610,16 @@ async function handle(req, res, url) {
         const form = new URLSearchParams(await readBody(req));
         const match = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)\/(adjust|active)$/);
         const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member)$/);
+        const classAction = url.pathname.match(/^\/admin\/cours\/offre\/([a-z0-9-]+)(\/site)?$/);
+        if (url.pathname === "/admin/cours/nouveau") {
+          const key = await classCreate(form);
+          return send(res, 303, "", { location: `/admin/horaires?created=1#${key}` });
+        }
+        if (classAction) {
+          if (classAction[2]) await classToggle(classAction[1]);
+          else await classUpdate(classAction[1], form);
+          return send(res, 303, "", { location: `/admin/cours/offre/${classAction[1]}?saved=1` });
+        }
         if (clientAction && clientAction[2] === "reset") {
           return send(res, 200, await clientPage(clientAction[1], await clientResetLink(clientAction[1])));
         }
@@ -2292,6 +2659,12 @@ async function handle(req, res, url) {
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
       if (url.pathname === "/admin/horaires") return send(res, 200, await horairesPage(url));
+      if (url.pathname === "/admin/cours/nouveau") return send(res, 200, classNewPage());
+      const madeClass = url.pathname.match(/^\/admin\/cours\/offre\/([a-z0-9-]+)$/);
+      if (madeClass) {
+        const html = await classEditPage(madeClass[1], url.searchParams.has("saved") ? tr("Enregistré.", "Saved.") : "");
+        return html ? send(res, 200, html) : send(res, 404, shell("horaires", tr("Introuvable", "Not found"), `<p>${tr("Cours introuvable.", "Class not found.")}</p>`));
+      }
       const client = url.pathname.match(/^\/admin\/clients\/(\d+)$/);
       if (client) {
         const html = await clientPage(client[1], url.searchParams.has("saved") ? `<p class="flash">${icon("check-circle")}${tr("Enregistré.", "Saved.")}</p>` : "");

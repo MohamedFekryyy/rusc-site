@@ -30,7 +30,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-10-03)
+## Where things stand (updated 2026-10-06)
 
 Keep this section current; the migration log below keeps the history.
 
@@ -47,7 +47,8 @@ Keep this section current; the migration log below keeps the history.
   - Clients;
   - Codes;
   - Commandes (online and Acuity);
-  - Horaires (step 29).
+  - Horaires (step 29);
+  - **+ Nouveau cours** (step 36): the studio creates a class (names FR/EN, price, length, places, photo, codes it takes, first session). rūsc admin makes its Cal event type like the seed script does; the booking page, cart, checkout, codes, Cours and Horaires all take it in.
 - **Acuity continuity:**
   - 46 codes still worth something, and the 1 upcoming booking;
   - the whole history: 1,616 appointments, 216 orders, 730 clients plus 92 people under shared e-mails (step 30, `scripts/continuity/README.md`);
@@ -124,7 +125,8 @@ Keep this section current; the migration log below keeps the history.
   - On the booking page, `BookingEmbed` lists the offers of each tab as cards. A session opens Cal's inline booker in place; a product (card, membership, gift voucher) goes straight into the cart. The tabs and the chosen offer update the URL.
   - If an event type doesn't exist yet, the booking page says it opens soon, with a contact link (Cal's `linkFailed` event).
   - Each session is **one** Cal event type, slug = its key (`OFFERS` in `lib/cal.ts`, `kind: "session"`), so French and English bookings fill the same places. Its French title and description carry an English translation (Cal's `EventTypeTranslation`), shown to visitors whose browser is in English; Cal's own labels follow the browser too. Products need no event type.
-  - Prices live in `OFFERS` (euro cents, TTC). The checkout route recomputes every total from them; never trust a price from the browser.
+  - Classes the studio creates in rūsc admin (step 36) are sessions too, but they live in `rusc.classes` and Cal, not in `OFFERS`: the site loads them from rūsc admin's `GET /api/classes` (`lib/classes.ts`, `ClassOffer` in `lib/cal.ts`). Code that looks up an offer goes through `offerByKey`, which knows both.
+  - Prices live in `OFFERS` (euro cents, TTC), and in `rusc.classes` for the classes made in rūsc admin. The checkout route recomputes every total from them; never trust a price from the browser.
 - **Keep secrets and client data out of the repo, which is public on GitHub.**
   - Keys go in `.secrets/`, which is git-ignored (the Cal.com key is `.secrets/cal.env`).
   - Client exports go in `data/`, also git-ignored (for example the Acuity CSVs).
@@ -624,3 +626,22 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Lint:** Rrose's "Pay directly" (`5fe7e53`) failed `react-hooks/set-state-in-effect` in `CartView`; a one-time read of `?pay=1` after hydration is what it should do, so the rule is disabled on that line with the reason (`bcc0992`).
 - **Checked** in the browser (dev): Stages FR→EN at 1280 px ("Atelier tournage grès : 180 €" → "Stoneware throwing: €180" at the same height), home EN→FR (same cards), terms FR→EN (same section), Cours FR→EN at 375 px from the top switch and EN→FR from the menu panel ("cours enfant 2h" ↔ "children's course 2h"); no console errors. The terms pages' header isn't sticky (legal.css), so there the switch is only reachable near the top.
 - **Checked live** after the deploy (`f843dc2`): home EN→FR at 1500 px landed at 1498 px on the same cards; a local production build put Stages FR→EN on the same price line. The browser tool's click-by-reference moves the page before clicking, so test with a click by coordinates.
+
+### 36. New classes from rūsc admin (2026-10-06)
+- **Owner's request:** "allow creating new classes on admin", coherent with Cal.diy, the site and everything else.
+- **Before:** a class lived in three hand-kept lists: the site's `OFFERS` (`lib/cal.ts`), rūsc admin's `OFFERS` (`server.mjs`) and `deploy/cal/seed-classes.mjs`. Adding one meant code in all three and a deploy of each.
+- **rūsc admin** (`/admin/cours/nouveau`, "+ Nouveau cours" on Cours and Horaires):
+  - The form: names FR/EN, price per place, length, places, the lines above the name and after the price (FR/EN, defaults from the length), descriptions FR/EN, a photo from the site's (thumbnails in `deploy/admin/photos/`), which codes pay for it, and an optional first session.
+  - Creating writes, in one transaction and as `rusc_codes`, what the seed script writes: `Schedule`, `EventType` (host `raquel`, slug = key from the French name, seats, notice −30, pending until paid, hidden, Paris time, 30-minute interval, the studio's address), `_user_eventtype`, the English `EventTypeTranslation`s, the first `Availability` row, and a row in the new `rusc.classes` (names, price, photo, codes, listed or not).
+  - Keys never take a built-in or product key, a slug Cal already has, a prefix the member prices read (`atelier-libre`, `bon-cadeau`, `adhesion`, `carnet`), or an `-fr`/`-en` ending (the old twins, which `apiRedeem` strips).
+  - `OFFERS` there is now the built-in nine plus `rusc.classes` (`syncClasses`, every 30 s and after each change), so codes, places, the Stripe webhook, Cours, Horaires, Codes and Commandes all know a new class. Presets add the new classes their codes pay for (`presetOffers`), and ticking "bons en euros" or "carnets 2h" adds the class to existing codes of that kind (`shareCodes`).
+  - Editing (`/admin/cours/offre/<key>`) updates Cal and `rusc.classes`; a new length moves the end of each one-class-long slot. "Retirer du site" hides it; nothing is ever deleted.
+  - `GET /api/classes` (public, cached 30 s) gives the site every class made there, hidden ones flagged.
+- **Database** (`schema.sql`): `rusc.classes`, and grants for `rusc_codes`: insert on `EventType` and update of its title, description, length and seats; `Schedule` (insert, rename); `_user_eventtype`; `EventTypeTranslation`; and `BookingDenormalized."eventLength"`, which Cal's trigger writes when a length changes.
+- **Site:** `ClassOffer` and a run-time list in `lib/cal.ts`, filled by `lib/classes.ts`. `offerByKey` and `offersIn` know both lists, so the booking page lists active classes once they load (and opens `?workshop=<key>` then), OfferCard shows their photo, a cart line keeps its class with it (named and priced on any page), the checkout route reloads the list and charges its price from rūsc admin, and the member's space names them in its language. `deploy/cal/deploy.sh` warms their bookers up too.
+- **Checked locally**, against a Postgres mirror of the Cal tables rūsc admin touches (columns, keys and triggers read from the live database) with the real `schema.sql`, as `rusc_codes`:
+  - creating three classes (keys `raku-1-jour`, `cours-atelier-libre-en-1`, `raku-1-jour-2`), the rows in Cal, the translations, the first weekly slot; refusals for a bad price and an incomplete first session;
+  - editing (length 360 → 300 moved the slot's end and went through Cal's trigger; places, translations, code options both ways), hiding, `/api/check` for each kind of code;
+  - a booking in a new class: hold of 2 places, checkout view, a signed test webhook paying both places and confirming the booking;
+  - every admin page in FR and EN, the form at 375 px without sideways scroll;
+  - the site built against that admin: the cards, `?workshop=` deep link in English, the cart (name, 3 places, + / −), and the checkout route pricing the class (up to Stripe, with a fake key).

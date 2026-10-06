@@ -13,9 +13,11 @@ fly deploy -c fly.toml --image "ghcr.io/mohamedfekryyy/rusc-cal:$tag" --ha=false
 # The first booker Cal renders after a restart takes about 20 seconds, and the
 # site shows an empty frame meanwhile (it looked like "no availability" on
 # 2026-10-02). Open each class's booker once, in both languages, before
-# visitors do. The slugs are the session offers of lib/cal.ts.
+# visitors do. The slugs are the session offers of lib/cal.ts, then the
+# classes made in rūsc admin (its /api/classes).
 echo "Warming up the bookers…"
-for slug in atelier-ceramique-2h atelier-modelage-2h decor-a-cru-1h modelage-enfant atelier-libre-1h atelier-ceramique-1j atelier-ceramique-2j porcelaine pot-and-wine; do
+made=$(curl -s --max-time 20 https://rusc-admin.fly.dev/api/classes | python3 -c 'import sys, json; print(" ".join(c["key"] for c in json.load(sys.stdin)["classes"] if c["active"]))' 2>/dev/null || true)
+for slug in atelier-ceramique-2h atelier-modelage-2h decor-a-cru-1h modelage-enfant atelier-libre-1h atelier-ceramique-1j atelier-ceramique-2j porcelaine pot-and-wine $made; do
 	for lang in fr en; do
 		curl -s -o /dev/null --max-time 90 "https://booking.studio-rusc.com/raquel/$slug/embed?lang=$lang&embed=warmup&layout=month_view&theme=light&embedType=inline" || echo "warm-up: $slug ($lang) failed"
 	done

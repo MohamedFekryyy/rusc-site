@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { resolveMember } from "@/lib/auth-server";
 import { amountBounds, offerByKey, validAmount } from "@/lib/cal";
+import { loadClasses } from "@/lib/classes";
 import { coverCode, releaseCodeHold } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatSlot } from "@/lib/format";
@@ -11,7 +12,8 @@ import { getStripe } from "@/lib/stripe";
 
 // Cart checkout: turns the cart into a Stripe Checkout Session shown
 // embedded in the cart page (nothing leaves the site). Every price comes
-// from OFFERS; the browser only says which offers and how many.
+// from OFFERS, or from rūsc admin for the classes made there; the browser
+// only says which offers and how many.
 
 type IncomingItem = { key?: unknown; qty?: unknown; amount?: unknown; booking?: { uid?: unknown; seat?: unknown; start?: unknown } };
 
@@ -64,7 +66,8 @@ export async function POST(request: Request) {
   // hold lasts while the Stripe session is open.
   const seatOf = (item: IncomingItem) => (typeof item.booking?.seat === "string" && item.booking.seat ? item.booking.seat.slice(0, 100) : null);
   const seats = incoming.map(seatOf).filter((s): s is string => !!s);
-  const held = await placesForCheckout(seats);
+  // The classes made in rūsc admin, with their prices as they are now.
+  const [held, classes] = await Promise.all([placesForCheckout(seats), loadClasses()]);
   if (!held) return bad("checkout_unavailable", 503);
   const places = new Map(held.map((p) => [p.seat, p]));
   // A place freed before payment (ran out, removed in another tab): the cart
@@ -80,7 +83,8 @@ export async function POST(request: Request) {
     if (place && !place.unpaid) continue;
     const key = place?.offer ?? item?.key;
     const offer = typeof key === "string" ? offerByKey(key) : undefined;
-    if (!offer) return bad("unknown_item");
+    // Unknown, or a class made in rūsc admin while it can't be reached.
+    if (!offer) return classes ? bad("unknown_item") : bad("checkout_unavailable", 503);
 
     // Members-only offers (open studio slots/passes, except the membership
     // itself which anyone can buy): a non-member cannot put them in a cart.

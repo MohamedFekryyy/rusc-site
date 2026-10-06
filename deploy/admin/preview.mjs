@@ -7,7 +7,8 @@
 // from the sample data below, and the sign-in check lifted. Use it to check a
 // page change (list, calendar, day, codes, orders; FR and EN) before
 // `fly deploy`. Forms don't save. Never deployed: the Dockerfile only copies
-// server.mjs and logo.webp.
+// server.mjs, logo.webp and photos/. A class made in rūsc admin (raku 1 jour)
+// shows in Horaires, Cours and at /admin/cours/offre/raku-1-jour.
 
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,6 +24,7 @@ const swap = (from, to) => {
 swap('import pg from "pg";', "const pg = { Pool: class { async query(sql, params) { return globalThis.__sample(sql, params); } async connect() { return this; } release() {} }, types: { setTypeParser() {} } };");
 swap("if (!signedIn(req)) return", "if (false) return");
 swap('new URL("./logo.webp", import.meta.url)', `new URL(${JSON.stringify(new URL("logo.webp", here).href)})`);
+swap('new URL("./photos/", import.meta.url)', `new URL(${JSON.stringify(new URL("photos/", here).href)})`);
 
 // ------------------------------------------------------------------ sample data
 // Days around today (Paris), so the calendar always has something to show.
@@ -62,6 +64,7 @@ const timetable = [
   weekly("modelage-enfant", "cours enfant 2h", 8, [3], "14:00", "16:00"),
   { slug: "pot-and-wine", title: "pot & wine", seats: 8, days: [], date: day(9), start: "18:00:00", end: "20:30:00" },
   { slug: "atelier-ceramique-2h", title: "tournage 2h", seats: 7, days: [], date: day(12), start: "00:00:00", end: "00:00:00" }, // closed that day
+  { slug: "raku-1-jour", title: "raku 1 jour", seats: 6, days: [], date: day(16), start: "10:00:00", end: "16:00:00" }, // made in rūsc admin
 ];
 const code = { key: "RUSCAB12CD34", display: "RUSC-AB12-CD34", label: "Carnet 10 cours 2h", unit: "sessions", remaining: "6", initial: "10", expires_on: day(280), holder: "Personne 1", note: "payé en espèces", source: "studio", active: true, offers: ["atelier-ceramique-2h", "atelier-modelage-2h"], bookings: "4" };
 const codes = [
@@ -83,6 +86,13 @@ const classes = [
   { id: 11, slug: "atelier-ceramique-2h", title: "tournage 2h", length: 120, seats: 7, schedule_id: 1 },
   { id: 12, slug: "atelier-libre-1h", title: "atelier libre 1h", length: 60, seats: 7, schedule_id: 2 },
   { id: 13, slug: "pot-and-wine", title: "pot & wine", length: 150, seats: 8, schedule_id: 3 },
+  { id: 14, slug: "raku-1-jour", title: "raku 1 jour", length: 360, seats: 6, schedule_id: 4 },
+];
+// A class made in rūsc admin (Cours → Nouveau cours), as syncClasses reads it.
+const madeClasses = [
+  { key: "raku-1-jour", event_type_id: 14, title_fr: "raku 1 jour", title_en: "raku 1 day", tag_fr: "Stage · 10h – 16h", tag_en: "Workshop · 10am – 4pm",
+    note_fr: "cuisson raku comprise", note_en: "raku firing included", description_fr: "Une journée de raku.", description_en: "A day of raku.",
+    price_cents: 19000, image: "ceramique-1j", euro_codes: true, class_cards: false, active: true, length: 360, seats: 6, schedule_id: 4 },
 ];
 const availability = [
   { id: 101, schedule_id: 1, days: [1], date: null, start: "16:00:00", end: "18:00:00" },
@@ -91,9 +101,11 @@ const availability = [
   { id: 104, schedule_id: 2, days: [2], date: null, start: "09:00:00", end: "14:00:00" },
   { id: 105, schedule_id: 3, days: [], date: day(9), start: "18:00:00", end: "20:30:00" },
   { id: 106, schedule_id: 3, days: [], date: day(-30), start: "18:00:00", end: "20:30:00" },
+  { id: 107, schedule_id: 4, days: [], date: day(16), start: "10:00:00", end: "16:00:00" },
 ];
 
 globalThis.__sample = (sql, params = []) => {
+  if (sql.includes("FROM rusc.classes c JOIN")) return { rows: madeClasses };
   if (sql.includes("FROM rusc.history h") && sql.includes("rusc.acuity_seats")) return { rows: history.filter((h) => parisDay(h.starts_at) >= params[0] && parisDay(h.starts_at) < params[1]) };
   if (sql.includes("SELECT * FROM rusc.history")) return { rows: history.filter((h) => h.email === params[0]) };
   if (sql.includes("SELECT count(*) FROM rusc.clients")) return { rows: [{ count: String(clients.length) }] };

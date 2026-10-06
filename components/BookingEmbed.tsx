@@ -14,6 +14,7 @@ import {
 } from "@/lib/cal";
 import { getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
+import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { holdPlaces, type PlaceState } from "@/lib/places";
 import { CART, HOME, PAGES, bookingHref, type Lang } from "@/lib/routes";
@@ -288,6 +289,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   }, []);
   // Title of the offer just added to the cart (confirmation toast).
   const [toast, setToast] = useState<string | null>(null);
+  // Bumped once the classes made in rūsc admin have loaded (lib/classes.ts):
+  // the tab lists them from then on.
+  const [, setClassesLoaded] = useState(0);
   const offer = offerKey ? offerByKey(offerKey) : undefined;
   // Members-only offers (open studio) require an active membership to book.
   const memberGated = offer ? offer.tone === "member" && offer.key !== "adhesion" : false;
@@ -317,6 +321,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("view");
     open(isBookingView(requested) ? requested : "schedule", params.get("workshop"));
+    const opened = isOfferKey(params.get("workshop"));
+
+    // The classes made in rūsc admin arrive after the page: list them, and
+    // open the one the address names if nothing else was opened meanwhile.
+    let alive = true;
+    loadClasses().then((list) => {
+      if (!alive || !list) return;
+      setClassesLoaded((n) => n + 1);
+      const wanted = new URLSearchParams(window.location.search).get("workshop");
+      if (!opened && wanted && wanted === params.get("workshop") && list.some((c) => c.key === wanted)) open("schedule", wanted);
+    });
 
     function onClick(event: MouseEvent) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -362,7 +377,10 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       shellRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
+    return () => {
+      alive = false;
+      document.removeEventListener("click", onClick);
+    };
   }, [lang, t]);
 
   useEffect(() => {

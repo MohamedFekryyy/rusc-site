@@ -1,6 +1,6 @@
 import Image, { type StaticImageData } from "next/image";
 import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, Wine, type LucideIcon } from "lucide-react";
-import type { Offer, OfferKey } from "@/lib/cal";
+import { isMadeClass, type Offer, type StaticOfferKey } from "@/lib/cal";
 import { bookingHref, PAGES, type Lang } from "@/lib/routes";
 import atelier01 from "@/assets/photos/atelier-01.jpg";
 import atelier03 from "@/assets/photos/atelier-03.jpg";
@@ -23,7 +23,7 @@ import us04 from "@/assets/photos/us-04.jpg";
 
 // Photo and icon of each offer on the booking page. Workshops use the same
 // photos as the Cours and Stages pages where they exist.
-const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
+const MEDIA: Record<StaticOfferKey, { image: StaticImageData; icon: LucideIcon }> = {
   "atelier-ceramique-2h": { image: atelier03, icon: Clock3 },
   "atelier-modelage-2h": { image: modelage2h, icon: Clock3 },
   "decor-a-cru-1h": { image: atelier08, icon: Clock3 },
@@ -46,6 +46,21 @@ const MEDIA: Record<OfferKey, { image: StaticImageData; icon: LucideIcon }> = {
   "bon-cadeau-montant": { image: bonCadeau, icon: Gift },
 };
 
+// The photos a class made in rūsc admin can show, by the name it picked
+// (PHOTOS in deploy/admin/server.mjs, which has small copies of them).
+const PHOTOS: Record<string, StaticImageData> = {
+  "atelier-01": atelier01, "atelier-03": atelier03, "atelier-04": atelier04, "atelier-05": atelier05,
+  "atelier-07": atelier07, "atelier-08": atelier08, "atelier-10": atelier10, "bon-cadeau": bonCadeau,
+  "ceramique-1j": ceramique1j, "ceramique-2j": ceramique2j, location, membres, "modelage-2h": modelage2h,
+  porcelaine, stages, "us-01": us01, "us-02": us02, "us-04": us04,
+};
+
+function media(offer: Offer) {
+  if (!isMadeClass(offer)) return MEDIA[offer.key];
+  // A day-long class reads as a workshop (as the Stages cards), a shorter one as a course.
+  return { image: PHOTOS[offer.image] ?? atelier03, icon: offer.minutes >= 300 ? CalendarDays : Clock3 };
+}
+
 const AMOUNT_LABEL = { fr: "Montant en euros", en: "Amount in euros" };
 
 // Members-only notice / CTA for an open-studio card shown to a non-member.
@@ -63,7 +78,7 @@ const MEMBER_LOCK = {
 // membership page. The membership offer itself (adhesion, tone "member") is
 // always clickable — it's how a visitor becomes a member.
 export default function OfferCard({ offer, lang, isMember }: { offer: Offer; lang: Lang; isMember: boolean }) {
-  const { image, icon: Icon } = MEDIA[offer.key];
+  const { image, icon: Icon } = media(offer);
   const t = offer[lang];
   const membersOnly = offer.tone === "member" && offer.key !== "adhesion" && !isMember;
   return (

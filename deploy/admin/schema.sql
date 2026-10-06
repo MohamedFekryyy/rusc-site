@@ -20,6 +20,19 @@ GRANT INSERT, DELETE ON public."Attendee", public."BookingSeat" TO rusc_codes;
 GRANT USAGE, SELECT ON SEQUENCE public."Attendee_id_seq", public."BookingSeat_id_seq" TO rusc_codes;
 GRANT SELECT, INSERT, DELETE ON public."BookingDenormalized" TO rusc_codes;
 GRANT SELECT (id, email, name, username) ON public.users TO rusc_codes;
+-- New classes (Cours → Nouveau cours): rūsc admin makes a class's Cal event
+-- type, schedule and English translation, as deploy/cal/seed-classes.mjs does,
+-- and edits its name, description, length and places. Cal's trigger copies a
+-- new length into "BookingDenormalized".
+GRANT INSERT ON public."EventType" TO rusc_codes;
+GRANT UPDATE (title, description, length, "seatsPerTimeSlot") ON public."EventType" TO rusc_codes;
+GRANT USAGE, SELECT ON SEQUENCE public."EventType_id_seq" TO rusc_codes;
+GRANT SELECT, INSERT ON public."Schedule" TO rusc_codes;
+GRANT UPDATE (name) ON public."Schedule" TO rusc_codes;
+GRANT USAGE, SELECT ON SEQUENCE public."Schedule_id_seq" TO rusc_codes;
+GRANT SELECT, INSERT ON public."_user_eventtype" TO rusc_codes;
+GRANT SELECT, INSERT, DELETE ON public."EventTypeTranslation" TO rusc_codes;
+GRANT UPDATE ("eventLength") ON public."BookingDenormalized" TO rusc_codes;
 
 SET ROLE rusc_codes;
 
@@ -236,5 +249,28 @@ CREATE TABLE IF NOT EXISTS rusc.unsubscribed (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS holds_open ON rusc.holds (expires_at) WHERE released_at IS NULL;
+
+-- Classes created in rūsc admin, on top of those in the site's lib/cal.ts.
+-- Each is one Cal event type (slug = key) that rūsc admin made; its length and
+-- places live there. The site lists the active ones on its booking page
+-- (GET /api/classes); a hidden one keeps its bookings, codes and orders.
+CREATE TABLE IF NOT EXISTS rusc.classes (
+  key text PRIMARY KEY,                -- the Cal event type's slug
+  event_type_id integer NOT NULL UNIQUE,
+  title_fr text NOT NULL,
+  title_en text NOT NULL,
+  tag_fr text NOT NULL,                -- the line above the name ("Stage · 10h – 17h")
+  tag_en text NOT NULL,
+  note_fr text,                        -- after the price ("75 € · apéro et modelage")
+  note_en text,
+  description_fr text NOT NULL DEFAULT '',
+  description_en text NOT NULL DEFAULT '',
+  price_cents integer NOT NULL CHECK (price_cents > 0),
+  image text NOT NULL,                 -- one of the site's photos (PHOTOS in server.mjs)
+  euro_codes boolean NOT NULL DEFAULT true,   -- gift vouchers in euros pay for it
+  class_cards boolean NOT NULL DEFAULT false, -- 2-hour class cards pay for it
+  active boolean NOT NULL DEFAULT true,       -- listed on the site
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
 RESET ROLE;

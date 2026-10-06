@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { amountBounds, offerByKey, validAmount, type OfferKey } from "@/lib/cal";
+import { amountBounds, isMadeClass, offerByKey, rememberClassOffer, toClassOffer, validAmount, type ClassOffer, type OfferKey } from "@/lib/cal";
 
 export { amountBounds, validAmount };
 
@@ -13,7 +13,9 @@ export { amountBounds, validAmount };
 export type CartBooking = { uid: string; seat?: string; start: string; end?: string };
 
 // amount: what the buyer chose for a gift voucher of any amount (euro cents).
-export type CartItem = { id: string; key: OfferKey; qty: number; amount?: number; booking?: CartBooking };
+// offer: a class made in rūsc admin, kept with its line so the cart can name
+// and price it on any page, before the classes load (display only).
+export type CartItem = { id: string; key: OfferKey; qty: number; amount?: number; booking?: CartBooking; offer?: ClassOffer };
 
 // A line's unit price in euro cents.
 export function linePrice(item: CartItem) {
@@ -46,6 +48,10 @@ function read(): CartItem[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
     if (!Array.isArray(parsed)) return EMPTY;
+    for (const line of parsed) {
+      const made = toClassOffer((line as CartItem | null)?.offer);
+      if (made) rememberClassOffer(made);
+    }
     return parsed.filter(
       (i): i is CartItem => !!i && !!offerByKey(i.key) && Number(i.qty) > 0 && (!amountBounds(i.key) || validAmount(i.key, i.amount) !== null),
     );
@@ -166,7 +172,8 @@ export const cart = {
     load();
     const id = booking.seat ?? booking.uid;
     if (items.some((i) => i.id === id)) return;
-    write([...items, { id, key, qty: Math.max(1, Math.min(places, MAX_QTY)), booking }]);
+    const offer = offerByKey(key);
+    write([...items, { id, key, qty: Math.max(1, Math.min(places, MAX_QTY)), booking, ...(isMadeClass(offer) ? { offer } : {}) }]);
   },
   setQty(id: string, qty: number) {
     load();
