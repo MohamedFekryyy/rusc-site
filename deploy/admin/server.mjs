@@ -945,7 +945,7 @@ async function loadSessions(from, to) {
   const bookings = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
-            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, ps.order_id AS paid_order, x.pay AS acuity_pay,
+            c.display AS code, u.amount AS code_amount, c.unit AS code_unit, c.initial AS code_initial, ps.order_id AS paid_order, x.pay AS acuity_pay,
             h.expires_at AS held_until
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -1026,6 +1026,26 @@ async function loadSessions(from, to) {
   return byDay;
 }
 
+// The per-session money value of a place paid by a code/carnet, so the studio
+// sees at a glance whether it's a drop-in (full price) or a card (reduced),
+// before the 50/50 split with the teacher. Returns null when unknown.
+function perSessionValue(p) {
+  // Payé à la séance (card online, or Acuity "payé 50"): the offer's own price.
+  if (p.paid_order || (p.acuity_pay && p.acuity_pay.startsWith("payé"))) {
+    return null; // already shown as amount elsewhere
+  }
+  if (!p.code) return null;
+  // A carnet (sessions): initial courses bought, price known per card size.
+  if (p.code_unit === "sessions" && p.code_initial != null) {
+    const n = num(p.code_initial);
+    // Carnet 10 = 350 € (35 €/séance) ; carnet 5 = 210 € (42 €/séance).
+    if (n >= 10) return tr("abonnement · 35 € la séance", "card · €35 per class");
+    if (n >= 5) return tr("abonnement · 42 € la séance", "card · €42 per class");
+    return tr("bon cadeau · 1 séance", "gift voucher · 1 class");
+  }
+  return null;
+}
+
 // How one person paid for their place.
 function payment(p) {
   if (p.history) {
@@ -1034,7 +1054,13 @@ function payment(p) {
     if (p.paid) return `<span class="st ok">${icon("check-circle")}<span>${tr("Payé sur Acuity", "Paid on Acuity")}${num(p.amount_paid) > 0 ? ` (${esc(fmtAmount("euros", num(p.amount_paid)))})` : ""}</span></span>`;
     return `<span class="st muted">${tr("Acuity · réglé à l’atelier ou non renseigné", "Acuity · paid at the studio or not recorded")}</span>`;
   }
-  if (p.code) return `<span class="st ok">${icon("ticket")}<span>Code ${esc(p.code)} (− ${esc(fmtAmount(p.code_unit, p.code_amount))})</span></span>`;
+  if (p.code) {
+    // A code/carnet pays for the place: show which, and the per-session value
+    // (what the studio actually earns before the 50/50 split with the teacher).
+    const part = `<span>Code ${esc(p.code)}</span>`;
+    const per = perSessionValue(p);
+    return `<span class="st ok">${icon("ticket")}${part}${per ? ` · <span class="muted">${esc(per)}</span>` : ""}</span>`;
+  }
   if (p.paid_order) return `<a class="st ok" href="/admin/commandes#${esc(p.paid_order)}">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</a>`;
   if (p.acuity_pay) {
     // Booked on Acuity before the switch: "code XXXX", "payé 50.00" or "à régler".
