@@ -8,3 +8,16 @@
   --sans:var(--font-jost),system-ui,-apple-system,sans-serif;
 }
 body{font-family:var(--sans);font-weight:300;font-size:17px;line-height:1.7;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* FR ⇄ EN: each language is its own document. Where the browser supports
+   cross-document view transitions, the two pages crossfade and the header's
+   FR/EN marker slides to the new language; components/Header.tsx skips the
+   transition for every other navigation. Nothing moves for visitors who ask
+   for reduced motion. */
+@view-transition{navigation:auto}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+::view-transition-group(root){animation-duration:.32s}
+.lang-top .lang-pill{view-transition-name:lang-pill}
+.lang-top a[hreflang="fr"]{view-transition-name:lang-fr}
+.lang-top a[hreflang="en"]{view-transition-name:lang-en}
+::view-transition-group(lang-pill){animation-duration:.42s;animation-timing-function:cubic-bezier(.22,1,.36,1)}

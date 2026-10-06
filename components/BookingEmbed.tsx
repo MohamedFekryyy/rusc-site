@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { ArrowLeft, TickCircle } from "iconsax-reactjs";
 import {
   BOOKING_VIEWS,
   CAL_ORIGIN,
@@ -18,13 +19,13 @@ import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { holdPlaces, type PlaceState } from "@/lib/places";
-import { CART, HOME, PAGES, bookingHref, type Lang } from "@/lib/routes";
+import { CART, HOME, PAGES, bookingHref, replaceUrl, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
 const TEXT = {
   fr: {
     tabs:{ schedule: "Cours & stages", catalog: "Adhésion & carnets", gifts: "Bons cadeaux" },
-    back: "← Toutes les offres",
+    back: "Toutes les offres",
     soon: (title: string) => `La réservation en ligne de « ${title} » ouvre bientôt.`,
     soonNext: "En attendant, écrivez-nous : nous réservons pour vous.",
     contact: "Nous contacter",
@@ -70,7 +71,7 @@ const TEXT = {
   },
   en: {
     tabs:{ schedule: "Courses & workshops", catalog: "Membership & cards", gifts: "Gift vouchers" },
-    back: "← All offers",
+    back: "All offers",
     soon: (title: string) => `Online booking for “${title}” opens soon.`,
     soonNext: "In the meantime, write to us and we’ll book it for you.",
     contact: "Contact us",
@@ -131,7 +132,7 @@ const tabsBar: CSSProperties = {
 const backBar: CSSProperties = { padding: "14px 18px", borderBottom: "1px solid var(--line)" };
 const backLink: CSSProperties = {
   fontSize: "11.5px", letterSpacing: ".14em", textTransform: "uppercase",
-  color: "var(--accent)", textDecoration: "none",
+  color: "var(--accent)", textDecoration: "none", display: "inline-flex", gap: "8px", alignItems: "center",
 };
 const soonBox: CSSProperties = { padding: "72px 24px", textAlign: "center", color: "var(--muted)" };
 const productBox: CSSProperties = { padding: "56px 24px", textAlign: "center" };
@@ -378,7 +379,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       event.preventDefault();
       open(next, link.dataset.workshop);
       // Keep the address shareable: it names what the block shows.
-      history.replaceState(null, "", link.href);
+      replaceUrl(link.href);
       shellRef.current?.scrollIntoView({ behavior: "smooth" });
     }
     document.addEventListener("click", onClick);
@@ -498,6 +499,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         <div className="bk-shell">
           <div style={backBar}>
             <a href={bookingHref(lang, offer.view)} data-booking={offer.view} style={backLink}>
+              <ArrowLeft size={14} color="currentColor" aria-hidden />
               {t.back}
             </a>
           </div>
@@ -524,7 +526,10 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
             >
               {code?.ok ? (
                 <>
-                  <span style={{ color: "var(--accent)" }}>✓ {t.codeOk(code.label ?? "", formatBalance(code, lang))}</span>
+                  <span style={{ color: "var(--accent)", display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                    <TickCircle size={16} color="currentColor" aria-hidden />
+                    {t.codeOk(code.label ?? "", formatBalance(code, lang))}
+                  </span>
                   <button
                     type="button"
                     style={linkButton}

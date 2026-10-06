@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, EyeSlash } from "iconsax-reactjs";
 import { useState, type FormEvent } from "react";
 import { AuthError, logIn, resetPassword, signUp } from "@/lib/auth";
 import type { Lang } from "@/lib/routes";
@@ -163,7 +164,7 @@ export default function AuthForm({ lang, resetToken }: { lang: Lang; resetToken?
             padding: 0,
           }}
         >
-          {showPassword ? "🙈" : "👁"}
+          {showPassword ? <EyeSlash size={18} color="currentColor" aria-hidden /> : <Eye size={18} color="currentColor" aria-hidden />}
         </button>
       </div>
 

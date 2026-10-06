@@ -1,5 +1,5 @@
 import Image, { type StaticImageData } from "next/image";
-import { CalendarDays, Clock3, Gift, Hourglass, KeyRound, Smile, Ticket, Wine, type LucideIcon } from "lucide-react";
+import { Calendar, Clock, EmojiHappy, Gift, Glass, Key, Ticket, Timer1, type Icon } from "iconsax-reactjs";
 import { isMadeClass, type Offer, type StaticOfferKey } from "@/lib/cal";
 import { bookingHref, PAGES, type Lang } from "@/lib/routes";
 import atelier01 from "@/assets/photos/atelier-01.jpg";
@@ -21,21 +21,21 @@ import us01 from "@/assets/photos/us-01.jpg";
 import us02 from "@/assets/photos/us-02.jpg";
 import us04 from "@/assets/photos/us-04.jpg";
 
-// Photo and icon of each offer on the booking page. Workshops use the same
+// Photo and icon (Iconsax, Linear) of each offer on the booking page. Workshops use the same
 // photos as the Cours and Stages pages where they exist.
-const MEDIA: Record<StaticOfferKey, { image: StaticImageData; icon: LucideIcon }> = {
-  "atelier-ceramique-2h": { image: atelier03, icon: Clock3 },
-  "atelier-modelage-2h": { image: modelage2h, icon: Clock3 },
-  "decor-a-cru-1h": { image: atelier08, icon: Clock3 },
-  "modelage-enfant": { image: atelier07, icon: Smile },
-  "atelier-ceramique-1j": { image: ceramique1j, icon: CalendarDays },
-  "atelier-ceramique-2j": { image: ceramique2j, icon: CalendarDays },
-  porcelaine: { image: porcelaine, icon: CalendarDays },
-  "pot-and-wine": { image: atelier05, icon: Wine },
-  adhesion: { image: atelier04, icon: KeyRound },
+const MEDIA: Record<StaticOfferKey, { image: StaticImageData; icon: Icon }> = {
+  "atelier-ceramique-2h": { image: atelier03, icon: Clock },
+  "atelier-modelage-2h": { image: modelage2h, icon: Clock },
+  "decor-a-cru-1h": { image: atelier08, icon: Clock },
+  "modelage-enfant": { image: atelier07, icon: EmojiHappy },
+  "atelier-ceramique-1j": { image: ceramique1j, icon: Calendar },
+  "atelier-ceramique-2j": { image: ceramique2j, icon: Calendar },
+  porcelaine: { image: porcelaine, icon: Calendar },
+  "pot-and-wine": { image: atelier05, icon: Glass },
+  adhesion: { image: atelier04, icon: Key },
   "carnet-5-cours": { image: atelier01, icon: Ticket },
   "carnet-10-cours": { image: atelier10, icon: Ticket },
-  "atelier-libre-1h": { image: location, icon: Hourglass },
+  "atelier-libre-1h": { image: location, icon: Timer1 },
   "atelier-libre-10h": { image: us02, icon: Ticket },
   "atelier-libre-20h": { image: us04, icon: Ticket },
   "bon-cadeau-cours-2h": { image: bonCadeau, icon: Gift },
@@ -57,7 +57,7 @@ const PHOTOS: Record<string, StaticImageData> = {
 
 function media(offer: Offer) {
   // A day-long class reads as a workshop (as the Stages cards), a shorter one as a course.
-  if (isMadeClass(offer)) return { image: PHOTOS[offer.image] ?? atelier03, icon: offer.minutes >= 300 ? CalendarDays : Clock3 };
+  if (isMadeClass(offer)) return { image: PHOTOS[offer.image] ?? atelier03, icon: offer.minutes >= 300 ? Calendar : Clock };
   // One of ours, perhaps with another photo chosen in rūsc admin.
   const own = MEDIA[offer.key as StaticOfferKey];
   const chosen = "image" in offer ? PHOTOS[offer.image] : undefined;
@@ -81,14 +81,14 @@ const MEMBER_LOCK = {
 // membership page. The membership offer itself (adhesion, tone "member") is
 // always clickable — it's how a visitor becomes a member.
 export default function OfferCard({ offer, lang, isMember }: { offer: Offer; lang: Lang; isMember: boolean }) {
-  const { image, icon: Icon } = media(offer);
+  const { image, icon: Mark } = media(offer);
   const t = offer[lang];
   const membersOnly = offer.tone === "member" && offer.key !== "adhesion" && !isMember;
   return (
     <article className="card">
       <Image className="thumb" src={image} alt="" sizes="(max-width: 640px) 100vw, 360px" />
       <p className="k">
-        <Icon size={14} strokeWidth={1.5} aria-hidden style={{ verticalAlign: "-2px", marginRight: "7px" }} />
+        <Mark size={14} color="currentColor" aria-hidden style={{ verticalAlign: "-2px", marginRight: "7px" }} />
         {t.tag}
       </p>
       <h3>{t.title}</h3>

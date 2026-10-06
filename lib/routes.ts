@@ -32,3 +32,12 @@ export function bookingHref(lang: Lang, view: BookingView = "schedule", workshop
   const query = params.toString();
   return BOOKING[lang] + (query ? `?${query}` : "");
 }
+
+// The booking page rewrites its address in place as the tab or class changes
+// (?view= / ?workshop=). history.replaceState fires no event, so it goes
+// through here: the header's FR/EN links then carry the same query.
+export const URL_EVENT = "rusc:url";
+export function replaceUrl(href: string) {
+  history.replaceState(history.state, "", href);
+  window.dispatchEvent(new Event(URL_EVENT));
+}

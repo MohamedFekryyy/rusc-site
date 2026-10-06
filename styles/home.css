@@ -17,6 +17,17 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .cta{border:1px solid var(--ink);padding:9px 16px;transition:all .2s}
 .cta:hover{background:var(--ink);color:var(--bg)!important}
 .auth,.cart{font-size:12px;letter-spacing:.07em;padding:9px 0}
+/* Cart: an Iconsax icon, its count in a small badge. */
+.cart{position:relative;display:inline-flex;align-items:center}
+.cart-icon{width:20px;height:20px;display:block}
+.cart-count{position:absolute;top:1px;right:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent);color:var(--bg);font-size:10px;line-height:16px;letter-spacing:0;text-align:center}
+/* FR/EN in the header: the active language's green marker is its own
+   element, so the language switch can slide it across (globals.css). */
+.lang-top{position:relative;display:inline-grid;grid-template-columns:1fr 1fr}
+.lang-top .lang-pill{position:absolute;top:0;bottom:0;left:0;width:50%;background:var(--accent)}
+.lang-top[data-lang="en"] .lang-pill{left:50%}
+.lang-top a{position:relative;text-align:center}
+.lang-top a.on{background:none}
 .auth[aria-disabled],.cart[aria-disabled]{color:var(--muted);cursor:default}
 
 /* Burger (always visible; opens the panel) */

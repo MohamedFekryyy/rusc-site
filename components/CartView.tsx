@@ -2,6 +2,7 @@
 
 import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Add, ArrowLeft, Minus } from "iconsax-reactjs";
 import { offerByKey } from "@/lib/cal";
 import { applyCode, cart, cartTotal, clearAppliedCode, linePrice, useAppliedCode, useCart } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
@@ -26,7 +27,7 @@ const TEXT = {
     ttc: "Prix TTC. Les créneaux réservés sont confirmés après le paiement.",
     unavailable: "Le paiement en ligne ouvre bientôt. En attendant, écrivez-nous : nous finalisons votre commande avec vous.",
     contact: "Nous contacter",
-    back: "← Retour au panier",
+    back: "Retour au panier",
     thanks: "Merci, votre paiement est confirmé.",
     thanksNext: "Vous recevez un reçu par e-mail. Pour les bons cadeaux et les carnets, l’atelier vous écrit avec votre code.",
     home: "Retour au site",
@@ -62,7 +63,7 @@ const TEXT = {
     ttc: "Prices include VAT. Booked slots are confirmed once paid.",
     unavailable: "Online payment opens soon. In the meantime, write to us and we’ll complete your order with you.",
     contact: "Contact us",
-    back: "← Back to cart",
+    back: "Back to cart",
     thanks: "Thank you, your payment is confirmed.",
     thanksNext: "A receipt is on its way by email. For gift vouchers and cards, the studio will email you your code.",
     home: "Back to the site",
@@ -93,7 +94,8 @@ const panel: CSSProperties = { maxWidth: "760px", margin: "0 auto" };
 const note: CSSProperties = { textAlign: "center", color: "var(--muted)", fontSize: "14px", margin: "18px 0 0" };
 const stepper: CSSProperties = {
   width: "28px", height: "28px", border: "1px solid var(--line)", background: "transparent",
-  borderRadius: "50%", cursor: "pointer", color: "var(--ink)", fontSize: "15px", lineHeight: 1,
+  borderRadius: "50%", cursor: "pointer", color: "var(--ink)", padding: 0,
+  display: "inline-grid", placeItems: "center",
 };
 const stepperOff: CSSProperties = { ...stepper, opacity: 0.35, cursor: "default" };
 const textButton: CSSProperties = {
@@ -322,7 +324,8 @@ export default function CartView({ lang }: { lang: Lang }) {
   if (stage === "checkout") {
     return (
       <div style={panel}>
-        <button type="button" style={{ ...textButton, marginBottom: "18px" }} onClick={() => setStage("cart")}>
+        <button type="button" style={{ ...textButton, marginBottom: "18px", display: "inline-flex", gap: "8px", alignItems: "center" }} onClick={() => setStage("cart")}>
+          <ArrowLeft size={14} color="currentColor" aria-hidden />
           {t.back}
         </button>
         <div ref={checkoutRef} className="bk-shell" style={{ minHeight: "480px", padding: "10px" }} />
@@ -375,7 +378,7 @@ export default function CartView({ lang }: { lang: Lang }) {
                       disabled={busy || item.qty <= 1}
                       onClick={() => changePlaces(item.id, seat, "remove")}
                     >
-                      −
+                      <Minus size={14} color="currentColor" aria-hidden />
                     </button>
                     <span style={{ minWidth: "18px", textAlign: "center" }}>{item.qty}</span>
                     <button
@@ -385,14 +388,14 @@ export default function CartView({ lang }: { lang: Lang }) {
                       disabled={busy || place?.left === 0}
                       onClick={() => changePlaces(item.id, seat, "add")}
                     >
-                      +
+                      <Add size={14} color="currentColor" aria-hidden />
                     </button>
                   </span>
                 ) : !item.booking && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
-                    <button type="button" style={stepper} aria-label={t.less} onClick={() => cart.setQty(item.id, item.qty - 1)}>−</button>
+                    <button type="button" style={stepper} aria-label={t.less} onClick={() => cart.setQty(item.id, item.qty - 1)}><Minus size={14} color="currentColor" aria-hidden /></button>
                     <span style={{ minWidth: "18px", textAlign: "center" }}>{item.qty}</span>
-                    <button type="button" style={stepper} aria-label={t.plus} onClick={() => cart.setQty(item.id, item.qty + 1)}>+</button>
+                    <button type="button" style={stepper} aria-label={t.plus} onClick={() => cart.setQty(item.id, item.qty + 1)}><Add size={14} color="currentColor" aria-hidden /></button>
                   </span>
                 )}
                 {/* Fixed width keeps the steppers lined up from row to row. */}

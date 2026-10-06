@@ -1,12 +1,13 @@
 "use client";
 
+import { ShoppingCart } from "iconsax-reactjs";
 import Image from "next/image";
-import { useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 import logoImg from "@/assets/logo-rusc-trim.webp";
 import { AUTH_EVENT, getToken } from "@/lib/auth";
 import { cartCount, useCart } from "@/lib/cart";
 import { savePlace } from "@/lib/keepPlace";
-import { BOOKING, CART, HOME, LOGIN, PAGES, TERMS, type Lang, type PageKey } from "@/lib/routes";
+import { BOOKING, CART, HOME, LOGIN, PAGES, TERMS, URL_EVENT, type Lang, type PageKey } from "@/lib/routes";
 
 export type NavPage = "home" | "booking" | "cart" | "connexion" | "terms" | PageKey;
 
@@ -67,19 +68,26 @@ function subscribeAuth(notify: () => void) {
   };
 }
 const useSignedIn = () => useSyncExternalStore(subscribeAuth, () => Boolean(getToken()), () => false);
-// Follow <a data-booking> clicks that rewrite the URL's query with history.replaceState
-// (see BookingEmbed): re-read the query when it changes, so FR/EN keeps the offer.
+// The booking page rewrites its query in place as the tab or class changes
+// (replaceUrl in lib/routes.ts): re-read it then, so FR/EN keeps the offer.
 function subscribeSearch(notify: () => void) {
   window.addEventListener("popstate", notify);
-  window.addEventListener("pushstate", notify);
-  window.addEventListener("replacestate", notify);
+  window.addEventListener(URL_EVENT, notify);
   return () => {
     window.removeEventListener("popstate", notify);
-    window.removeEventListener("pushstate", notify);
-    window.removeEventListener("replacestate", notify);
+    window.removeEventListener(URL_EVENT, notify);
   };
 }
 const CART_LABEL = { fr: "Panier", en: "Cart" };
+const CART_COUNT = { fr: (n: number) => `Panier, ${n} article${n > 1 ? "s" : ""}`, en: (n: number) => `Cart, ${n} item${n > 1 ? "s" : ""}` };
+// The FR/EN links' accessible names, each in its own language.
+const LANG_NAME = { fr: "Français", en: "English" };
+
+// FR ⇄ EN is a page load (each language has its own root layout). Where the
+// browser supports cross-document view transitions (styles/globals.css), the
+// two pages crossfade and the FR/EN marker slides across; every other
+// navigation skips it, so only the language switch animates.
+type PageSwap = Event & { viewTransition?: { skipTransition(): void; ready: Promise<unknown> } | null };
 const MENU_LABEL = { fr: "Menu", en: "Menu" };
 // Tagline shown as the center brand mark in the header (in place of the logo).
 const SLOGAN = { fr: "oser l'art", en: "dare art" };
@@ -116,8 +124,27 @@ export default function Header({ lang, page }: Props) {
   const enHref = same.en + bookingQuery;
   const count = cartCount(useCart());
   const close = () => setOpen(false);
-  // ...and at the same place on it (lib/keepPlace.ts).
-  const keepPlace = (event: MouseEvent<HTMLAnchorElement>) => savePlace(event.currentTarget.href);
+  // ...and at the same place on it (lib/keepPlace.ts), with the query as it
+  // is now (the booking page may have changed it since the last render).
+  const switchingLanguage = useRef(false);
+  const keepPlace = (event: MouseEvent<HTMLAnchorElement>) => {
+    const link = event.currentTarget;
+    if (page === "booking") link.href = new URL(link.pathname + window.location.search, window.location.href).href;
+    // A plain click leaves for the other language here (not a new tab).
+    switchingLanguage.current = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+    savePlace(link.href);
+  };
+  useEffect(() => {
+    const onSwap = (event: Event) => {
+      const transition = (event as PageSwap).viewTransition;
+      if (!transition || switchingLanguage.current) return;
+      // Skipping rejects the transition's ready promise: expected, not an error.
+      transition.ready.catch(() => {});
+      transition.skipTransition();
+    };
+    window.addEventListener("pageswap", onSwap);
+    return () => window.removeEventListener("pageswap", onSwap);
+  }, []);
 
   return (
     <>
@@ -146,18 +173,19 @@ export default function Header({ lang, page }: Props) {
 
         {/* Right: lang switch + login + cart + Réserver (Réserver far right) */}
         <div className="nav-right">
-          <span className="lang lang-top">
-            <a href={frHref} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
-            <a href={enHref} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
+          <span className="lang lang-top" data-lang={lang}>
+            <span className="lang-pill" aria-hidden />
+            <a href={frHref} hrefLang="fr" lang="fr" aria-label={LANG_NAME.fr} aria-current={lang === "fr" ? "true" : undefined} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
+            <a href={enHref} hrefLang="en" lang="en" aria-label={LANG_NAME.en} aria-current={lang === "en" ? "true" : undefined} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
           </span>
           {/* Login / account: the sign-in page, or the member's space once signed in. */}
           <a className="auth" href={LOGIN[lang]}>
             {signedIn ? ACCOUNT_LABEL[lang] : AUTH_LABEL[lang]}
           </a>
-          {/* Cart (lib/cart.ts): its item count, live across the site. */}
-          <a className="cart" href={CART[lang]}>
-            {CART_LABEL[lang]}
-            {count > 0 && ` (${count})`}
+          {/* Cart (lib/cart.ts): an icon, with its item count live across the site. */}
+          <a className="cart" href={CART[lang]} aria-label={count > 0 ? CART_COUNT[lang](count) : CART_LABEL[lang]} title={CART_LABEL[lang]}>
+            <ShoppingCart className="cart-icon" color="currentColor" aria-hidden />
+            {count > 0 && <span className="cart-count" aria-hidden>{count}</span>}
           </a>
           <a className="cta" href={cta.href}>
             {cta.label}
@@ -186,8 +214,8 @@ export default function Header({ lang, page }: Props) {
           ))}
         </nav>
         <span className="lang">
-          <a href={frHref} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
-          <a href={enHref} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
+          <a href={frHref} hrefLang="fr" lang="fr" aria-label={LANG_NAME.fr} aria-current={lang === "fr" ? "true" : undefined} className={lang === "fr" ? "on" : undefined} onClick={keepPlace}>FR</a>
+          <a href={enHref} hrefLang="en" lang="en" aria-label={LANG_NAME.en} aria-current={lang === "en" ? "true" : undefined} className={lang === "en" ? "on" : undefined} onClick={keepPlace}>EN</a>
         </span>
       </div>
       {open && <div className="panel-scrim" onClick={close} />}

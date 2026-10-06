@@ -1,3 +1,4 @@
+import { ArrowLeft } from "iconsax-reactjs";
 import type { ReactNode } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -22,7 +23,10 @@ export default function LegalPage({ home, back, lang, children }: Props) {
 
       <main className="legal">
         {children}
-        <a className="back" href={home}>{`← ${back}`}</a>
+        <a className="back" href={home} style={{ display: "inline-flex", gap: "8px", alignItems: "center" }}>
+          <ArrowLeft size={14} color="currentColor" aria-hidden />
+          {back}
+        </a>
       </main>
 
       <Footer lang={lang} />
