@@ -37,7 +37,7 @@ Keep this section current; the migration log below keeps the history.
 **Live**
 - **Site:** https://studio-rusc.com and www (on Vercel, checked 2026-10-06: `server: Vercel`, today's build), also https://rusc-preview.vercel.app; built from `main`. Whether the other switch-day steps were done (Acuity imports re-run, Acuity stopped) isn't recorded here: ask the owner.
 - **Booking:** Cal.diy on Fly (`rusc-cal`, account `raquel`) at https://booking.studio-rusc.com (the site's `NEXT_PUBLIC_CAL_ORIGIN`), one event type per class, embedded in the booking pages. Bookable until 30 minutes after a class starts (step 28). The booker follows the page's language, French in 24-hour time (step 34).
-- **Places** (step 34): a class booked on the site goes to the cart, its places held 30 minutes (40 while paying), then freed unless paid. "Nombre de places" in the booker and + / − in the cart add or remove places for friends, up to the class's seats; "Retirer" frees them at once. Payment is per place (`rusc.paid_seats`, codes, Acuity).
+- **Places** (step 34): a class booked on the site goes to the cart, its places held 30 minutes (40 while paying), then freed unless paid. "Nombre de places" in the booker and + / − in the cart add or remove places for friends, up to the class's seats; "Retirer" frees them at once. Payment is per place (`rusc.paid_seats`, codes, Acuity). Open studio: members pick 1–4 hours in a row, and the cart holds them as one line (step 47).
 - **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`. Until 2026-10-03 the webhook failed on any cart with a class (step 34); no real order had been paid yet.
 - **Member price and codes in the cart** (Rrose, 2026-10-01, `64228bb`, `ef0afbd`; not yet checked end to end): signed-in members get 10% off classes and carnets at checkout (`lib/pricing.ts`; `MEMBER_DISCOUNT_PERCENT=0` in Vercel turns it off), and a euro code can pay part of a cart.
 - **Gift vouchers:** fixed ones, and one of any amount (10–1,000 €, step 32), which becomes a euro code for every class.
@@ -810,4 +810,38 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   None of it reloaded the page.
 - Preview (made-up data): the list, the day, the calendar, Codes, a client and Horaires at 390 and 1280 px, with no sideways scroll and no layout shift.
 - **Deployed** (`56c1d4ca`): rūsc admin on Fly; no database change. Live: the sign-in page carries the new script, and `/admin/clients/suggest` and `/admin/codes/check` ask for sign-in like every studio page. `/health`, `/api/classes` and `/api/places` answer 200. The only log error is the known one (step 36).
+
+### 47. Open studio: several hours in a row (2026-10-06)
+- **Owner's request:** "members should be able to book more than 1hr at once as well". (An earlier request for this was withdrawn the same day; this one replaces it.)
+- **How it books.** Open studio stays a 1-hour Cal event type: its places are counted hour by hour, and a 2-hour Cal booking on a seated event would block or overlap the hours around it.
+  - On the booking page, "Combien d’heures ? / How many hours?" (1 h · 2 h · 3 h · 4 h) sits under the code row, for open studio only. The member picks the start time in Cal's booker as before.
+  - After Cal books that first hour, the site's hold (`/api/places`, op `hold`) carries `hours`. rūsc admin then books the following hours (`addHours`, `HOURLY`, `MAX_HOURS` = 4): each joins the Cal booking at that time, or makes one, pending until paid, with the same people.
+  - It stops at the first hour that's closed (Cal's hours that day, overrides included) or full, and answers `note: "hours"`. The page then says how many of the hours asked for were booked.
+- **One group across hours.** The later hours' seats point to the booker's (`rusc_holder`), and each copy of a person to that person's first-hour seat (`rusc_copy`). `placeGroup` now gathers the group from every hour and locks their bookings.
+  - The booker is themselves again in each hour (their name and e-mail: the hours show in Cours and in their space); friends stay anonymous.
+  - Cart + / − add or remove a friend in every hour.
+  - A hold, its expiry and "Retirer" free every hour, cancelling the bookings left empty.
+  - The checkout charges each place: 3 hours for one person is 3 × 22,50 €.
+  - A code pays hour by hour (an hours carnet loses one hour each).
+  - The Stripe webhook marks every hour paid and confirms all its bookings.
+  - `placeState` adds `hours`; `places` now means people (per hour); `end` is the last hour's.
+- **Cart:** the line reads "samedi 10 octobre 2026 à 09:00 – 12:00 · 3 h". Its + / − count people, and its price is people × hours × 22,50 €.
+- **Also fixed:** the booking confirmation e-mail wrote its times with the server's clock, which is UTC on Fly (18:00 would have read 16:00). They're formatted in Paris time now. E-mails weren't going out yet (Resend), so none was wrong.
+- **Checked** against a local Postgres (Cal's tables and triggers, the real `schema.sql`), with an open-studio class of 3 places open 09:00–12:00:
+  - 3 hours held from 09:00;
+  - a friend added in every hour, then removed;
+  - holding again changed nothing;
+  - an hours carnet paying the 3 hours (10 → 7);
+  - stopping at closing time (11:00, 2 h asked, 1 booked) and at a full hour (09:00, 10:00 full, 1 booked);
+  - a signed test webhook paying a 3-hour group (3 paid seats, 3 bookings confirmed);
+  - "Retirer" cancelling three bookings left empty;
+  - Cours showing the member in each hour, with how each was paid.
+
+  A local build of the site against it, with a throwaway local member (deleted after):
+  - the picker shows for a member, in FR and EN;
+  - the cart line reads "09:00 – 12:00 · 3 h" at 67,50 €;
+  - + made it 2 people and 135,00 € (the friend in all three hours in the database), and − brought it back;
+  - no console errors.
+
+  Not tried: a booking through the live Cal booker. It needs a member account on the live site, which agents don't create; the first one is the studio's or a member's.
 

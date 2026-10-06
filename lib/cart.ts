@@ -10,7 +10,8 @@ export { amountBounds, validAmount };
 // A dated booking made in the Cal booker, waiting to be paid in the cart.
 // uid is Cal's booking, shared by everyone in the same class; seat is this
 // person's place in it (Cal's seat reference), which the payment is for.
-export type CartBooking = { uid: string; seat?: string; start: string; end?: string };
+// hours: open studio booked for several hours in a row (end is the last one's).
+export type CartBooking = { uid: string; seat?: string; start: string; end?: string; hours?: number };
 
 // amount: what the buyer chose for a gift voucher of any amount (euro cents).
 // offer: a class made in rūsc admin, kept with its line so the cart can name

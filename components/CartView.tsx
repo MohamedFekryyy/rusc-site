@@ -348,13 +348,21 @@ export default function CartView({ lang }: { lang: Lang }) {
           const seat = item.booking?.seat;
           const place = seat ? placeInfo[seat] : undefined;
           const busy = !!seat && busySeat === seat;
+          // Open studio booked for several hours: the line is charged per person
+          // and hour, and its + / − count people.
+          const hours = place?.hours ?? item.booking?.hours ?? 1;
+          const people = hours > 1 ? (place?.places ?? Math.ceil(item.qty / hours)) : item.qty;
           return (
             // The Total row draws the line under the last item.
             <div className="row" key={item.id} style={{ alignItems: "center", ...(index === items.length - 1 ? { borderBottom: 0 } : {}) }}>
               <span className="lbl">
                 {item.amount ? `${offer[lang].tag} · ${formatPrice(item.amount, lang)}` : offer[lang].title}
                 <small>
-                  {item.booking ? formatSlot(item.booking.start, lang) : item.amount ? t.anyClass : offer[lang].unit}
+                  {item.booking
+                    ? hours > 1
+                      ? `${formatSlot(item.booking.start, lang)} – ${formatTime(place?.end ?? item.booking.end ?? item.booking.start, lang)} · ${hours} h`
+                      : formatSlot(item.booking.start, lang)
+                    : item.amount ? t.anyClass : offer[lang].unit}
                 </small>
                 {place?.expiresAt && <small>{t.heldUntil(formatTime(place.expiresAt, lang), item.qty > 1)}</small>}
                 <button
@@ -374,14 +382,14 @@ export default function CartView({ lang }: { lang: Lang }) {
                   <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
                     <button
                       type="button"
-                      style={busy || item.qty <= 1 ? stepperOff : stepper}
+                      style={busy || people <= 1 ? stepperOff : stepper}
                       aria-label={t.lessPlace}
-                      disabled={busy || item.qty <= 1}
+                      disabled={busy || people <= 1}
                       onClick={() => changePlaces(item.id, seat, "remove")}
                     >
                       <Minus size={14} color="currentColor" aria-hidden />
                     </button>
-                    <span style={{ minWidth: "18px", textAlign: "center" }}>{item.qty}</span>
+                    <span style={{ minWidth: "18px", textAlign: "center" }}>{people}</span>
                     <button
                       type="button"
                       style={busy || place?.left === 0 ? stepperOff : stepper}

@@ -438,14 +438,25 @@ const PAID_SEAT = `(EXISTS (SELECT 1 FROM rusc.paid_seats ps WHERE ps.seat_uid =
   OR EXISTS (SELECT 1 FROM rusc.desk_payments dp WHERE dp.seat_uid = s."referenceUid")
   OR EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.seat_uid = s."referenceUid"))`;
 
-// The booker's seat, its class, and the places of its group (the booker's
-// first, then the extras in the order they were added). With lock, the class's
-// booking is locked first, as Cal does when it adds a seat.
+// Open studio goes by the hour, and a member can book several in a row: Cal's
+// booker books the first, and rūsc admin adds the following ones (op "hold"
+// with hours), each one more Cal booking at its own time, with the same
+// people. A later hour's seats point to the booker's (rusc_holder), and each
+// copy of a person to that person's seat in the first hour (rusc_copy), so a
+// group is held, charged, paid and freed as one, whatever its hours.
+const HOURLY = new Set(["atelier-libre-1h"]);
+const MAX_HOURS = 4;
+
+// The booker's seat, its class, and the places of its group, in every hour
+// (the booker's first, then the others in the order they were added). With
+// lock, the group's bookings are locked, the first one first, as Cal does
+// when it adds a seat.
 async function placeGroup(client, seatUid, lock = false) {
   const head = await client.query(
-    `SELECT s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status,
+    `SELECT s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status, b."userId" AS host_id,
             b."startTime" AT TIME ZONE 'UTC' AS start_time, b."endTime" AT TIME ZONE 'UTC' AS end_time,
-            e.slug, e."seatsPerTimeSlot" AS capacity, a.name, a.email, a."phoneNumber" AS phone, a."timeZone" AS time_zone, a.locale
+            e.id AS event_type_id, e.slug, e.title, e.length, e."scheduleId" AS schedule_id, e."seatsPerTimeSlot" AS capacity,
+            a.name, a.email, a."phoneNumber" AS phone, a."timeZone" AS time_zone, a.locale
        FROM public."BookingSeat" s
        JOIN public."Booking" b ON b.id = s."bookingId"
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -459,16 +470,36 @@ async function placeGroup(client, seatUid, lock = false) {
   if (lock) await client.query(`SELECT id FROM public."Booking" WHERE id = $1 FOR UPDATE`, [group.booking_id]);
   // One after the other: a pg client runs one query at a time.
   const seats = await client.query(
-    `SELECT s.id, s."referenceUid" AS uid, s."attendeeId" AS attendee_id, ${PAID_SEAT} AS paid
-       FROM public."BookingSeat" s
-      WHERE s."bookingId" = $1 AND (s."referenceUid" = $2 OR s.data->>'rusc_holder' = $2)
-      ORDER BY s."referenceUid" = $2 DESC, s.id`,
-    [group.booking_id, seatUid],
+    `SELECT s.id, s."referenceUid" AS uid, s."attendeeId" AS attendee_id, s."bookingId" AS booking_id,
+            s.data->>'rusc_copy' AS copy_of, a.name, ${PAID_SEAT} AS paid
+       FROM public."BookingSeat" s LEFT JOIN public."Attendee" a ON a.id = s."attendeeId"
+      WHERE s."referenceUid" = $1 OR s.data->>'rusc_holder' = $1
+      ORDER BY s."referenceUid" = $1 DESC, s.id`,
+    [seatUid],
   );
-  const taken = await client.query(`SELECT count(*)::int AS n FROM public."BookingSeat" WHERE "bookingId" = $1`, [group.booking_id]);
+  const others = [...new Set(seats.rows.map((s) => s.booking_id))].filter((id) => id !== group.booking_id).sort((a, b) => a - b);
+  if (lock && others.length) await client.query(`SELECT id FROM public."Booking" WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE`, [others]);
+  const hours = await client.query(
+    `SELECT b.id, b.uid, b."startTime" AT TIME ZONE 'UTC' AS start_time, b."endTime" AT TIME ZONE 'UTC' AS end_time,
+            (SELECT count(*)::int FROM public."BookingSeat" x WHERE x."bookingId" = b.id) AS taken
+       FROM public."Booking" b WHERE b.id = ANY($1::int[]) ORDER BY b."startTime"`,
+    [[group.booking_id, ...others]],
+  );
   const hold = await client.query("SELECT expires_at, released_at FROM rusc.holds WHERE seat_uid = $1", [seatUid]);
-  return { ...group, seat_uid: seatUid, seats: seats.rows, taken: taken.rows[0].n, hold: hold.rows[0] ?? null };
+  const bookings = hours.rows;
+  return {
+    ...group,
+    seat_uid: seatUid,
+    seats: seats.rows,
+    bookings,
+    // The group runs to the end of its last hour.
+    end_time: bookings.at(-1)?.end_time ?? group.end_time,
+    hold: hold.rows[0] ?? null,
+  };
 }
+
+// The people of a group: its seats in the first hour (the booker, then friends).
+const groupPeople = (group) => group.seats.filter((s) => s.booking_id === group.booking_id);
 
 function placeState(group) {
   const unpaid = group.seats.filter((s) => !s.paid).length;
@@ -478,53 +509,129 @@ function placeState(group) {
     offer: OFFERS[group.slug] ? group.slug : null,
     start: new Date(group.start_time).toISOString(),
     end: new Date(group.end_time).toISOString(),
-    places: group.seats.length,
+    // People (per hour), hours, and the unpaid places in all (one per person
+    // and hour): what the cart charges.
+    places: groupPeople(group).length,
+    hours: group.bookings.length,
     unpaid,
-    // Places still free in the class (for the cart's + button).
-    left: group.capacity ? Math.max(0, group.capacity - group.taken) : 0,
-    // The unpaid extra places, so a code can pay for them too (booking page).
+    // Places still free in every hour of the group (for the cart's + button).
+    left: group.capacity ? Math.max(0, Math.min(...group.bookings.map((b) => group.capacity - b.taken))) : 0,
+    // The unpaid places other than the booker's, so a code can pay for them too
+    // (booking page): friends, and later hours.
     extras: group.seats.filter((s) => !s.paid && s.uid !== group.seat_uid).map((s) => s.uid),
     expiresAt: unpaid && group.hold && !group.hold.released_at ? new Date(group.hold.expires_at).toISOString() : null,
   };
 }
 
-// Removes places (attendee and seat) from a Cal booking. When nobody is left,
-// the booking is cancelled, as Cal does, so the slot is free again.
+// Removes places (attendee and seat) from their Cal bookings. A booking left
+// with nobody is cancelled, as Cal does, so the slot is free again.
 async function dropSeats(client, group, seats) {
   if (!seats.length) return;
   await client.query(`DELETE FROM public."BookingSeat" WHERE id = ANY($1::int[])`, [seats.map((s) => s.id)]);
   await client.query(`DELETE FROM public."Attendee" WHERE id = ANY($1::int[])`, [seats.map((s) => s.attendee_id)]);
-  const left = await client.query(`SELECT count(*)::int AS n FROM public."Attendee" WHERE "bookingId" = $1`, [group.booking_id]);
-  if (!left.rows[0].n) {
-    await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1`, [group.booking_id]);
+  for (const id of new Set(seats.map((s) => s.booking_id))) {
+    const left = await client.query(`SELECT count(*)::int AS n FROM public."Attendee" WHERE "bookingId" = $1`, [id]);
+    if (!left.rows[0].n) {
+      await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1`, [id]);
+    }
+  }
+  const gone = new Set(seats);
+  group.seats = group.seats.filter((s) => !gone.has(s));
+  for (const b of group.bookings) b.taken -= seats.filter((s) => s.booking_id === b.id).length;
+}
+
+// One seat of the group in one of its hours.
+async function insertSeat(client, group, booking, person, data) {
+  const uid = randomUUID();
+  const email = person.email ?? `place-${uid}${ANONYMOUS}`;
+  const attendee = await client.query(
+    `INSERT INTO public."Attendee" (email, name, "timeZone", locale, "bookingId", "phoneNumber") VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    [email, person.name, group.time_zone ?? "Europe/Paris", group.locale ?? "fr", booking.id, person.phone ?? null],
+  );
+  const seat = await client.query(
+    `INSERT INTO public."BookingSeat" ("referenceUid", "bookingId", "attendeeId", data) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [uid, booking.id, attendee.rows[0].id, data],
+  );
+  group.seats.push({ id: seat.rows[0].id, uid, attendee_id: attendee.rows[0].id, booking_id: booking.id, copy_of: data.rusc_copy ?? null, name: person.name, paid: false });
+  booking.taken += 1;
+  return uid;
+}
+
+// Adds up to `count` people (friends) to the group, in each of its hours,
+// within the class's seats.
+async function addSeats(client, group, count) {
+  const [first, ...later] = [...group.bookings].sort((a, b) => (a.id === group.booking_id ? -1 : b.id === group.booking_id ? 1 : 0));
+  for (let i = 0; i < count; i++) {
+    if (group.capacity && group.bookings.some((b) => b.taken >= group.capacity)) return;
+    const name = `${group.name ?? "?"} +${groupPeople(group).length}`;
+    const uid = await insertSeat(client, group, first, { name }, { rusc_holder: group.seat_uid });
+    for (const b of later) await insertSeat(client, group, b, { name }, { rusc_holder: group.seat_uid, rusc_copy: uid });
   }
 }
 
-// Adds up to `count` extra places to the group, within the class's seats.
-async function addSeats(client, group, count) {
-  const free = group.capacity ? group.capacity - group.taken : 0;
-  for (let i = 0; i < Math.min(count, free); i++) {
-    const uid = randomUUID();
-    const number = group.seats.length + 1;
-    const attendee = await client.query(
-      `INSERT INTO public."Attendee" (email, name, "timeZone", locale, "bookingId") VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [`place-${uid}${ANONYMOUS}`, `${group.name ?? "?"} +${number - 1}`, group.time_zone ?? "Europe/Paris", group.locale ?? "fr", group.booking_id],
+// Whether the class is open from start to end (Paris time): its hours that
+// day in Cal, where a date override replaces the weekly ones.
+async function openAt(client, scheduleId, start, end) {
+  const from = parisParts(start);
+  const to = parisParts(end);
+  if (!scheduleId || from.day !== to.day) return false;
+  const { rows } = await client.query(
+    `SELECT days, date::text AS date, "startTime"::text AS s, "endTime"::text AS e FROM public."Availability" WHERE "scheduleId" = $1`,
+    [scheduleId],
+  );
+  const dow = noon(from.day).getUTCDay();
+  const overrides = rows.filter((r) => r.date === from.day);
+  const hours = overrides.length ? overrides : rows.filter((r) => !r.date && (r.days ?? []).includes(dow));
+  return hours.some((r) => r.s !== r.e && r.s.slice(0, 5) <= from.time && r.e.slice(0, 5) >= to.time);
+}
+
+// Open studio: the hours after the first, up to `wanted` in all, while the
+// class is open and has room for the whole group. Each hour joins the Cal
+// booking at that time (everyone at a time shares one) or makes one, pending
+// until paid as the booker's is. Returns the hours the group now has.
+async function addHours(client, group, wanted) {
+  const people = groupPeople(group);
+  while (group.bookings.length < wanted) {
+    const last = group.bookings.at(-1);
+    const start = new Date(last.end_time);
+    const end = new Date(start.getTime() + group.length * 60_000);
+    if (!(await openAt(client, group.schedule_id, start, end))) break;
+    const found = await client.query(
+      `SELECT id, uid FROM public."Booking"
+        WHERE "eventTypeId" = $1 AND "startTime" = $2::timestamptz AT TIME ZONE 'UTC' AND status IN ('accepted', 'pending')
+        ORDER BY status = 'accepted' DESC, id LIMIT 1 FOR UPDATE`,
+      [group.event_type_id, start.toISOString()],
     );
-    const seat = await client.query(
-      `INSERT INTO public."BookingSeat" ("referenceUid", "bookingId", "attendeeId", data) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [uid, group.booking_id, attendee.rows[0].id, { rusc_holder: group.seat_uid }],
-    );
-    group.seats.push({ id: seat.rows[0].id, uid, attendee_id: attendee.rows[0].id, paid: false });
-    group.taken += 1;
+    let booking = found.rows[0];
+    let taken = 0;
+    if (booking) {
+      taken = (await client.query(`SELECT count(*)::int AS n FROM public."BookingSeat" WHERE "bookingId" = $1`, [booking.id])).rows[0].n;
+      if (group.capacity && taken + people.length > group.capacity) break;
+    } else {
+      booking = (
+        await client.query(
+          `INSERT INTO public."Booking" (uid, title, "startTime", "endTime", "userId", "eventTypeId", status)
+           VALUES ($1, $2, $3::timestamptz AT TIME ZONE 'UTC', $4::timestamptz AT TIME ZONE 'UTC', $5, $6, 'pending') RETURNING id, uid`,
+          [randomUUID(), group.title, start.toISOString(), end.toISOString(), group.host_id, group.event_type_id],
+        )
+      ).rows[0];
+    }
+    const hour = { id: booking.id, uid: booking.uid, start_time: start, end_time: end, taken };
+    group.bookings.push(hour);
+    for (const p of people) {
+      // The booker is themselves again (their e-mail: the hour shows in their
+      // space and in Cours); a friend stays anonymous, as in the first hour.
+      const person = p.uid === group.seat_uid ? { email: group.email, name: group.name, phone: group.phone } : { name: p.name };
+      await insertSeat(client, group, hour, person, { rusc_holder: group.seat_uid, rusc_copy: p.uid });
+    }
   }
+  group.end_time = group.bookings.at(-1).end_time;
+  return group.bookings.length;
 }
 
 // Frees the group's unpaid places (the booker's too, if unpaid) and closes its hold.
 async function releaseGroup(client, group) {
-  const unpaid = group.seats.filter((s) => !s.paid);
-  await dropSeats(client, group, unpaid);
-  group.seats = group.seats.filter((s) => s.paid);
-  group.taken -= unpaid.length;
+  await dropSeats(client, group, group.seats.filter((s) => !s.paid));
   await client.query(
     `INSERT INTO rusc.holds (seat_uid, booking_uid, offer, expires_at, released_at) VALUES ($1, $2, $3, now(), now())
      ON CONFLICT (seat_uid) DO UPDATE SET released_at = now()`,
@@ -564,20 +671,21 @@ async function apiPlaces(input) {
       if (!group.hold) group.hold = { expires_at: new Date(Date.now() + HOLD_MINUTES * 60_000), released_at: null };
       if (op === "hold") {
         const wanted = Math.min(Math.max(Math.floor(Number(input.places)) || 1, 1), 20);
-        await addSeats(client, group, wanted - group.seats.length);
-        if (group.seats.length < wanted) reason = "full";
+        await addSeats(client, group, wanted - groupPeople(group).length);
+        if (groupPeople(group).length < wanted) reason = "full";
+        // Open studio: the following hours too, up to MAX_HOURS in all.
+        const hours = HOURLY.has(group.slug) ? Math.min(Math.max(Math.floor(Number(input.hours)) || 1, 1), MAX_HOURS) : 1;
+        if (hours > group.bookings.length && (await addHours(client, group, hours)) < hours) reason ??= "hours";
       } else if (op === "add") {
-        const before = group.seats.length;
+        const before = groupPeople(group).length;
         await addSeats(client, group, 1);
-        if (group.seats.length === before) reason = "full";
+        if (groupPeople(group).length === before) reason = "full";
       } else {
-        // The last unpaid extra place; the booker's own is removed with "release".
-        const extra = group.seats.filter((s) => !s.paid && s.uid !== seatUid).pop();
-        if (extra) {
-          await dropSeats(client, group, [extra]);
-          group.seats = group.seats.filter((s) => s !== extra);
-          group.taken -= 1;
-        } else reason = "last";
+        // The last unpaid friend, in every hour; the booker's own place is
+        // removed with "release".
+        const extra = groupPeople(group).filter((s) => !s.paid && s.uid !== seatUid).pop();
+        if (extra) await dropSeats(client, group, group.seats.filter((s) => s === extra || (s.copy_of === extra.uid && !s.paid)));
+        else reason = "last";
       }
     }
     await client.query("COMMIT");
@@ -776,7 +884,7 @@ async function recordOrder(session) {
           // Payment confirms the class: Cal books it PENDING (requiresConfirmation)
           // until someone pays. Who paid is per place (paid_seats), since everyone
           // in a class shares one Cal booking.
-          if (group) await client.query(`UPDATE public."Booking" SET status = 'accepted', paid = true WHERE id = $1`, [group.booking_id]);
+          if (group) await client.query(`UPDATE public."Booking" SET status = 'accepted', paid = true WHERE id = ANY($1::int[])`, [group.bookings.map((b) => b.id)]);
           // Confirm to the student by email (as the old Acuity system did),
           // with the amount actually paid for the seat, and CC the studio.
           if (group && email) await sendBookingConfirmation(group, name, email, cents ? Number(cents) / 100 : null, metadata.lang);
@@ -2550,8 +2658,10 @@ async function sendBookingConfirmation(group, name, email, amount, lang, kind) {
   const start = new Date(group.start_time);
   const end = new Date(group.end_time);
   const dateFmt = start.toLocaleDateString(en ? "en-GB" : "fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
-  const timeFmt = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
-  const endFmt = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+  // Paris time, whatever the server's zone (UTC on Fly).
+  const clock = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  const timeFmt = clock(start);
+  const endFmt = clock(end);
   const first = String(name ?? "").split(/\s+/)[0] || "";
   const subject = en ? "Your booking at rūsc is confirmed" : "Votre réservation chez rūsc est confirmée";
   const addr = "99 Promenade Marie-Paradis, 74400 Chamonix-Mont-Blanc";

@@ -5,7 +5,9 @@ import { CODES_ORIGIN } from "@/lib/codes";
 // for (friends) are added here, within the class's seats. Places waiting in
 // the cart are held for 30 minutes, then freed unless paid; removing a class
 // from the cart frees its places at once. The booker's seat reference (from
-// Cal's bookingSuccessful event) identifies the group.
+// Cal's bookingSuccessful event) identifies the group. Open studio goes by
+// the hour: asked for several, rūsc admin books the following hours too, the
+// same people in each, while the studio is open and has room.
 
 export type PlaceState = {
   ok: boolean;
@@ -18,7 +20,10 @@ export type PlaceState = {
   offer?: string | null;
   start?: string;
   end?: string;
+  // People in the group (per hour), the hours it spans (open studio), and its
+  // unpaid places in all, one per person and hour: what the cart charges.
   places?: number;
+  hours?: number;
   unpaid?: number;
   left?: number;
   expiresAt?: string | null;
@@ -38,8 +43,9 @@ async function post(path: string, body: unknown): Promise<PlaceState> {
   }
 }
 
-// Holds the group, with `places` places in all (the booker's included).
-export const holdPlaces = (seat: string, places: number) => post("/api/places", { seat, op: "hold", places });
+// Holds the group, with `places` places in all (the booker's included), for
+// `hours` hours in a row from the one booked (open studio only).
+export const holdPlaces = (seat: string, places: number, hours = 1) => post("/api/places", { seat, op: "hold", places, hours });
 export const addPlace = (seat: string) => post("/api/places", { seat, op: "add" });
 export const removePlace = (seat: string) => post("/api/places", { seat, op: "remove" });
 export const releasePlaces = (seat: string) => post("/api/places", { seat, op: "release" });

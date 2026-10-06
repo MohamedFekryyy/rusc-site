@@ -18,6 +18,7 @@ import { getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
+import { formatTime } from "@/lib/format";
 import { holdPlaces, type PlaceState } from "@/lib/places";
 import { CART, HOME, PAGES, bookingHref, replaceUrl, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
@@ -39,6 +40,14 @@ const TEXT = {
     placesAdded: (n: number) => `${n} places ajoutées au panier : elles sont confirmées une fois le panier payé.`,
     heldFor: (many: boolean) => (many ? "Vos places sont gardées 30 minutes." : "Votre place est gardée 30 minutes."),
     onlyLeft: (n: number) => `Il ne restait que ${n} place${n > 1 ? "s" : ""} dans ce cours.`,
+    hoursAsk: "Combien d’heures ?",
+    hoursUnit: (n: number) => `${n} h`,
+    hoursHint: "Choisissez l’heure de début : les suivantes sont réservées à la suite, s’il y a de la place.",
+    hoursAdded: (n: number, from: string, to: string, people: number) =>
+      `${n} heures ajoutées au panier, de ${from} à ${to}${people > 1 ? ` pour ${people} personnes` : ""} : elles sont confirmées une fois le panier payé.`,
+    hoursCode: (n: number, from: string, to: string, left: string) => `${n} heures réservées avec votre code, de ${from} à ${to} : il vous reste ${left}.`,
+    onlyHours: (got: number, asked: number) =>
+      `${got} heure${got > 1 ? "s" : ""} réservée${got > 1 ? "s" : ""} sur les ${asked} demandées : l’heure suivante est complète, ou l’atelier ferme.`,
     slotPaid: "Votre place est réservée. Merci.",
     bookedTitle: "À l’atelier",
     bookedText: "On vous attend à l’atelier rūsc, 99 Promenade Marie-Paradis à Chamonix. Venez les mains libres : le tablier, la terre et un bon moment sont déjà là.",
@@ -85,6 +94,13 @@ const TEXT = {
     placesAdded: (n: number) => `${n} places added to your cart: they’re confirmed once the cart is paid.`,
     heldFor: (many: boolean) => (many ? "We’ll hold your places for 30 minutes." : "We’ll hold your place for 30 minutes."),
     onlyLeft: (n: number) => `Only ${n} place${n > 1 ? "s were" : " was"} left in this class.`,
+    hoursAsk: "How many hours?",
+    hoursUnit: (n: number) => `${n} h`,
+    hoursHint: "Pick the start time: the following hours are booked straight after, if there’s room.",
+    hoursAdded: (n: number, from: string, to: string, people: number) =>
+      `${n} hours added to your cart, ${from}–${to}${people > 1 ? ` for ${people} people` : ""}: they’re confirmed once the cart is paid.`,
+    hoursCode: (n: number, from: string, to: string, left: string) => `${n} hours booked with your code, ${from}–${to}: ${left} left.`,
+    onlyHours: (got: number, asked: number) => `${got} of the ${asked} hours booked: the next hour is full, or the studio closes.`,
     slotPaid: "Your place is reserved. Thank you.",
     bookedTitle: "At the studio",
     bookedText: "We’ll see you at rūsc, 99 Promenade Marie-Paradis in Chamonix. Come with your hands free: the apron, the clay and a good time are already there.",
@@ -157,6 +173,12 @@ const codeInputStyle: CSSProperties = {
   minWidth: "0", width: "170px", textTransform: "uppercase", letterSpacing: ".06em",
 };
 const smallButton: CSSProperties = { padding: "8px 16px", fontSize: "11px", cursor: "pointer" };
+// Open studio's hours: 1 h · 2 h · 3 h · 4 h, the chosen one in the accent.
+const hourOff: CSSProperties = {
+  font: "inherit", fontSize: "13px", padding: "6px 14px", background: "#fff", color: "var(--ink)",
+  border: 0, borderLeft: "1px solid var(--line)", cursor: "pointer",
+};
+const hourOn: CSSProperties = { ...hourOff, background: "var(--accent)", color: "#fff" };
 const linkButton: CSSProperties = {
   background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--muted)",
   fontSize: "12px", textDecoration: "underline",
@@ -178,13 +200,22 @@ type Booked = {
   paidByCode?: number;
   total?: number;
   asked?: number;
+  // Open studio: hours booked in a row (and asked for), from and to.
+  hours?: number;
+  hoursAsked?: number;
+  from?: string;
+  to?: string;
 };
 
 // The places just booked: the extra places asked for and the hold on unpaid
 // ones (rūsc admin, lib/places.ts), then the code in use pays for as many of
-// them as it covers. What's left unpaid goes to the cart.
-async function settlePlaces(seat: string, asked: number, code: string | null) {
-  let state: PlaceState | null = asked > 1 || !code ? await holdPlaces(seat, asked) : null;
+// them as it covers. What's left unpaid goes to the cart. Open studio: the
+// following hours asked for are booked too, while there's room.
+async function settlePlaces(seat: string, asked: number, code: string | null, hours = 1) {
+  let state: PlaceState | null = asked > 1 || hours > 1 || !code ? await holdPlaces(seat, asked, hours) : null;
+  // The hours booked in a row, and when the last one ends.
+  let span = { hours: 1, end: undefined as string | undefined };
+  if (state?.ok) span = { hours: state.hours ?? 1, end: state.end };
   let paidByCode = 0;
   let codeResult: CodeResult | null = null;
   if (code) {
@@ -195,12 +226,13 @@ async function settlePlaces(seat: string, asked: number, code: string | null) {
       paidByCode += 1;
       codeResult = result;
     }
-    state = paidByCode < seats.length ? await holdPlaces(seat, asked) : null;
+    state = paidByCode < seats.length ? await holdPlaces(seat, asked, hours) : null;
+    if (state?.ok) span = { hours: state.hours ?? span.hours, end: state.end ?? span.end };
   }
   // rūsc admin out of reach: the booker's own place still goes to the cart.
   const unpaid = state ? (state.ok ? (state.unpaid ?? 0) : 1) : 0;
   const total = (state?.ok ? state.places : undefined) ?? paidByCode + unpaid;
-  return { unpaid, total, paidByCode, codeResult };
+  return { unpaid, total, paidByCode, codeResult, ...span };
 }
 
 type CalQueue = ((...args: unknown[]) => void) & {
@@ -316,6 +348,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   // event already handled (Cal then sends a second one for the same booking).
   const codeRef = useRef<string | null>(null);
   const handledRef = useRef<string | null>(null);
+  // Open studio: how many hours in a row (the booker books the first).
+  const [hours, setHours] = useState(1);
+  const hoursRef = useRef(1);
 
   useEffect(() => {
     function open(next: BookingView, key?: string | null) {
@@ -328,6 +363,8 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       setCode(null);
       setCodeError(null);
       codeRef.current = null;
+      setHours(1);
+      hoursRef.current = 1;
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -464,12 +501,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           return;
         }
         const usedCode = codeRef.current;
-        settlePlaces(seat, asked, usedCode).then(({ unpaid, total, paidByCode, codeResult }) => {
+        const wantedHours = hoursRef.current;
+        settlePlaces(seat, asked, usedCode, wantedHours).then(({ unpaid, total, paidByCode, codeResult, hours: got, end }) => {
           if (activeNs.current !== ns) return;
-          if (unpaid) cart.addBooking(sessionKey, slot, unpaid);
+          const span = got > 1 ? { end: end ?? slot.end, hours: got } : {};
+          if (unpaid) cart.addBooking(sessionKey, { ...slot, ...span }, unpaid);
           if (codeResult) setCode(codeResult);
           const kind = !usedCode ? "cart" : !unpaid ? "code" : paidByCode ? "codePart" : "codeFailed";
-          setBooked({ kind, unpaid, total, asked, paidByCode, left: codeResult ? formatBalance(codeResult, lang) : undefined });
+          setBooked({
+            kind, unpaid, total, asked, paidByCode, left: codeResult ? formatBalance(codeResult, lang) : undefined,
+            hours: got, hoursAsked: wantedHours, from: formatTime(slot.start, lang), to: end ? formatTime(end, lang) : undefined,
+          });
         });
       },
     });
@@ -588,6 +630,28 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               )}
             </form>
           )}
+          {offer.key === "atelier-libre-1h" && !unavailable && !booked && !needsMember && (
+            <div style={codeBar} role="group" aria-label={t.hoursAsk}>
+              <span style={{ color: "var(--muted)" }}>{t.hoursAsk}</span>
+              <span style={{ display: "inline-flex", border: "1px solid var(--line)" }}>
+                {[1, 2, 3, 4].map((n, i) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={hours === n}
+                    style={{ ...(hours === n ? hourOn : hourOff), ...(i ? {} : { borderLeft: 0 }) }}
+                    onClick={() => {
+                      setHours(n);
+                      hoursRef.current = n;
+                    }}
+                  >
+                    {t.hoursUnit(n)}
+                  </button>
+                ))}
+              </span>
+              {hours > 1 && <span style={{ color: "var(--muted)", fontSize: "12.5px", flexBasis: "100%" }}>{t.hoursHint}</span>}
+            </div>
+          )}
           {booked && (
             <div key="booked" style={{ textAlign: "center", padding: "40px 20px" }}>
               <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "12px" }}>
@@ -595,11 +659,15 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               </p>
               <h3 style={{ fontSize: "24px", marginBottom: "10px", color: "var(--accent)" }}>
                 {booked.kind === "cart"
-                  ? (booked.unpaid ?? 1) > 1
-                    ? t.placesAdded(booked.unpaid ?? 1)
-                    : t.slotAdded
+                  ? (booked.hours ?? 1) > 1
+                    ? t.hoursAdded(booked.hours ?? 1, booked.from ?? "", booked.to ?? "", booked.total ?? 1)
+                    : (booked.unpaid ?? 1) > 1
+                      ? t.placesAdded(booked.unpaid ?? 1)
+                      : t.slotAdded
                   : booked.kind === "code"
-                    ? t.slotCode(booked.left ?? "")
+                    ? (booked.hours ?? 1) > 1
+                      ? t.hoursCode(booked.hours ?? 1, booked.from ?? "", booked.to ?? "", booked.left ?? "")
+                      : t.slotCode(booked.left ?? "")
                     : booked.kind === "codePart"
                       ? t.slotCodePart(booked.paidByCode ?? 1, booked.unpaid ?? 1)
                       : booked.kind === "codeFailed"
@@ -609,6 +677,9 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               {/* Fewer places free than asked; and how long unpaid ones are kept. */}
               {(booked.total ?? 1) < (booked.asked ?? 1) && (
                 <p style={{ color: "var(--ochre)", maxWidth: "460px", margin: "0 auto 8px" }}>{t.onlyLeft(booked.total ?? 1)}</p>
+              )}
+              {(booked.hours ?? 1) < (booked.hoursAsked ?? 1) && (
+                <p style={{ color: "var(--ochre)", maxWidth: "460px", margin: "0 auto 8px" }}>{t.onlyHours(booked.hours ?? 1, booked.hoursAsked ?? 1)}</p>
               )}
               {!!booked.unpaid && (
                 <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 14px" }}>{t.heldFor(booked.unpaid > 1)}</p>
