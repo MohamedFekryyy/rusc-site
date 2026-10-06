@@ -568,6 +568,10 @@ async function releaseExpired() {
 // ---------------------------------------------------------------- online orders
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+// Key that guards the public calendar feed (/cal.ics). A random value in the
+// URL keeps the student list private while letting phones load it without a
+// login password. Set it once as a Fly secret CAL_FEED_KEY.
+const CAL_FEED_KEY = process.env.CAL_FEED_KEY ?? "";
 // One-off import from the Acuity admin page (scripts/continuity/): only open
 // while the Fly secret IMPORT_TOKEN is set, and only from Acuity's admin.
 const IMPORT_TOKEN = process.env.IMPORT_TOKEN ?? "";
@@ -2089,6 +2093,13 @@ async function handle(req, res, url) {
       return send(res, 303, "", { location: target, "set-cookie": `rusc_lang=${to}; Path=/; Secure; SameSite=Lax; Max-Age=31536000` });
     }
     if (url.pathname === "/health") return send(res, 200, { ok: true });
+    // Team calendar feed, public but keyed: the link carries the secret so the
+    // phone can load it without a login password (which calendar apps can't
+    // submit). Serve only when the key matches.
+    if (url.pathname === "/cal.ics") {
+      if (String(url.searchParams.get("k") ?? "") !== CAL_FEED_KEY) return send(res, 404, { ok: false });
+      return send(res, 200, await calFeed(), { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-cache" });
+    }
     // Mailing opt-out: a link from our emails removes that address. Public, no auth.
     if (url.pathname === "/unsubscribe") {
       const em = String(url.searchParams.get("email") ?? "").trim().toLowerCase();
@@ -2242,7 +2253,6 @@ async function handle(req, res, url) {
       }
       if (url.pathname === "/admin" || url.pathname === "/admin/") return send(res, 303, "", { location: "/admin/cours" });
       if (url.pathname === "/admin/cours") return send(res, 200, await coursPage(url));
-      if (url.pathname === "/admin/cal.ics") return send(res, 200, await calFeed(), { "content-type": "text/calendar; charset=utf-8", "cache-control": "no-cache" });
       if (url.pathname === "/admin/codes") return send(res, 200, await adminHome(url));
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
