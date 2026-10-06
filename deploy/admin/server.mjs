@@ -351,7 +351,7 @@ async function placeGroup(client, seatUid, lock = false) {
   const head = await client.query(
     `SELECT s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status,
             b."startTime" AT TIME ZONE 'UTC' AS start_time, b."endTime" AT TIME ZONE 'UTC' AS end_time,
-            e.slug, e."seatsPerTimeSlot" AS capacity, a.name, a."timeZone" AS time_zone, a.locale
+            e.slug, e."seatsPerTimeSlot" AS capacity, a.name, a.email, a."phoneNumber" AS phone, a."timeZone" AS time_zone, a.locale
        FROM public."BookingSeat" s
        JOIN public."Booking" b ON b.id = s."bookingId"
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -1364,7 +1364,22 @@ async function sendBookingConfirmation(group, name, email, amount, lang) {
         ...sig,
       ];
   await sendEmail(email, subject, text.join("\n"));
-  if (REPLY_TO && REPLY_TO !== email) await sendEmail(REPLY_TO, subject, `[copie] ${first || email} — ${title} — ${dateFmt} ${timeFmt}`);
+  if (REPLY_TO && REPLY_TO !== email) {
+    // The team copy: who booked, and their full contact details (as the old
+    // Acuity system reported) so the studio can reach them.
+    const teamText = [
+      "Nouvelle réservation — rūsc",
+      "",
+      `Élève : ${name || "—"}`,
+      `Téléphone : ${group.phone || "—"}`,
+      `Email : ${email}`,
+      "",
+      `${title}`,
+      `${dateFmt} · ${timeFmt} – ${endFmt}`,
+      `Payé : ${amount} €`,
+    ].join("\n");
+    await sendEmail(REPLY_TO, `Nouvelle réservation — ${title} (${first || email})`, teamText);
+  }
 }
 
 // Welcome email for a brand-new account (member or not): every signup gets it,
