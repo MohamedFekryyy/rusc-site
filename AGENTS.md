@@ -55,6 +55,7 @@ Keep this section current; the migration log below keeps the history.
     - "Venu·e / Absent·e" ticks who came, and a client's page counts their no-shows;
     - "Ajouter" books someone into a class (phone or walk-in) without Cal's booker, paid later, at once, or with a code.
   - Look (step 44): Geist, white cards on the warm canvas, pill controls, tinted badges, Iconsax icons (as on the site).
+  - At-the-desk speed (step 46): desk actions update their class without a reload. "Aujourd’hui" sums up what's left. "Tout le monde est venu" ticks everyone at once. "Ajouter" suggests known clients and checks a code as it's typed.
 - **Acuity continuity:**
   - 46 codes still worth something, and the 1 upcoming booking;
   - the whole history: 1,616 appointments, 216 orders, 730 clients plus 92 people under shared e-mails (step 30, `scripts/continuity/README.md`);
@@ -781,4 +782,31 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - The only log error is the known `cancel pending rows is not iterable` (step 36, caught).
   - The desk features weren't used live (agents don't sign in to rūsc admin): the studio's first "Encaisser", tick or "Ajouter" is the first.
 - **Not done:** no e-mail goes to someone the studio adds (bookings made outside Cal's booker send none, and Resend isn't verified yet). Paying at the desk doesn't create an order in Commandes; the place's own line says how it was paid.
+
+### 46. rūsc admin: faster at the desk (2026-10-06)
+- **Owner's request:** "improve UX too", after step 45's restyle and desk features.
+- **No reloads for desk actions.** The page script (`ADMIN_JS`, inline in `page()`, replacing the table-label one-liner) sends Cours's desk forms (`data-inplace`) in the background: came / no-show, Encaisser, Annuler, Ajouter and "Tout le monde est venu". The answer is the page the server redirects to, and the script swaps in that class's card and the day's strip. The page doesn't move, and a short message shows at the bottom. The attendance switch lights at once. A refusal (bad amount, full class, code refused) shows its reason in orange and leaves the form open. Without the script, or if the request fails, the form submits the ordinary way.
+- **Each form sends once.** On every page, the button is marked busy until the answer comes. A double click on "Ajouter au cours" no longer books twice (checked).
+- **Today at a glance:** the list, and today's day page, start with a strip: the classes and people of the day, how many places are left to pay, and how many to tick ("tout est réglé", "présences faites" when done).
+- **Per class:**
+  - an orange "N à régler" badge;
+  - "Tout le monde est venu", or "Les N autres sont venu·es", when at least two places aren't ticked yet (from the class's day).
+- **Ajouter:**
+  - The form opens right under the class's title, with the cursor in "Nom".
+  - Typing a name suggests known clients (`GET /admin/clients/suggest`, 8 at most, names starting with it first). Picking one fills in their e-mail and phone.
+  - A code is checked as it's typed and as the places change (`GET /admin/codes/check`): "Carnet 10 cours 2h · reste 10 séances, ce cours en prend 2 séances", or why it can't pay.
+- **Smaller:**
+  - A note in the address (`?note=`) is removed once shown, so a reload or the language switch doesn't repeat it (the FR · EN link drops it too).
+  - Esc folds an open Ajouter or Encaisser form.
+  - `/` jumps to the page's search field.
+  - A busy button stays busy only until the page is shown again from the back button.
+- **Checked** against a local Postgres (Cal's tables and triggers, the real `schema.sql`), with a local-only copy of rūsc admin accepting the http origin (deleted after), in the browser:
+  - "Mari" suggested the test client and filled her e-mail and phone;
+  - the code check said "unknown" for a wrong code, then the balance, and followed the places;
+  - a double click on "Ajouter au cours" booked once (2 places, the carnet 10 → 8);
+  - no-show, then "Les 2 autres sont venu·es", then clearing, each updating the badge and the strip;
+  - a bad amount refused with its message, a card payment, and undo.
+
+  None of it reloaded the page.
+- Preview (made-up data): the list, the day, the calendar, Codes, a client and Horaires at 390 and 1280 px, with no sideways scroll and no layout shift.
 

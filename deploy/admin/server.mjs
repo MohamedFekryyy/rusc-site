@@ -1050,6 +1050,15 @@ const STYLE = `
   details.inline form label{font-size:12px}details.inline form input,details.inline form select{min-height:34px;padding:6px 10px}details.inline form button{min-height:34px}
   form.box.compact{box-shadow:none;background:#fbfaf7;padding:14px;margin-top:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
   .inline-form{display:inline}
+  button[aria-busy=true]{opacity:.55;pointer-events:none;cursor:progress}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 16px;margin:0 0 8px;font-size:14px}
+  .strip span{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}.strip .warn{color:var(--warn);font-weight:500}.strip .ok{color:var(--accent)}
+  .allcame{display:flex;justify-content:flex-end;margin-top:6px}
+  .codecheck{grid-column:1/-1;margin:-6px 0 0;font-size:13px}.codecheck:empty{display:none}.codecheck.ok{color:var(--accent)}.codecheck.off{color:var(--warn)}
+  .toast{position:fixed;left:50%;bottom:20px;z-index:40;max-width:min(92vw,520px);translate:-50% 12px;opacity:0;pointer-events:none;background:var(--ink);color:#fff;font-size:14px;font-weight:500;padding:10px 16px;border-radius:12px;box-shadow:var(--shadow-lg);transition:opacity .25s var(--ease),translate .3s var(--ease)}
+  .toast.on{opacity:1;translate:-50% 0}.toast.err{background:var(--warn)}
+  @media (prefers-reduced-motion:reduce){.toast{transition:none}}
   .paycell{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}.paycell details.inline[open]{flex-basis:100%}
   .session{position:relative}.session>details.addp>summary{position:absolute;top:11px;right:12px;margin:0;font-size:13px;padding:4px 10px 4px 8px}
   .session.empty>details.addp>summary{top:6px}.session:has(>details.addp) .head{padding-right:92px}.session>details.addp[open]>summary{background:var(--accent-soft)}
@@ -1166,18 +1175,198 @@ const LOGO = readFileSync(new URL("./logo.webp", import.meta.url));
 const brand = (height) =>
   `<img class="logo" src="/logo.webp" alt="rūsc" width="${Math.round((height * 719) / 118)}" height="${height}"><span>admin</span>`;
 
-// Each table cell gets its column's header as data-label, for the phone
-// layout (STYLE, max-width 700px).
-const LABEL_CELLS = `document.querySelectorAll("table").forEach(function(t){var h=[].map.call(t.querySelectorAll("thead th"),function(th){return th.textContent.trim()});if(!h.length)return;t.querySelectorAll("tbody tr").forEach(function(tr){[].forEach.call(tr.children,function(td,i){if(h[i])td.setAttribute("data-label",h[i])})})})`;
+// The page script: table labels for phones, one send per form, Cours's desk
+// actions done in place, the client and code look-ups of "Ajouter", Esc and
+// "/". Every page works without it.
+const ADMIN_JS = `(function () {
+  var en = document.documentElement.lang === "en";
+  // Phones: each table cell gets its column's header as data-label (STYLE).
+  function labelCells(root) {
+    (root || document).querySelectorAll("table").forEach(function (t) {
+      var h = [].map.call(t.querySelectorAll("thead th"), function (th) { return th.textContent.trim(); });
+      if (!h.length) return;
+      t.querySelectorAll("tbody tr").forEach(function (tr) {
+        [].forEach.call(tr.children, function (td, i) { if (h[i]) td.setAttribute("data-label", h[i]); });
+      });
+    });
+  }
+  labelCells();
+
+  // A note shows once: out of the address, so a reload doesn't repeat it.
+  var here = new URL(location.href);
+  if (here.searchParams.has("note")) {
+    here.searchParams.delete("note");
+    here.searchParams.delete("why");
+    history.replaceState(history.state, "", here.pathname + here.search + here.hash);
+  }
+
+  // A short message at the bottom, for what's done in place.
+  var toastTimer;
+  function toast(text, bad) {
+    var t = document.querySelector(".toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.className = "toast";
+      t.setAttribute("role", "status");
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    t.classList.toggle("err", !!bad);
+    t.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("on"); }, bad ? 6000 : 2600);
+  }
+  function settle(f, b) {
+    delete f.dataset.busy;
+    if (b) b.removeAttribute("aria-busy");
+  }
+
+  // Every form sends once, its button marked busy. Cours's desk actions
+  // (data-inplace) send in the background and swap in their class as the
+  // server now draws it: no reload, the page stays where it is.
+  document.addEventListener("submit", function (e) {
+    var f = e.target;
+    if (e.defaultPrevented) return; // a confirm() said no
+    if (f.dataset.busy) { e.preventDefault(); return; }
+    f.dataset.busy = "1";
+    var b = e.submitter;
+    if (b) b.setAttribute("aria-busy", "true");
+    if (!f.hasAttribute("data-inplace") || !window.fetch || !window.DOMParser) return;
+    e.preventDefault();
+    if (b && b.name === "came") {
+      f.querySelectorAll("button[name=came]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b && b.value !== "clear")); });
+    }
+    var data = new FormData(f);
+    if (b && b.name) data.append(b.name, b.value);
+    fetch(f.action, { method: "POST", body: new URLSearchParams(data), credentials: "same-origin" })
+      .then(function (r) {
+        return r.text().then(function (html) { return { r: r, doc: new DOMParser().parseFromString(html, "text/html") }; });
+      })
+      .then(function (x) {
+        if (!x.r.ok) {
+          var why = x.doc.querySelector("main b");
+          toast(why ? why.textContent : en ? "Something went wrong, please try again." : "Erreur, réessayez.", true);
+          settle(f, b);
+          return;
+        }
+        var at = f.querySelector("[name=at]");
+        var id = at && at.value;
+        var fresh = id && x.doc.getElementById(id);
+        var old = id && document.getElementById(id);
+        if (!fresh || !old) { location.href = x.r.url; return; }
+        old.replaceWith(fresh);
+        labelCells(fresh);
+        var strip = document.getElementById("today-strip");
+        var newStrip = x.doc.getElementById("today-strip");
+        if (strip && newStrip) strip.replaceWith(newStrip);
+        else if (strip) strip.remove();
+        var note = x.doc.querySelector("[data-note]");
+        if (note) toast(note.textContent.trim(), note.classList.contains("off"));
+      })
+      .catch(function () {
+        // Offline or refused in the background: send it the ordinary way.
+        settle(f, b);
+        f.removeAttribute("data-inplace");
+        if (f.requestSubmit) f.requestSubmit(b || undefined); else f.submit();
+      });
+  });
+  // Back to a page kept in memory: its forms aren't busy any more.
+  window.addEventListener("pageshow", function (e) {
+    if (!e.persisted) return;
+    document.querySelectorAll("form[data-busy]").forEach(function (f) { settle(f, f.querySelector("[aria-busy]")); });
+  });
+
+  // A form that unfolds puts the cursor in its first field; Esc folds it.
+  document.addEventListener("toggle", function (e) {
+    var d = e.target;
+    if (!d.open || !d.matches || !d.matches("details.addp, details.inline")) return;
+    var first = d.querySelector("input:not([type=hidden]), select");
+    if (first) first.focus();
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      document.querySelectorAll("details.addp[open], details.inline[open]").forEach(function (d) { d.open = false; });
+      return;
+    }
+    // "/" goes to the page's search field.
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(tag || "")) {
+      var search = document.querySelector(".search input");
+      if (search) { e.preventDefault(); search.focus(); search.select(); }
+    }
+  });
+
+  // Ajouter: known clients as a name is typed (their e-mail and phone fill
+  // in), and what a code would pay as it's typed.
+  var list = document.createElement("datalist");
+  list.id = "client-suggest";
+  document.body.appendChild(list);
+  var known = {};
+  var nameTimer;
+  var codeTimer;
+  function checkCode(f) {
+    var out = f.querySelector(".codecheck");
+    var code = (f.code.value || "").replace(/[^a-z0-9]/gi, "");
+    clearTimeout(codeTimer);
+    if (!out) return;
+    out.textContent = "";
+    out.className = "codecheck";
+    if (code.length < 4) return;
+    codeTimer = setTimeout(function () {
+      var q = "code=" + encodeURIComponent(code) + "&slug=" + encodeURIComponent(f.slug.value) + "&places=" + encodeURIComponent(f.places.value);
+      fetch("/admin/codes/check?" + q, { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (x) {
+          out.textContent = x.text || "";
+          out.className = "codecheck" + (x.ok === true ? " ok" : x.ok === false ? " off" : "");
+        })
+        .catch(function () {});
+    }, 300);
+  }
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    var f = el.form;
+    if (!f || !/\\/admin\\/cours\\/ajouter$/.test(f.action)) return;
+    if (el.name === "code" || el.name === "places") { checkCode(f); return; }
+    if (el.name !== "name") return;
+    var v = el.value.trim();
+    var hit = known[v.toLowerCase()];
+    if (hit) {
+      if (!f.email.value) f.email.value = hit.email;
+      if (!f.phone.value) f.phone.value = hit.phone;
+      return;
+    }
+    clearTimeout(nameTimer);
+    if (v.length < 2) return;
+    nameTimer = setTimeout(function () {
+      fetch("/admin/clients/suggest?q=" + encodeURIComponent(v), { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (rows) {
+          list.textContent = "";
+          rows.forEach(function (c) {
+            known[c.name.toLowerCase()] = c;
+            var o = document.createElement("option");
+            o.value = c.name;
+            o.label = [c.email, c.phone].filter(Boolean).join(" · ");
+            list.appendChild(o);
+          });
+        })
+        .catch(function () {});
+    }, 180);
+  });
+})();`;
 
 // Geist and Geist Mono (OFL), from Google Fonts; the system font until they load.
 const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap">`;
 const page = (title, body, top = "") =>
-  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="#f6f5f1"><title>${esc(title)} · rūsc admin</title>${FONTS}<style>${STYLE}</style></head><body>${top}<main>${body}</main><script>${LABEL_CELLS}</script></body></html>`;
+  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="#f6f5f1"><title>${esc(title)} · rūsc admin</title>${FONTS}<style>${STYLE}</style></head><body>${top}<main>${body}</main><script>${ADMIN_JS}</script></body></html>`;
 
 // FR · EN links: the page's own address comes back after the switch.
 function langSwitch() {
-  const back = encodeURIComponent(request.getStore()?.path ?? "/admin/cours");
+  const here = new URL(request.getStore()?.path ?? "/admin/cours", "http://admin.invalid");
+  here.searchParams.delete("note");
+  here.searchParams.delete("why");
+  const back = encodeURIComponent(here.pathname + here.search);
   return ["fr", "en"]
     .map((l) => (l === lang() ? `<b>${l.toUpperCase()}</b>` : `<a href="/lang?to=${l}&back=${back}" hreflang="${l}">${l.toUpperCase()}</a>`))
     .join("");
@@ -1416,9 +1605,37 @@ const sessionBox = (s) => {
         gone ? `${gone} ${tr(gone > 1 ? "absent·es" : "absent·e", gone > 1 ? "no-shows" : "no-show")}` : "",
       ].filter(Boolean).join(" · ")}</span>`
     : "";
+  const owed = s.people.filter(toPay).length;
   return `<div class="session${taken ? "" : " empty"}" id="${esc(sessionId(s))}"><div class="head"><b><span class="t">${esc(s.time)}</span> · ${esc(sessionLabel(s))}</b>
-     <span class="pill${full ? " full" : ""}">${full ? `${tr("complet", "full")} · ` : ""}${count}</span>${presence}${taken ? "" : `<span class="muted small">${tr("personne pour l’instant", "nobody yet")}</span>`}</div>${taken ? people(s.people, s) : ""}${addPersonForm(s)}</div>`;
+     <span class="pill${full ? " full" : ""}">${full ? `${tr("complet", "full")} · ` : ""}${count}</span>${owed ? `<span class="pill warn">${owed} ${tr("à régler", "to pay")}</span>` : ""}${presence}${taken ? "" : `<span class="muted small">${tr("personne pour l’instant", "nobody yet")}</span>`}</div>${addPersonForm(s)}${taken ? people(s.people, s) + everyoneCame(s) : ""}</div>`;
 };
+
+// Not ticked yet: a place of ours (not Acuity's history) with no answer.
+const unticked = (p) => !p.history && p.seat_uid && p.came == null;
+// "Tout le monde est venu": ticks every place not ticked yet, from the day of
+// the class, when there are at least two (one has its own switch).
+function everyoneCame(s) {
+  if (s.day > parisToday()) return "";
+  const open = s.people.filter(unticked);
+  if (open.length < 2) return "";
+  const label = open.length === s.people.length
+    ? tr("Tout le monde est venu", "Everyone came")
+    : tr(`Les ${open.length} autres sont venu·es`, `The other ${open.length} came`);
+  return `<form class="allcame" method="post" action="/admin/places/all-came" data-inplace>${returnFields(s)}${open.map((p) => `<input type="hidden" name="seat" value="${esc(p.seat_uid)}">`).join("")}<button class="ghost small" type="submit">${icon("came")}${label}</button></form>`;
+}
+
+// Today at a glance, above the list: classes, people, what's left to do.
+function todayStrip(list) {
+  const booked = (list ?? []).filter((s) => s.people.length);
+  const everyone = booked.flatMap((s) => s.people);
+  if (!everyone.length) return "";
+  const owed = everyone.filter(toPay).length;
+  const open = everyone.filter(unticked).length;
+  const n = (count, fr1, frN, en1, enN) => `${count} ${tr(count > 1 ? frN : fr1, count > 1 ? enN : en1)}`;
+  return `<div class="strip" id="today-strip"><b>${tr("Aujourd’hui", "Today")}</b><span>${n(booked.length, "cours", "cours", "class", "classes")}</span><span>${n(everyone.length, "personne", "personnes", "person", "people")}</span>
+    ${owed ? `<span class="warn">${icon("exclamation-circle")}${owed} ${tr("à régler", "to pay")}</span>` : `<span class="ok">${icon("check-circle")}${tr("tout est réglé", "all paid")}</span>`}
+    ${open ? `<span>${icon("came")}${open} ${tr("à pointer", "to tick")}</span>` : `<span class="ok">${icon("came")}${tr("présences faites", "attendance done")}</span>`}</div>`;
+}
 
 // ---------------------------------------------------------------- at the desk
 // What the studio does with a place, from Cours: takes payment at the desk
@@ -1443,13 +1660,13 @@ function payActions(p, s) {
   const seat = `<input type="hidden" name="seat" value="${esc(p.seat_uid ?? "")}">${returnFields(s)}`;
   if (p.desk_method) {
     const ask = tr("Annuler ce paiement à l’atelier ? La place redevient à régler.", "Undo this payment at the studio? The place goes back to unpaid.");
-    return `<form class="inline-form" method="post" action="/admin/places/unpaid" onsubmit="return confirm(${esc(JSON.stringify(ask))})">${seat}<button class="ghost small" type="submit" title="${tr("Annuler ce paiement", "Undo this payment")}">${icon("undo")}${tr("Annuler", "Undo")}</button></form>`;
+    return `<form class="inline-form" method="post" action="/admin/places/unpaid" data-inplace onsubmit="return confirm(${esc(JSON.stringify(ask))})">${seat}<button class="ghost small" type="submit" title="${tr("Annuler ce paiement", "Undo this payment")}">${icon("undo")}${tr("Annuler", "Undo")}</button></form>`;
   }
   if (!toPay(p)) return "";
   const price = OFFERS[s.slug]?.price;
   const methods = Object.entries(DESK).map(([key, [, fr, en]]) => `<option value="${key}">${esc(tr(fr, en)).replace(/^./, (c) => c.toUpperCase())}</option>`).join("");
   return `<details class="inline"><summary>${icon("cash")}${tr("Encaisser", "Take payment")}</summary>
-    <form method="post" action="/admin/places/paid">${seat}
+    <form method="post" action="/admin/places/paid" data-inplace>${seat}
       <label>${tr("Moyen", "Method")}<select name="method">${methods}</select></label>
       <label>${tr("Montant (€)", "Amount (€)")}<input name="amount" inputmode="decimal" size="7" value="${price != null ? esc(String(price).replace(".", tr(",", "."))) : ""}"></label>
       <button class="small" type="submit">${tr("Enregistrer", "Save")}</button></form></details>`;
@@ -1460,7 +1677,7 @@ function attendanceSwitch(p, s) {
   if (p.history || !p.seat_uid || s.day > parisToday()) return "";
   const button = (came, cls, name, label) =>
     `<button type="submit" name="came" value="${p.came === came ? "clear" : came ? "1" : "0"}" class="${cls}" aria-pressed="${p.came === came}" title="${label}">${icon(name)}${label}</button>`;
-  return `<form class="inline-form" method="post" action="/admin/places/presence"><input type="hidden" name="seat" value="${esc(p.seat_uid)}">${returnFields(s)}
+  return `<form class="inline-form" method="post" action="/admin/places/presence" data-inplace><input type="hidden" name="seat" value="${esc(p.seat_uid)}">${returnFields(s)}
     <span class="att" role="group" aria-label="${tr("Présence", "Attendance")}">${button(true, "came", "came", tr("Venu·e", "Came"))}${button(false, "gone", "no-show", tr("Absent·e", "No-show"))}</span></form>`;
 }
 
@@ -1471,14 +1688,15 @@ function addPersonForm(s) {
   if (!OFFERS[s.slug] || s.day < parisToday() || free < 1) return "";
   const methods = Object.entries(DESK).map(([key, [, fr, en]]) => `<option value="${key}">${tr("Payé", "Paid")} · ${esc(tr(fr, en))}</option>`).join("");
   return `<details class="add addp"><summary>${icon("user-add")}${tr("Ajouter", "Add")}</summary>
-    <form class="box compact" method="post" action="/admin/cours/ajouter">${returnFields(s)}
+    <form class="box compact" method="post" action="/admin/cours/ajouter" data-inplace>${returnFields(s)}
       <input type="hidden" name="slug" value="${esc(s.slug)}"><input type="hidden" name="day" value="${esc(s.day)}"><input type="hidden" name="time" value="${esc(s.time)}">
-      <label>${tr("Nom", "Name")}<input name="name" required maxlength="120" autocomplete="off"></label>
+      <label>${tr("Nom", "Name")}<input name="name" required maxlength="120" autocomplete="off" list="client-suggest" placeholder="${tr("Un client connu se complète", "Known clients fill in")}"></label>
       <label>${tr("E-mail (facultatif)", "E-mail (optional)")}<input name="email" type="email" maxlength="200" autocomplete="off"></label>
       <label>${tr("Téléphone (facultatif)", "Phone (optional)")}<input name="phone" type="tel" maxlength="40" autocomplete="off"></label>
       <label>${tr("Places", "Places")}<input name="places" type="number" min="1" max="${free}" value="1" required></label>
       <label>${tr("Paiement", "Payment")}<select name="pay"><option value="">${tr("À régler plus tard", "To pay later")}</option>${methods}</select></label>
       <label>${tr("Ou un code (carnet, bon)", "Or a code (card, voucher)")}<input name="code" maxlength="40" autocomplete="off" spellcheck="false" style="font-family:var(--mono);text-transform:uppercase"></label>
+      <p class="codecheck" aria-live="polite"></p>
       <div class="wide"><button type="submit">${icon("user-add")}${tr("Ajouter au cours", "Add to the class")}</button></div>
     </form></details>`;
 }
@@ -1513,9 +1731,9 @@ function coursFlash(url) {
   const note = url.searchParams.get("note");
   if (note === "code") {
     const [fr, en] = CODE_REFUSALS[url.searchParams.get("why")] ?? CODE_REFUSALS.unknown;
-    return `<p class="st off" style="margin:12px 0">${icon("exclamation-circle")}<span>${tr(`Ajouté·e au cours, mais pas payé : ${fr}. La place est à régler.`, `Added to the class, but not paid: ${en}. The place is unpaid.`)}</span></p>`;
+    return `<p class="st off" data-note style="margin:12px 0">${icon("exclamation-circle")}<span>${tr(`Ajouté·e au cours, mais pas payé : ${fr}. La place est à régler.`, `Added to the class, but not paid: ${en}. The place is unpaid.`)}</span></p>`;
   }
-  return COURS_NOTES[note] ? `<p class="flash">${icon("check-circle")}${tr(...COURS_NOTES[note])}</p>` : "";
+  return COURS_NOTES[note] ? `<p class="flash" data-note>${icon("check-circle")}${tr(...COURS_NOTES[note])}</p>` : "";
 }
 
 // The place behind a form: its Cal seat, booking and class (null if gone).
@@ -1562,6 +1780,41 @@ async function placePaid(form) {
     if (paid.rows[0]?.paid) throw refused("Cette place est déjà payée.", "This place is already paid.");
     await deskPay(client, seat, method, cents);
   });
+}
+async function placesAllCame(form) {
+  for (const uid of form.getAll("seat").slice(0, 50)) {
+    const seat = await seatOf(db, uid);
+    if (seat) await db.query("INSERT INTO rusc.attendance (seat_uid, came) VALUES ($1, true) ON CONFLICT (seat_uid) DO NOTHING", [seat.seat_uid]);
+  }
+}
+// Ajouter: clients whose name, e-mail or phone has what's typed, names that
+// start with it first (GET /admin/clients/suggest?q=).
+async function clientSuggest(q) {
+  const term = String(q ?? "").trim().toLowerCase().slice(0, 60);
+  if (term.length < 2) return [];
+  const { rows } = await db.query(
+    `SELECT first_name, last_name, email, phone FROM rusc.clients
+      WHERE lower(concat_ws(' ', first_name, last_name, email, phone)) LIKE $1
+      ORDER BY lower(concat_ws(' ', first_name, last_name)) LIKE $2 DESC, id DESC LIMIT 8`,
+    [`%${term}%`, `${term}%`],
+  );
+  return rows.map((c) => ({ name: clientName(c), email: c.email ?? "", phone: c.phone ?? "" }));
+}
+// Ajouter: what a code would pay, as it's typed (GET /admin/codes/check).
+async function codeCheck(url) {
+  const code = normalize(url.searchParams.get("code"));
+  const slug = String(url.searchParams.get("slug") ?? "");
+  const places = Math.min(Math.max(Math.floor(Number(url.searchParams.get("places"))) || 1, 1), 20);
+  if (code.length < 4 || !OFFERS[slug]) return { ok: null, text: "" };
+  const type = await db.query(`SELECT e.length FROM public."EventType" e JOIN public.users u ON u.id = e."userId" WHERE u.username = $1 AND e.slug = $2`, [HOST, slug]);
+  const row = (await db.query("SELECT * FROM rusc.codes WHERE key = $1", [code])).rows[0];
+  const need = row ? needed(row.unit, slug, type.rows[0]?.length ?? 120) * places : 0;
+  const why = refusal(row, slug, need);
+  if (why) {
+    const [fr, en] = CODE_REFUSALS[why] ?? CODE_REFUSALS.unknown;
+    return { ok: false, text: tr(fr, en).replace(/^./, (c) => c.toUpperCase()) };
+  }
+  return { ok: true, text: `${row.label} · ${tr(`reste ${fmtAmount(row.unit, num(row.remaining))}, ce cours en prend ${fmtAmount(row.unit, need)}`, `${fmtAmount(row.unit, num(row.remaining))} left, this takes ${fmtAmount(row.unit, need)}`)}` };
 }
 async function placeUnpaid(form) {
   await db.query("DELETE FROM rusc.desk_payments WHERE seat_uid = $1", [String(form.get("seat") ?? "").slice(0, 100)]);
@@ -1694,7 +1947,7 @@ async function coursList(url) {
   return shell(
     "cours",
     tr("Cours", "Classes"),
-    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("liste")}${coursFlash(url)}<p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
+    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("liste")}${coursFlash(url)}${todayStrip(byDay.get(today))}<p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
        ${days < 30 ? `<a href="?jours=30">${tr("Voir 30 jours", "Show 30 days")}</a>` : `<a href="?jours=14">${tr("Voir 14 jours", "Show 14 days")}</a>`}</p>
      ${body || `<p class="muted">${tr("Aucun cours sur cette période.", "No classes in this period.")}</p>`}`,
   );
@@ -1746,7 +1999,7 @@ async function coursDay(day, url) {
   return shell(
     "cours",
     `${tr("Cours", "Classes")} · ${long}`,
-    `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}${coursFlash(url)}
+    `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}${coursFlash(url)}${day === parisToday() ? todayStrip(list) : ""}
      <div class="calnav"><a class="ibtn" href="?jour=${addDays(day, -1)}" title="${tr("Veille", "Previous day")}">${icon("chevron-left", tr("Veille", "Previous day"))}</a><a class="ibtn" href="?jour=${addDays(day, 1)}" title="${tr("Lendemain", "Next day")}">${icon("chevron-right", tr("Lendemain", "Next day"))}</a><a href="?vue=calendrier&mois=${day.slice(0, 7)}">${tr("Tout le mois", "The whole month")}</a></div>
      ${list.length ? list.map(sessionBox).join("") : `<p class="muted">${tr("Aucun cours ce jour-là.", "No classes that day.")}</p>`}`,
   );
@@ -3133,6 +3386,10 @@ async function handle(req, res, url) {
           await placeUnpaid(form);
           return send(res, 303, "", { location: coursBack(form, "undone") });
         }
+        if (url.pathname === "/admin/places/all-came") {
+          await placesAllCame(form);
+          return send(res, 303, "", { location: coursBack(form) });
+        }
         if (url.pathname === "/admin/places/presence") {
           await placePresence(form);
           return send(res, 303, "", { location: coursBack(form) });
@@ -3170,6 +3427,8 @@ async function handle(req, res, url) {
       if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
       if (url.pathname === "/admin/horaires") return send(res, 200, await horairesPage(url));
       if (url.pathname === "/admin/cours/nouveau") return send(res, 200, classNewPage());
+      if (url.pathname === "/admin/clients/suggest") return send(res, 200, await clientSuggest(url.searchParams.get("q")));
+      if (url.pathname === "/admin/codes/check") return send(res, 200, await codeCheck(url));
       const madeClass = url.pathname.match(/^\/admin\/cours\/offre\/([a-z0-9-]+)$/);
       if (madeClass) {
         const html = await classEditPage(madeClass[1], url.searchParams.has("saved") ? tr("Enregistré.", "Saved.") : "");

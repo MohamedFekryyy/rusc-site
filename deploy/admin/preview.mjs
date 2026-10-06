@@ -119,6 +119,7 @@ globalThis.__sample = (sql, params = []) => {
   if (sql.includes("SELECT * FROM rusc.history")) return { rows: history.filter((h) => h.email === params[0]) };
   if (sql.includes("SELECT count(*) FROM rusc.clients")) return { rows: [{ count: String(clients.length) }] };
   if (sql.includes("FROM rusc.clients c LEFT JOIN rusc.members")) return { rows: clients };
+  if (sql.includes("SELECT first_name, last_name, email, phone FROM rusc.clients")) return { rows: clients.filter((c) => `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(String(params[0]).replace(/%/g, ""))) };
   if (sql.includes("SELECT * FROM rusc.clients WHERE id")) return { rows: clients.filter((c) => String(c.id) === String(params[0])) };
   if (sql.includes("FROM rusc.acuity_orders o LEFT JOIN")) return { rows: acuityOrders };
   if (sql.includes("FROM rusc.acuity_orders WHERE")) return { rows: acuityOrders.filter((o) => o.email === params[0]) };

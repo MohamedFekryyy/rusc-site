@@ -15,6 +15,8 @@ The menu:
   - **Venu·e / Absent·e**, from the day of the class, ticks who came (`rusc.attendance`). The class's head counts them, and a client's page counts their no-shows.
   - **Ajouter** (any class of ours, today or later, with places left) books someone straight into the class's Cal booking, or makes one: name, optional e-mail and phone, places, paid later / at once / offered, or a code (checked first, then taken off as on the site).
 
+  These desk actions update their class in place (no reload; the page script, `ADMIN_JS`), with a short message at the bottom. "Aujourd’hui" above the list sums up the day: classes, people, places to pay, people to tick. "Tout le monde est venu" ticks every place not ticked yet. In "Ajouter", a name suggests known clients (`/admin/clients/suggest`) and a code is checked as it's typed (`/admin/codes/check`). Every form sends once (busy button), Esc folds a form, and `/` goes to search.
+
   Three views:
   - **List** (`/admin/cours`): the coming 14 or 30 days.
   - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. Green means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
