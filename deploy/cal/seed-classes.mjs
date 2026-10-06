@@ -19,8 +19,11 @@
 // afterwards, but a new run of this script puts these values back.
 //
 // Classes the studio creates in rūsc admin (Cours → Nouveau cours) aren't
-// listed here: rūsc admin makes their event types with the same settings, and
-// this script leaves them alone.
+// listed here: rūsc admin makes their event types with the same settings.
+// rūsc admin also edits the classes below (names, descriptions, length,
+// places; Horaires edits their hours). A class it manages (a row in
+// rusc.classes, which schema.sql adds for all nine) is skipped here, so a run
+// never puts old values back; the script only sets up what has no row yet.
 
 const HOST = "raquel";
 // Bookable until 30 minutes after a class starts: a negative notice is a grace
@@ -102,13 +105,17 @@ const CLASSES = [
 ];
 
 const q = (s) => `'${String(s).replaceAll("'", "''")}'`;
-const lines = ["\\set ON_ERROR_STOP on", "BEGIN;", "DO $rusc$", "DECLARE uid int; sid int; eid int; tid int;", "BEGIN"];
+const lines = ["\\set ON_ERROR_STOP on", "BEGIN;", "DO $rusc$", "DECLARE uid int; sid int; eid int; tid int; managed boolean;", "BEGIN"];
 lines.push(`  SELECT id INTO uid FROM users WHERE username = ${q(HOST)};`);
 lines.push(`  IF uid IS NULL THEN RAISE EXCEPTION 'no user ${HOST}'; END IF;`);
 
 CLASSES.forEach((c, index) => {
   const schedule = `rūsc · ${c.fr[0]}`;
   lines.push(`  -- ${c.key}`);
+  // Managed in rūsc admin (rusc.classes): left as it is.
+  lines.push(`  managed := false;`);
+  lines.push(`  IF to_regclass('rusc.classes') IS NOT NULL THEN EXECUTE 'SELECT EXISTS (SELECT 1 FROM rusc.classes WHERE key = $1)' INTO managed USING ${q(c.key)}; END IF;`);
+  lines.push(`  IF managed THEN RAISE NOTICE 'skipped ${c.key}: managed in rūsc admin'; ELSE`);
   lines.push(`  SELECT id INTO sid FROM "Schedule" WHERE "userId" = uid AND name = ${q(schedule)};`);
   lines.push(`  IF sid IS NULL THEN INSERT INTO "Schedule" ("userId", name, "timeZone") VALUES (uid, ${q(schedule)}, ${q(TZ)}) RETURNING id INTO sid; END IF;`);
   lines.push(`  UPDATE "Schedule" SET "timeZone" = ${q(TZ)} WHERE id = sid;`);
@@ -151,6 +158,7 @@ CLASSES.forEach((c, index) => {
         ` VALUES (${q(`rusc-${c.key}-${field.toLowerCase()}-en`)}, eid, ${q(field)}, 'fr', 'en', ${q(text)}, uid, now());`,
     );
   }
+  lines.push(`  END IF;`);
 });
 // Cal creates sample event types with a new account; keep them off the
 // public profile page.

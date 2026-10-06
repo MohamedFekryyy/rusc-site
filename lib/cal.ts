@@ -62,7 +62,9 @@ type OfferSource = {
 // creates them), so French and English visitors fill the same places. Its
 // French title and description have an English translation, which Cal's
 // booker shows to visitors whose browser is in English. Classes the studio
-// creates in rūsc admin join these at run time (ClassOffer, below).
+// creates in rūsc admin join these at run time, and its edits of the sessions
+// below replace their names, price line, price and photo (ClassOffer, below).
+// The values here are what the site shows until those load.
 export const OFFERS = [
   // Cours & stages
   {
@@ -172,23 +174,26 @@ export const OFFERS = [
   },
 ] as const satisfies readonly OfferSource[];
 
-// A class made in rūsc admin (Cours → Nouveau cours), on top of OFFERS. Like
-// the sessions above it is one Cal event type, slug = key, that rūsc admin
-// created; rūsc admin serves the list (GET /api/classes) and lib/classes.ts
-// loads it here. Always in "Cours & stages", for everyone, paid per place.
+// A class as rūsc admin serves it (GET /api/classes; lib/classes.ts loads the
+// list here). Either one made there (Cours → Nouveau cours), on top of OFFERS:
+// like the sessions above, one Cal event type, slug = key, always in "Cours &
+// stages", for everyone, paid per place. Or one of the sessions above as the
+// studio edited it there (builtin): it replaces that offer's names, price line,
+// price and photo, and keeps its tab, colour and members-only rule.
 // A hidden one (active false) isn't listed, but still names and prices the
 // places already in carts.
 export type ClassOffer = {
   key: string;
-  view: "schedule";
-  tone: "guest";
+  view: BookingView;
+  tone: "guest" | "member";
   kind: "session";
   price: number;
   minutes: number;
   // One of the photos of components/OfferCard.tsx (PHOTOS).
   image: string;
   active: boolean;
-  made: true;
+  made?: true;
+  builtin?: true;
   fr: OfferText;
   en: OfferText;
 };
@@ -198,7 +203,9 @@ export type StaticOfferKey = StaticOffer["key"];
 export type Offer = StaticOffer | ClassOffer;
 export type OfferKey = string;
 
+// The classes made in rūsc admin, and the sessions above as edited there.
 let classOffers: ClassOffer[] = [];
+let edited = new Map<string, ClassOffer>();
 
 const isText = (value: unknown): value is OfferText => {
   const t = value as OfferText | null;
@@ -208,10 +215,14 @@ const isText = (value: unknown): value is OfferText => {
 // A class as rūsc admin (or a cart line) gives it, if well formed.
 export function toClassOffer(raw: unknown): ClassOffer | null {
   const c = raw as Partial<ClassOffer> | null;
-  if (!c || typeof c.key !== "string" || !/^[a-z0-9-]{1,60}$/.test(c.key) || OFFERS.some((o) => o.key === c.key)) return null;
+  if (!c || typeof c.key !== "string" || !/^[a-z0-9-]{1,60}$/.test(c.key)) return null;
   if (!Number.isInteger(c.price) || (c.price as number) <= 0 || !isText(c.fr) || !isText(c.en)) return null;
+  // An edited session of OFFERS keeps its tab and colour; a new class takes no key of OFFERS.
+  const base = OFFERS.find((o) => o.key === c.key);
+  if (c.builtin ? base?.kind !== "session" : base) return null;
   return {
-    key: c.key, view: "schedule", tone: "guest", kind: "session", made: true,
+    key: c.key, view: base?.view ?? "schedule", tone: base?.tone ?? "guest", kind: "session",
+    ...(base ? { builtin: true as const } : { made: true as const }),
     price: c.price as number,
     minutes: Number(c.minutes) || 120,
     image: typeof c.image === "string" ? c.image : "",
@@ -220,26 +231,32 @@ export function toClassOffer(raw: unknown): ClassOffer | null {
   };
 }
 
-// The classes made in rūsc admin, as last loaded (lib/classes.ts). One that
-// hasn't changed keeps its object, so a booker already open stays mounted.
+// The classes as last loaded (lib/classes.ts). One that hasn't changed keeps
+// its object, so a booker already open stays mounted.
 export function setClassOffers(list: ClassOffer[]) {
-  const same = (a: ClassOffer, b: ClassOffer) => JSON.stringify(a) === JSON.stringify(b);
-  const next = list.map((c) => classOffers.find((o) => o.key === c.key && same(o, c)) ?? c);
+  const same = (a: ClassOffer, b?: ClassOffer) => !!b && JSON.stringify(a) === JSON.stringify(b);
+  const made = list.filter((c) => c.made).map((c) => (same(c, classOffers.find((o) => o.key === c.key)) ? classOffers.find((o) => o.key === c.key)! : c));
   // Classes only cart lines know (lib/cart.ts) stay until the list names them.
-  classOffers = [...next, ...classOffers.filter((o) => !next.some((c) => c.key === o.key))];
+  classOffers = [...made, ...classOffers.filter((o) => !made.some((c) => c.key === o.key))];
+  edited = new Map(list.filter((c) => c.builtin).map((c) => [c.key, same(c, edited.get(c.key)) ? edited.get(c.key)! : c]));
 }
 
 // A cart line's class, known before the list loads.
 export function rememberClassOffer(offer: ClassOffer) {
-  if (!classOffers.some((o) => o.key === offer.key)) classOffers = [...classOffers, offer];
+  if (offer.made && !classOffers.some((o) => o.key === offer.key)) classOffers = [...classOffers, offer];
 }
 
 export function offerByKey(key: string): Offer | undefined {
-  return OFFERS.find((o) => o.key === key) ?? classOffers.find((o) => o.key === key);
+  return edited.get(key) ?? OFFERS.find((o) => o.key === key) ?? classOffers.find((o) => o.key === key);
 }
 
-export function isMadeClass(offer: Offer | undefined): offer is ClassOffer {
-  return !!offer && "made" in offer;
+export function isMadeClass(offer: Offer | undefined): offer is ClassOffer & { made: true } {
+  return !!offer && "made" in offer && offer.made === true;
+}
+
+// Taken off the site in rūsc admin: not listed, and not opened from a link.
+export function isHidden(offer: Offer | undefined) {
+  return !!offer && "active" in offer && !offer.active;
 }
 
 // Bounds of a gift voucher of any amount, if the offer is one.
@@ -259,14 +276,15 @@ export function isOfferKey(value: unknown): value is OfferKey {
   return typeof value === "string" && offerByKey(value) !== undefined;
 }
 
-// A tab's offers: those above, then the classes made in rūsc admin it lists.
+// A tab's offers: those above (as edited in rūsc admin), then the classes made there.
 export function offersIn(view: BookingView): Offer[] {
-  return [...OFFERS.filter((o) => o.view === view), ...classOffers.filter((o) => o.active && o.view === view)];
+  const own: Offer[] = OFFERS.filter((o) => o.view === view).map((o) => edited.get(o.key) ?? o);
+  return [...own, ...classOffers.filter((o) => o.view === view)].filter((o) => !isHidden(o));
 }
 
 // The Cal event type of an offer, e.g. "raquel/porcelaine" (one for both languages).
-export function offerCalLink(offer: Offer, lang?: "fr" | "en") {
-  const link = calLink(offer.key);
+export function offerCalLink(key: OfferKey, lang?: "fr" | "en") {
+  const link = calLink(key);
   // Force the booker's language to the page's language (not the visitor's
   // browser). Cal reads it from the ?lang= query param on the calLink.
   return lang ? `${link}?lang=${lang}` : link;

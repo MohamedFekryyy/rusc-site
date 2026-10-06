@@ -4,6 +4,7 @@ import { loadStripe, type StripeEmbeddedCheckout } from "@stripe/stripe-js";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { offerByKey } from "@/lib/cal";
 import { applyCode, cart, cartTotal, clearAppliedCode, linePrice, useAppliedCode, useCart } from "@/lib/cart";
+import { loadClasses } from "@/lib/classes";
 import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatPrice, formatSlot, formatTime } from "@/lib/format";
@@ -139,6 +140,18 @@ export default function CartView({ lang }: { lang: Lang }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const seatKey = items.map((i) => i.booking?.seat).filter(Boolean).join(",");
+  // The classes as rūsc admin has them (names and prices edited there):
+  // shown once loaded; the checkout charges them in any case.
+  const [, setClassesLoaded] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    loadClasses().then((list) => {
+      if (alive && list) setClassesLoaded((n) => n + 1);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Check the classes against rūsc admin: on load, then every minute. A place
   // that ran out unpaid leaves the cart (and says so); one paid elsewhere too.

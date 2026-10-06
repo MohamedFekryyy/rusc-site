@@ -12,7 +12,8 @@
 //                  code), then Acuity's orders
 //   /admin/horaires   the classes' hours in Cal: weekly slots, dates, closed days
 //   /admin/cours/nouveau  a new class: its Cal event type, price, photo, hours
-//                  (edited at /admin/cours/offre/<key>; see "classes made here")
+//   /admin/cours/offre/<key>  the same form for any class, built-in or new
+//                  ("Modifier" in Horaires; see "classes made here")
 // Stripe calls POST /stripe/webhook (checkout.session.completed), checked with
 // the endpoint's signing secret STRIPE_WEBHOOK_SECRET.
 // Public API, called by the booking page (components/BookingEmbed.tsx):
@@ -86,7 +87,7 @@ const PRESETS = [
 // A preset's classes, with the classes made here that its codes pay for, as
 // chosen when each was made: gift vouchers in euros, or 2-hour class cards.
 function presetOffers(preset) {
-  const extra = [...CLASSES.values()].filter((c) => (preset.unit === "euros" ? c.euro_codes : preset.offers === TWO_HOUR && c.class_cards));
+  const extra = madeClasses().filter((c) => (preset.unit === "euros" ? c.euro_codes : preset.offers === TWO_HOUR && c.class_cards));
   return [...preset.offers, ...extra.map((c) => c.key)];
 }
 // The cart's products (lib/cal.ts, kind "product") and what an online
@@ -126,6 +127,8 @@ const UNIT = {
 // lists it. Its length and places live in Cal. The site reads them all from
 // GET /api/classes: its booking page lists the active ones, and its checkout
 // takes their price from there, never from the browser.
+// The nine built-in classes have a row too (builtin, filled by schema.sql), so
+// the studio edits them with the same form; the site lays it over lib/cal.ts.
 let CLASSES = new Map(); // key → rusc.classes row, with Cal's length, seats and schedule
 let classesAt = 0;
 async function syncClasses(force = false) {
@@ -133,31 +136,50 @@ async function syncClasses(force = false) {
   try {
     const { rows } = await db.query(
       `SELECT c.*, e.length, e."seatsPerTimeSlot" AS seats, e."scheduleId" AS schedule_id
-         FROM rusc.classes c JOIN public."EventType" e ON e.id = c.event_type_id ORDER BY c.created_at`,
+         FROM rusc.classes c JOIN public."EventType" e ON e.id = c.event_type_id ORDER BY c.builtin DESC, c.created_at`,
     );
     classesAt = Date.now();
     CLASSES = new Map(rows.map((row) => [row.key, row]));
-    for (const key of Object.keys(OFFERS)) if (!BUILTIN[key]) delete OFFERS[key];
-    for (const c of rows) OFFERS[c.key] = { label: c.title_fr, en: c.title_en, price: c.price_cents / 100, made: true };
+    for (const key of Object.keys(OFFERS)) delete OFFERS[key];
+    for (const [key, offer] of Object.entries(BUILTIN)) OFFERS[key] = { ...offer };
+    for (const c of rows) OFFERS[c.key] = { label: c.title_fr, en: c.title_en, price: c.price_cents / 100, ...(c.builtin ? {} : { made: true }) };
   } catch (error) {
     console.error("classes", error.message);
   }
 }
+// The classes made here, without the built-in ones.
+const madeClasses = () => [...CLASSES.values()].filter((c) => !c.builtin);
+
+// The member price the site shows and charges (MEMBER_DISCOUNT_PERCENT's default, lib/pricing.ts).
+const MEMBER_PERCENT = 10;
+// The line under a class's name: price, member price, then the note ("/ heure"
+// follows the price without a dot); without the price, the note alone.
+function priceLine(c, english) {
+  const money = (cents) => {
+    const euros = cents / 100;
+    const digits = { minimumFractionDigits: euros % 1 ? 2 : 0 };
+    return english ? `€${euros.toLocaleString("en-GB", digits)}` : `${euros.toLocaleString("fr-FR", digits)} €`;
+  };
+  const parts = c.show_price ? [money(c.price_cents)] : [];
+  if (c.show_price && c.show_member_price) parts.push(`${english ? "member" : "membre"} ${money(Math.round((c.price_cents * (100 - MEMBER_PERCENT)) / 100))}`);
+  const line = parts.join(" · ");
+  const note = english ? c.note_en : c.note_fr;
+  if (!note) return line;
+  return !line ? note : note.startsWith("/") ? `${line} ${note}` : `${line} · ${note}`;
+}
 
 // What the site needs to show and sell a class (lib/cal.ts, ClassOffer).
 function publicClass(c) {
-  const euros = c.price_cents / 100;
-  const digits = { minimumFractionDigits: euros % 1 ? 2 : 0 };
-  const price = { fr: `${euros.toLocaleString("fr-FR", digits)} €`, en: `€${euros.toLocaleString("en-GB", digits)}` };
   return {
     key: c.key,
+    builtin: c.builtin,
     price: c.price_cents,
     minutes: c.length,
     seats: c.seats,
     image: c.image,
     active: c.active,
-    fr: { tag: c.tag_fr, title: c.title_fr, unit: [price.fr, c.note_fr].filter(Boolean).join(" · "), cta: "Réserver" },
-    en: { tag: c.tag_en, title: c.title_en, unit: [price.en, c.note_en].filter(Boolean).join(" · "), cta: "Book" },
+    fr: { tag: c.tag_fr, title: c.title_fr, unit: priceLine(c, false), cta: "Réserver" },
+    en: { tag: c.tag_en, title: c.title_en, unit: priceLine(c, true), cta: "Book" },
   };
 }
 const apiClasses = () => ({ classes: [...CLASSES.values()].map(publicClass) });
@@ -1417,11 +1439,12 @@ async function horairesPage(url) {
       ].join("");
       const openStudio = c.slug === "atelier-libre-1h";
       const endField = `<label>${tr("Fin", "End")}<input name="end" type="time" step="1800" ${openStudio ? "required" : `placeholder="${tr("auto", "auto")}"`}></label>`;
-      const made = CLASSES.get(c.slug);
+      // Every class with a row in rusc.classes (built-in or made here) can be edited.
+      const row = CLASSES.get(c.slug);
       return `<div class="session" id="${esc(c.slug)}"><div class="head"><b>${esc(OFFERS[c.slug] ? offerLabel(c.slug) : c.title)}</b>
-          <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}${made ? ` · ${esc(fmtAmount("euros", made.price_cents / 100))}` : ""}</span>
-          ${made && !made.active ? `<span class="pill off">${tr("masqué du site", "hidden from the site")}</span>` : ""}
-          ${made ? `<a class="small" href="/admin/cours/offre/${esc(c.slug)}">${tr("Modifier", "Edit")}</a>` : ""}</div>
+          <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}${row ? ` · ${esc(fmtAmount("euros", row.price_cents / 100))}` : ""}</span>
+          ${row && !row.active ? `<span class="pill off">${tr("masqué du site", "hidden from the site")}</span>` : ""}
+          ${row ? `<a class="small" href="/admin/cours/offre/${esc(c.slug)}">${tr("Modifier", "Edit")}</a>` : ""}</div>
         ${lines ? `<table><tbody>${lines}</tbody></table>` : `<p class="muted" style="margin:0">${tr("Aucun horaire.", "No hours.")}</p>`}
         ${past ? `<p class="muted small">${tr(`${past} date(s) passée(s) masquée(s).`, `${past} past date(s) hidden.`)}</p>` : ""}
         <form class="box" method="post" action="/admin/horaires/add" style="margin-top:10px">
@@ -1535,6 +1558,7 @@ const TZ = "Europe/Paris";
 const ADDRESS = "rūsc, 99 Promenade Marie Paradis, 74400 Chamonix-Mont-Blanc";
 // Bookable until 30 minutes after the start (deploy/cal/patches/late-booking.patch).
 const NOTICE = -30;
+const OPEN_STUDIO = "atelier-libre-1h"; // one-hour slots cut from longer spans
 // The site's photos a class can show (PHOTOS in components/OfferCard.tsx), with
 // small copies in photos/ for the form.
 const PHOTOS = [
@@ -1574,6 +1598,8 @@ function classInput(form) {
     noteEn: line("note_en", 80) || null,
     descriptionFr: text("description_fr"),
     descriptionEn: text("description_en"),
+    showPrice: form.get("show_price") === "on",
+    showMemberPrice: form.get("show_member_price") === "on",
     price,
     minutes,
     seats,
@@ -1671,9 +1697,10 @@ async function classCreate(form) {
     await writeTranslations(client, key, eventTypeId, userId, v);
     await client.query(
       `INSERT INTO rusc.classes (key, event_type_id, title_fr, title_en, tag_fr, tag_en, note_fr, note_en, description_fr, description_en,
-         price_cents, image, euro_codes, class_cards)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-      [key, eventTypeId, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image, v.euroCodes, v.classCards],
+         price_cents, image, euro_codes, class_cards, show_price, show_member_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+      [key, eventTypeId, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image,
+        v.euroCodes, v.classCards, v.showPrice, v.showMemberPrice],
     );
     await shareCodes(client, key, v);
     if (first) await insertSlot(client, scheduleId, first);
@@ -1689,6 +1716,8 @@ async function classUpdate(key, form) {
   const c = CLASSES.get(key);
   if (!c) throw refused("Cours introuvable.", "Class not found.");
   const v = classInput(form);
+  // Open studio is cut into one-hour slots: its length stays.
+  if (key === OPEN_STUDIO) v.minutes = c.length;
   await inTransaction(async (client) => {
     const userId = await hostId(client);
     await client.query(`UPDATE public."EventType" SET title = $2, description = $3, "seatsPerTimeSlot" = $4 WHERE id = $1`, [c.event_type_id, v.titleFr, v.descriptionFr, v.seats]);
@@ -1710,10 +1739,12 @@ async function classUpdate(key, form) {
     await writeTranslations(client, key, c.event_type_id, userId, v);
     await client.query(
       `UPDATE rusc.classes SET title_fr = $2, title_en = $3, tag_fr = $4, tag_en = $5, note_fr = $6, note_en = $7, description_fr = $8,
-         description_en = $9, price_cents = $10, image = $11, euro_codes = $12, class_cards = $13 WHERE key = $1`,
-      [key, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image, v.euroCodes, v.classCards],
+         description_en = $9, price_cents = $10, image = $11, euro_codes = $12, class_cards = $13, show_price = $14, show_member_price = $15 WHERE key = $1`,
+      [key, v.titleFr, v.titleEn, v.tagFr, v.tagEn, v.noteFr, v.noteEn, v.descriptionFr, v.descriptionEn, v.price, v.image, v.euroCodes, v.classCards,
+        v.showPrice, v.showMemberPrice],
     );
-    await shareCodes(client, key, v);
+    // A built-in class keeps the codes it always had (carnets, vouchers, presets).
+    if (!c.builtin) await shareCodes(client, key, v);
   });
   await syncClasses(true);
 }
@@ -1739,19 +1770,27 @@ function classForm(c) {
     ${field(tr("Nom en français", "Name in French"), "title_fr", ` required maxlength="60" placeholder="${tr("ex. raku 1 jour", "e.g. raku 1 jour")}"${value(c?.title_fr)}`, "two")}
     ${field(tr("Nom en anglais", "Name in English"), "title_en", ` required maxlength="60" placeholder="${tr("ex. raku 1 day", "e.g. raku 1 day")}"${value(c?.title_en)}`, "two")}
     ${field(tr("Prix (€ TTC, par place)", "Price (€ incl. VAT, per place)"), "price", ` type="number" min="1" max="2000" step="0.5" required${value(c ? c.price_cents / 100 : null)}`)}
-    ${field(tr("Durée (minutes)", "Length (minutes)"), "minutes", ` type="number" min="15" max="720" step="15" required${value(c?.length ?? 120)}`)}
+    ${c?.key === OPEN_STUDIO
+      ? `<input type="hidden" name="minutes" value="${c.length}">`
+      : field(tr("Durée (minutes)", "Length (minutes)"), "minutes", ` type="number" min="15" max="720" step="15" required${value(c?.length ?? 120)}`)}
     ${field(tr("Places", "Places"), "seats", ` type="number" min="1" max="30" required${value(c?.seats ?? 7)}`)}
     <h3>${tr("Sur la page Réserver du site", "On the site’s booking page")}</h3>
     ${field(tr("Au-dessus du nom (français)", "Above the name (French)"), "tag_fr", ` maxlength="60" placeholder="${tr("auto : Cours · 2 h", "auto: Cours · 2 h")}"${value(c?.tag_fr)}`)}
     ${field(tr("Au-dessus du nom (anglais)", "Above the name (English)"), "tag_en", ` maxlength="60" placeholder="${tr("auto : Course · 2 h", "auto: Course · 2 h")}"${value(c?.tag_en)}`)}
     ${field(tr("Après le prix (français)", "After the price (French)"), "note_fr", ` maxlength="80" placeholder="${tr("ex. apéro et modelage", "e.g. apéro et modelage")}"${value(c?.note_fr)}`)}
     ${field(tr("Après le prix (anglais)", "After the price (English)"), "note_en", ` maxlength="80" placeholder="${tr("ex. drinks and hand-building", "e.g. drinks and hand-building")}"${value(c?.note_en)}`)}
+    <fieldset><legend>${tr("Ligne du prix", "Price line")}</legend>
+      <label><input type="checkbox" name="show_price"${!c || c.show_price ? " checked" : ""}> ${tr("Afficher le prix", "Show the price")}</label>
+      <label><input type="checkbox" name="show_member_price"${c?.show_member_price ? " checked" : ""}> ${tr(`Et le prix membre (−${MEMBER_PERCENT} %)`, `And the member price (−${MEMBER_PERCENT}%)`)}</label>
+      <span class="muted small" style="flex-basis:100%">${tr("Puis le texte « après le prix » (« / heure » se colle au prix). Sans le prix, ce texte seul.", "Then the “after the price” text (“/ hour” sticks to the price). Without the price, that text alone.")}</span></fieldset>
     ${area(tr("Description en français (dans le calendrier de réservation)", "Description in French (in the booking calendar)"), "description_fr", c?.description_fr)}
     ${area(tr("Description en anglais", "Description in English"), "description_en", c?.description_en)}
     <fieldset class="photos"><legend>${tr("Photo", "Photo")}</legend>${photos}</fieldset>
-    <fieldset><legend>${tr("Codes qui le paient", "Codes that pay for it")}</legend>
+    ${c?.builtin
+      ? `<p class="muted small wide">${tr("Codes : ceux qui paient ce cours aujourd’hui continuent de le payer (carnets, bons cadeaux, codes de l’atelier).", "Codes: those that pay for this class today keep paying for it (class cards, gift vouchers, studio codes).")}</p>`
+      : `<fieldset><legend>${tr("Codes qui le paient", "Codes that pay for it")}</legend>
       <label><input type="checkbox" name="euro_codes"${c ? (c.euro_codes ? " checked" : "") : " checked"}> ${tr("Bons cadeaux en euros (le prix du cours)", "Gift vouchers in euros (the class’s price)")}</label>
-      <label><input type="checkbox" name="class_cards"${c?.class_cards ? " checked" : ""}> ${tr("Carnets et bons « cours de 2 h » (une séance)", "2-hour class cards and vouchers (one session)")}</label></fieldset>
+      <label><input type="checkbox" name="class_cards"${c?.class_cards ? " checked" : ""}> ${tr("Carnets et bons « cours de 2 h » (une séance)", "2-hour class cards and vouchers (one session)")}</label></fieldset>`}
     ${c ? "" : `<fieldset><legend>${tr("Première séance (facultatif, sinon dans Horaires)", "First session (optional, or later in Timetable)")}</legend>
       <label>${tr("Chaque semaine le", "Every week on")} <select name="day"><option value="">—</option>${dayOptions}</select></label>
       <label>${tr("ou le", "or on")} <input name="date" type="date" min="${today}"></label>
@@ -1783,6 +1822,7 @@ async function classEditPage(key, flash) {
      <div class="titlebar"><h1>${esc(tr(c.title_fr, c.title_en))}</h1><a class="action" href="/admin/horaires#${esc(key)}">${tr("Ses horaires", "Its hours")}</a></div>
      <p class="muted">${c.active ? tr("Sur la page Réserver du site.", "On the site’s booking page.") : `<span class="off">${tr("Masqué : le site ne le propose plus.", "Hidden: the site no longer offers it.")}</span>`}
        ${tr("Un changement s’y voit en moins d’une minute.", "A change shows there within a minute.")}</p>
+     ${c.builtin ? `<p class="muted small">${icon("exclamation-circle")} ${tr("Les pages de présentation du site (Cours, Stages, Membres, accueil) gardent leur propre texte et leurs prix : à changer à part.", "The site’s own pages (Courses, Workshops, Members, home) keep their own text and prices: change those separately.")}</p>` : ""}
      ${classForm(c)}
      <form method="post" action="/admin/cours/offre/${esc(key)}/site" style="margin-top:12px">
        <button class="plain" type="submit">${c.active ? tr("Retirer du site (les réservations faites restent)", "Take off the site (bookings made stay)") : tr("Remettre sur le site", "Put back on the site")}</button>

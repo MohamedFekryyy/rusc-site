@@ -8,7 +8,8 @@
 // page change (list, calendar, day, codes, orders; FR and EN) before
 // `fly deploy`. Forms don't save. Never deployed: the Dockerfile only copies
 // server.mjs, logo.webp and photos/. A class made in rūsc admin (raku 1 jour)
-// shows in Horaires, Cours and at /admin/cours/offre/raku-1-jour.
+// shows in Horaires, Cours and at /admin/cours/offre/raku-1-jour; tournage's
+// form (a built-in class) at /admin/cours/offre/atelier-ceramique-2h.
 
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -88,11 +89,15 @@ const classes = [
   { id: 13, slug: "pot-and-wine", title: "pot & wine", length: 150, seats: 8, schedule_id: 3 },
   { id: 14, slug: "raku-1-jour", title: "raku 1 jour", length: 360, seats: 6, schedule_id: 4 },
 ];
-// A class made in rūsc admin (Cours → Nouveau cours), as syncClasses reads it.
+// rusc.classes as syncClasses reads it: a built-in class (edited with the same
+// form) and one made in rūsc admin (Cours → Nouveau cours).
 const madeClasses = [
+  { key: "atelier-ceramique-2h", builtin: true, event_type_id: 11, title_fr: "tournage 2h", title_en: "wheel throwing 2h", tag_fr: "Cours de 2 h", tag_en: "2-hour course",
+    note_fr: null, note_en: null, show_price: true, show_member_price: true, description_fr: "Ateliers de tournage.", description_en: "Throwing courses.",
+    price_cents: 5000, image: "atelier-03", euro_codes: true, class_cards: false, active: true, length: 120, seats: 7, schedule_id: 1 },
   { key: "raku-1-jour", event_type_id: 14, title_fr: "raku 1 jour", title_en: "raku 1 day", tag_fr: "Stage · 10h – 16h", tag_en: "Workshop · 10am – 4pm",
     note_fr: "cuisson raku comprise", note_en: "raku firing included", description_fr: "Une journée de raku.", description_en: "A day of raku.",
-    price_cents: 19000, image: "ceramique-1j", euro_codes: true, class_cards: false, active: true, length: 360, seats: 6, schedule_id: 4 },
+    price_cents: 19000, image: "ceramique-1j", euro_codes: true, class_cards: false, active: true, show_price: true, show_member_price: false, length: 360, seats: 6, schedule_id: 4 },
 ];
 const availability = [
   { id: 101, schedule_id: 1, days: [1], date: null, start: "16:00:00", end: "18:00:00" },

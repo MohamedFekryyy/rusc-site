@@ -56,9 +56,12 @@ const PHOTOS: Record<string, StaticImageData> = {
 };
 
 function media(offer: Offer) {
-  if (!isMadeClass(offer)) return MEDIA[offer.key];
   // A day-long class reads as a workshop (as the Stages cards), a shorter one as a course.
-  return { image: PHOTOS[offer.image] ?? atelier03, icon: offer.minutes >= 300 ? CalendarDays : Clock3 };
+  if (isMadeClass(offer)) return { image: PHOTOS[offer.image] ?? atelier03, icon: offer.minutes >= 300 ? CalendarDays : Clock3 };
+  // One of ours, perhaps with another photo chosen in rūsc admin.
+  const own = MEDIA[offer.key as StaticOfferKey];
+  const chosen = "image" in offer ? PHOTOS[offer.image] : undefined;
+  return chosen ? { ...own, image: chosen } : own;
 }
 
 const AMOUNT_LABEL = { fr: "Montant en euros", en: "Amount in euros" };

@@ -273,4 +273,33 @@ CREATE TABLE IF NOT EXISTS rusc.classes (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- The nine classes of lib/cal.ts are edited here too, with the same form: each
+-- has a row (builtin), first filled below with what the site and Cal showed,
+-- and the site lays it over its own values. The price line under a class's
+-- name: the price (show_price), the member price (show_member_price), then the
+-- note; a note starting with "/" follows the price without a dot
+-- ("22,50 € / heure"), and without the price the note stands alone.
+ALTER TABLE rusc.classes ADD COLUMN IF NOT EXISTS builtin boolean NOT NULL DEFAULT false;
+ALTER TABLE rusc.classes ADD COLUMN IF NOT EXISTS show_price boolean NOT NULL DEFAULT true;
+ALTER TABLE rusc.classes ADD COLUMN IF NOT EXISTS show_member_price boolean NOT NULL DEFAULT false;
+INSERT INTO rusc.classes (key, event_type_id, builtin, title_fr, title_en, tag_fr, tag_en, note_fr, note_en, show_price, show_member_price,
+                          description_fr, description_en, price_cents, image)
+SELECT v.key, e.id, true, v.title_fr, v.title_en, v.tag_fr, v.tag_en, v.note_fr, v.note_en, v.show_price, v.show_member,
+       coalesce(e.description, ''), coalesce(t."translatedText", ''), v.price, v.image
+  FROM (VALUES
+    ('atelier-ceramique-2h', 'tournage 2h', 'wheel throwing 2h', 'Cours de 2 h', '2-hour course', NULL, NULL, true, true, 5000, 'atelier-03'),
+    ('atelier-modelage-2h', 'modelage 2h', 'hand-building 2h', 'Cours de 2 h', '2-hour course', NULL, NULL, true, true, 5000, 'modelage-2h'),
+    ('decor-a-cru-1h', 'décor à cru 1h', 'raw-glaze decoration 1h', 'Cours d’1 h', '1-hour course', NULL, NULL, true, true, 2000, 'atelier-08'),
+    ('modelage-enfant', 'cours enfant 2h', 'children’s course 2h', '7–12 ans · le mercredi', 'Ages 7–12 · Wednesdays',
+     'Places limitées · réservation conseillée', 'Limited places · booking recommended', false, false, 5000, 'atelier-07'),
+    ('atelier-ceramique-1j', 'céramique 1j', 'ceramics 1 day', 'Stage · 10h – 17h', 'Workshop · 10am – 5pm', NULL, NULL, true, false, 18000, 'ceramique-1j'),
+    ('atelier-ceramique-2j', 'céramique 2j', 'ceramics 2 days', 'Stage · 2 jours', 'Workshop · 2 days', NULL, NULL, true, false, 28000, 'ceramique-2j'),
+    ('porcelaine', 'porcelaine 1j', 'porcelain 1 day', 'Stage · 10h – 17h', 'Workshop · 10am – 5pm', NULL, NULL, true, false, 23000, 'porcelaine'),
+    ('pot-and-wine', 'pot & wine', 'pot & wine', 'Soirée · 18h – 20h30', 'Evening · 6pm – 8.30pm', 'apéro et modelage', 'drinks and hand-building', true, false, 7500, 'atelier-05'),
+    ('atelier-libre-1h', 'atelier libre 1h', 'open studio 1h', 'Atelier libre · membres', 'Open studio · members', '/ heure', '/ hour', true, false, 2250, 'location')
+  ) AS v (key, title_fr, title_en, tag_fr, tag_en, note_fr, note_en, show_price, show_member, price, image)
+  JOIN public."EventType" e ON e.slug = v.key AND e."userId" = (SELECT id FROM public.users WHERE username = 'raquel')
+  LEFT JOIN public."EventTypeTranslation" t ON t."eventTypeId" = e.id AND t.field = 'DESCRIPTION' AND t."targetLocale" = 'en'
+ON CONFLICT (key) DO NOTHING;
+
 RESET ROLE;

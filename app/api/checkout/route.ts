@@ -66,9 +66,10 @@ export async function POST(request: Request) {
   // hold lasts while the Stripe session is open.
   const seatOf = (item: IncomingItem) => (typeof item.booking?.seat === "string" && item.booking.seat ? item.booking.seat.slice(0, 100) : null);
   const seats = incoming.map(seatOf).filter((s): s is string => !!s);
-  // The classes made in rūsc admin, with their prices as they are now.
+  // The classes as rūsc admin has them now: those made there, and ours with
+  // the prices edited there. Without them, a class can't be priced.
   const [held, classes] = await Promise.all([placesForCheckout(seats), loadClasses()]);
-  if (!held) return bad("checkout_unavailable", 503);
+  if (!held || (!classes && seats.length)) return bad("checkout_unavailable", 503);
   const places = new Map(held.map((p) => [p.seat, p]));
   // A place freed before payment (ran out, removed in another tab): the cart
   // refreshes and says so.

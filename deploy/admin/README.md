@@ -22,9 +22,9 @@ The menu:
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).
 - **Commandes / Orders:** online orders from the cart (Stripe). Carnets and vouchers bought online get their code automatically, and the buyer sees it on the thank-you screen. Classes paid by card show as paid in Cours, and memberships are recorded. Stripe calls `POST /stripe/webhook` (event `checkout.session.completed`), checked with the endpoint's signing secret, which is the Fly secret `STRIPE_WEBHOOK_SECRET`.
 - **Horaires / Timetable:** each class's weekly slots and coming dates, to add or remove, and days to close (holidays) or reopen, for all or some classes. It writes Cal's `Availability` rows directly (a date override from 00:00 to 00:00 closes a class that day), so the booking calendar and Cours follow at once. Bookings already made don't move. Open studio takes a span (start and end), cut into 1-hour slots; other classes last their length unless an end is given.
-- **+ Nouveau cours / New class** (on Cours and Horaires, `/admin/cours/nouveau`): a class beyond the nine of the site's `lib/cal.ts`. See "New classes" below.
+- **+ Nouveau cours / New class** (on Cours and Horaires, `/admin/cours/nouveau`): a class beyond the nine of the site's `lib/cal.ts`, and **Modifier** on every class in Horaires: the same form for the nine and the new ones. See "Classes" below.
 
-## New classes
+## Classes
 
 The studio creates a class from the admin, and it works like the nine built in: the site's booking page lists it, Cal books it, the cart holds and charges its places, codes pay for it, and Cours, Horaires, Commandes and the member's space name it.
 
@@ -33,7 +33,10 @@ The studio creates a class from the admin, and it works like the nine built in: 
 - **The rest** goes in `rusc.classes`: names, price, photo, the codes it takes, and whether the site lists it. `GET /api/classes` serves them all, hidden ones included (carts may hold their places), and the site adds the active ones to "Cours & stages" (`lib/classes.ts`). The checkout route reads the price there on every payment, never from the browser.
 - **Codes:** "gift vouchers in euros" adds the class to every euro code valid for all classes (and to vouchers bought later); "2-hour class cards" adds it to every code valid for the 2-hour classes (carnets, a voucher for one 2-hour class), one session per booking. Unticking removes it.
 - **Editing** (`/admin/cours/offre/<key>`, "Modifier" in Horaires) changes all of the above. A new length moves the end of each slot that was one class long. "Retirer du site" hides it from the site; bookings, codes and orders stay. A class is never deleted.
-- The built-in classes are still edited in `lib/cal.ts` and `seed-classes.mjs`; that script leaves the admin's classes alone.
+- **The nine built-in classes** are edited with the same form. Each has a row (`builtin`), filled once by `schema.sql` with what the site and Cal showed, so nothing changed when it went live. Editing one changes Cal (name, description, length, places) and the site's booking page, cart and checkout (names, price line, price, photo); the site lays the row over `lib/cal.ts`, which keeps their tab, colour, members-only rule and icon. Their codes stay as they are (no code options in their form), and open studio keeps its 1-hour length (its hours are spans cut into slots).
+- **The price line** under a class's name: the price, then the member price if ticked (−10 %, as `lib/pricing.ts` charges), then the note; a note starting with "/" follows the price ("22,50 € / heure"); without the price, the note alone ("Places limitées · réservation conseillée").
+- **Not covered:** the site's own pages (Cours, Stages, Membres, home) keep their hand-written text and prices; change them in code.
+- `seed-classes.mjs` skips every class that has a row, so a run never puts old values back.
 
 Cal's own admin (https://rusc-cal.fly.dev) is then only needed for rare settings.
 

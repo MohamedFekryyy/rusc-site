@@ -5,6 +5,7 @@ import {
   BOOKING_VIEWS,
   CAL_ORIGIN,
   isBookingView,
+  isHidden,
   isOfferKey,
   offerByKey,
   offerCalLink,
@@ -308,7 +309,8 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
 
   useEffect(() => {
     function open(next: BookingView, key?: string | null) {
-      const target = isOfferKey(key) ? key : null;
+      // A class taken off the site in rūsc admin doesn't open: its tab does.
+      const target = isOfferKey(key) && !isHidden(offerByKey(key)) ? key : null;
       setView(target ? offerByKey(target)!.view : next);
       setOfferKey(target);
       setUnavailable(false);
@@ -323,14 +325,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     open(isBookingView(requested) ? requested : "schedule", params.get("workshop"));
     const opened = isOfferKey(params.get("workshop"));
 
-    // The classes made in rūsc admin arrive after the page: list them, and
-    // open the one the address names if nothing else was opened meanwhile.
+    // The classes from rūsc admin arrive after the page: list them (new ones,
+    // and ours as edited there). If nothing else was opened meanwhile, open a
+    // new class the address names, or close one that was taken off the site.
     let alive = true;
     loadClasses().then((list) => {
       if (!alive || !list) return;
       setClassesLoaded((n) => n + 1);
       const wanted = new URLSearchParams(window.location.search).get("workshop");
-      if (!opened && wanted && wanted === params.get("workshop") && list.some((c) => c.key === wanted)) open("schedule", wanted);
+      if (!wanted || wanted !== params.get("workshop")) return;
+      const hidden = isHidden(offerByKey(wanted));
+      if (hidden ? opened : !opened && isOfferKey(wanted)) open(isBookingView(requested) ? requested : "schedule", wanted);
     });
 
     function onClick(event: MouseEvent) {
@@ -389,12 +394,15 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Mount the Cal.com booker of the chosen offer.
+  // Mount the Cal.com booker of the chosen offer. It follows the class's key
+  // only, so the class's edited names and price arriving from rūsc admin
+  // don't mount it again.
+  const sessionKey = offer?.kind === "session" ? offer.key : null;
   useEffect(() => {
     const host = hostRef.current;
     // Members-only sessions (open studio) don't mount for a non-member: the
     // members-only notice is shown instead (needsMember above).
-    if (!offer || offer.kind !== "session" || !host || (memberGated && needsMember)) return;
+    if (!sessionKey || !host || (memberGated && needsMember)) return;
     const cal = getCal();
     const ns = `rusc${++namespaces}`;
     activeNs.current = ns;
@@ -426,14 +434,14 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         // must be what the visitor sees first, not Cal's own confirmation.
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
         if (!seat) {
-          cart.addBooking(offer.key, slot);
+          cart.addBooking(sessionKey, slot);
           setBooked({ kind: "cart", unpaid: 1, total: 1, asked: 1 });
           return;
         }
         const usedCode = codeRef.current;
         settlePlaces(seat, asked, usedCode).then(({ unpaid, total, paidByCode, codeResult }) => {
           if (activeNs.current !== ns) return;
-          if (unpaid) cart.addBooking(offer.key, slot, unpaid);
+          if (unpaid) cart.addBooking(sessionKey, slot, unpaid);
           if (codeResult) setCode(codeResult);
           const kind = !usedCode ? "cart" : !unpaid ? "code" : paidByCode ? "codePart" : "codeFailed";
           setBooked({ kind, unpaid, total, asked, paidByCode, left: codeResult ? formatBalance(codeResult, lang) : undefined });
@@ -452,7 +460,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
           return;
         }
         if (!data.paymentRequired) {
-          cart.addBooking(offer.key, { uid: data.uid, start: data.startTime, end: data.endTime });
+          cart.addBooking(sessionKey, { uid: data.uid, start: data.startTime, end: data.endTime });
         }
         // Bring the result into view: the cart message ("added, pay to confirm")
         // must be what the visitor sees first, not Cal's own confirmation.
@@ -462,7 +470,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     });
     cal.ns[ns]("inline", {
       elementOrSelector: el,
-      calLink: offerCalLink(offer, lang),
+      calLink: offerCalLink(sessionKey, lang),
       // Force the booker to the page's language (calLink's event types are
       // already translated); otherwise Cal follows the visitor's browser.
       config: { layout: "month_view", theme: "light", lang, ...(member ? { name: member.name, email: member.email } : {}) },
@@ -472,7 +480,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       // Only remove what this effect added: React may reuse the host's node.
       el.remove();
     };
-  }, [offer, lang, unavailable, member]);
+  }, [sessionKey, lang, unavailable, member]);
 
   return (
     <div ref={shellRef} style={{ scrollMarginTop: "70px" }}>
