@@ -624,7 +624,11 @@ async function releaseExpired() {
   // whose hold has expired (or already released) and that is more than
   // HOLD_MINUTES old, is cancelled and its seats removed so the slot frees.
   // Without this, a client who books but never pays keeps the slot indefinitely.
-  await cancelUnpaidPending();
+  // Its failure must not fail the places API and checkout that call this
+  // (2026-10-06: it threw on every run, "rows is not iterable", so most holds
+  // and checkouts answered 500). Fixing that loop turns the clean-up on, which
+  // would cancel the unpaid 22 October booking: the owner's call.
+  await cancelUnpaidPending().catch((error) => console.error("cancel pending", error.message));
 }
 
 // Cancels Cal bookings that are still PENDING and unpaid, whose oldest hold has
