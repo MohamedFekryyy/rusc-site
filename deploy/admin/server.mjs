@@ -431,9 +431,11 @@ const HOLD_MINUTES = 30;
 const CHECKOUT_MINUTES = 40;
 const ANONYMOUS = "@anonymous.invalid"; // e-mail of an extra place
 
-// A place counts as paid by card, by a code, or on Acuity before the switch.
+// A place counts as paid by card, by a code, at the studio (Cours →
+// Encaisser), or on Acuity before the switch.
 const PAID_SEAT = `(EXISTS (SELECT 1 FROM rusc.paid_seats ps WHERE ps.seat_uid = s."referenceUid")
   OR EXISTS (SELECT 1 FROM rusc.uses u WHERE u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL)
+  OR EXISTS (SELECT 1 FROM rusc.desk_payments dp WHERE dp.seat_uid = s."referenceUid")
   OR EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.seat_uid = s."referenceUid"))`;
 
 // The booker's seat, its class, and the places of its group (the booker's
@@ -664,6 +666,7 @@ async function cancelUnpaidPending() {
        WHERE b.status = 'pending'
          AND NOT EXISTS (SELECT 1 FROM rusc.paid_seats ps WHERE ps.seat_uid = s."referenceUid")
          AND NOT EXISTS (SELECT 1 FROM rusc.uses u WHERE u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL)
+         AND NOT EXISTS (SELECT 1 FROM rusc.desk_payments dp WHERE dp.seat_uid = s."referenceUid")
          AND NOT EXISTS (SELECT 1 FROM rusc.acuity_seats x WHERE x.seat_uid = s."referenceUid")
          AND b."createdAt" < now() - make_interval(mins => 60)`,
   );
@@ -938,111 +941,223 @@ function signedIn(req) {
 }
 
 const STYLE = `
-  :root{--bg:#f4f1ea;--ink:#141415;--muted:#6b6a64;--line:#dcd7cb;--accent:#3b4e3e;--warn:#9a4b2b}
-  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,sans-serif}
-  main{max-width:980px;margin:0 auto;padding:28px 16px 60px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:34px 0 12px}
-  a{color:var(--accent)}p.muted,.muted{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-  form.box{background:#fff;border:1px solid var(--line);padding:18px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-  label{display:grid;gap:4px;font-size:13px;color:var(--muted)}input,select,textarea{font:inherit;padding:8px;border:1px solid var(--line);background:#fff;color:var(--ink)}
-  fieldset{border:1px solid var(--line);grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px}fieldset label{display:flex;gap:6px;color:var(--ink);align-items:center}
-  button{font:inherit;background:var(--accent);color:#fff;border:0;padding:10px 16px;cursor:pointer}button.plain{background:none;color:var(--accent);border:1px solid var(--accent)}
-  .code{font:600 26px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;background:#fff;border:1px solid var(--line);padding:14px 18px;display:inline-block}
-  .off{color:var(--warn)}.pill{font-size:12px;border:1px solid var(--line);padding:1px 8px;border-radius:99px;white-space:nowrap}
-  .search{display:flex;gap:8px;margin:0 0 12px}.search input{flex:1}
-  header.top{display:grid;grid-template-columns:1fr auto 1fr;gap:12px 18px;align-items:center;padding:0 0 18px;margin:0 0 22px;border-bottom:1px solid var(--line)}
-  header.top .brand{justify-self:start}header.top .right{justify-self:end;display:flex;gap:14px;align-items:center}
-  header.top nav{display:flex;gap:6px 18px;flex-wrap:wrap;justify-content:center}header.top nav a{text-decoration:none}header.top nav a[aria-current]{font-weight:600;text-decoration:underline}
-  .soon{color:var(--muted);opacity:.6}.login{max-width:360px;margin:12vh auto 0}.login form.box{grid-template-columns:1fr}
-  .session{background:#fff;border:1px solid var(--line);padding:12px 14px;margin:0 0 12px}.session .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px}
-  .session table td{font-size:14px}.ok{color:var(--accent)}.day{margin:28px 0 10px}.day::first-letter{text-transform:uppercase}
-  .i{flex:none;vertical-align:-3px}.st{display:inline-flex;align-items:baseline;gap:6px}.st .i{align-self:center}
-  .contact{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:2px}.contact a{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
-  .ibtn{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:99px;background:#fff;color:var(--ink);cursor:pointer}
-  .ibtn:hover{border-color:var(--accent);color:var(--accent)}.codebox{display:flex;gap:10px;align-items:center}
+  /* rūsc admin's look (utility mode): a warm off-white canvas, white cards
+     with hairline borders, Geist, one accent (the studio's green), tinted
+     badges for states. Tokens first; everything below uses them. */
+  :root{--bg:#f6f5f1;--surface:#fff;--sunken:#efede7;--ink:#1b1b19;--muted:#6c6a63;--faint:#9a978f;--line:#e7e4dc;--line-strong:#d7d3c8;
+    --accent:#3b4e3e;--accent-hover:#2f3f32;--accent-soft:#e8eee6;--warn:#9a4b2b;--warn-soft:#f7ebe4;--ring:0 0 0 3px rgba(59,78,62,.18);
+    --r:12px;--r-s:8px;--shadow:0 1px 2px rgba(27,27,25,.05);--shadow-lg:0 12px 32px -12px rgba(27,27,25,.18);--ease:cubic-bezier(.22,1,.36,1);
+    --font:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:"Geist Mono",ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+  main{max-width:1000px;margin:0 auto;padding:28px 20px 72px}body:has(.cal) main{max-width:1240px}
+  h1{font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-.02em;margin:0 0 6px}h2{font-size:16px;font-weight:600;letter-spacing:-.01em;margin:36px 0 12px}h3{font-weight:600}
+  a{color:var(--accent);text-underline-offset:3px;text-decoration-thickness:1px}a:hover{color:var(--accent-hover)}
+  p.muted,.muted{color:var(--muted)}.small{font-size:13px}.cap::first-letter{text-transform:uppercase}.off{color:var(--warn)}.ok{color:var(--accent)}
+  .i{flex:none;vertical-align:-3px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Header: sticky, blurred, the menu as a pill switcher. */
+  header.top{position:sticky;top:0;z-index:20;background:rgba(246,245,241,.82);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
+  header.top .bar{max-width:1000px;margin:0 auto;padding:10px 20px;display:grid;grid-template-columns:1fr auto 1fr;gap:10px 16px;align-items:center}
+  body:has(.cal) header.top .bar{max-width:1240px}
+  header.top .brand{justify-self:start}header.top .right{justify-self:end;display:flex;gap:8px;align-items:center}
+  header.top nav{display:flex;gap:2px;padding:3px;background:var(--sunken);border-radius:999px}
+  header.top nav a{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:500;font-size:14px;transition:color .2s,background .2s,box-shadow .2s}
+  header.top nav a:hover{color:var(--ink)}header.top nav a[aria-current]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(27,27,25,.08),0 0 0 1px rgba(27,27,25,.04)}
+  header.top nav a[aria-current] .i{color:var(--accent)}
+  .brand{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}.brand .logo{display:block}
+  .brand span{color:var(--muted);font-weight:500;font-size:13px;padding:1px 8px;border:1px solid var(--line-strong);border-radius:999px}
+  .lang{display:inline-flex;padding:2px;background:var(--sunken);border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.02em}
+  .lang a,.lang b{padding:3px 9px;border-radius:999px;text-decoration:none;color:var(--muted)}.lang b{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(27,27,25,.08)}
+  .soon{color:var(--muted);opacity:.6}
+
+  /* Controls. */
+  button,a.action,a.button,details>summary.button{font:500 14px/1.2 var(--font);display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:9px 16px;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
+  button:hover,a.action:hover,a.button:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+  button.plain,a.action.plain,a.button.plain{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+  button.plain:hover,a.action.plain:hover,a.button.plain:hover{background:var(--surface);border-color:var(--accent);color:var(--accent)}
+  button.small,a.button.small{padding:5px 11px;font-size:13px;gap:5px}button.ghost{background:none;border-color:transparent;color:var(--muted)}button.ghost:hover{background:var(--sunken);border-color:transparent;color:var(--ink)}
+  button.danger:hover{border-color:var(--warn);color:var(--warn)}
+  .ibtn{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer;text-decoration:none;transition:border-color .2s,color .2s,background .2s}
+  .ibtn:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+  label{display:grid;gap:5px;font-size:12.5px;font-weight:500;color:var(--muted)}
+  input,select,textarea{font:inherit;font-size:14px;padding:8px 11px;min-height:38px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);transition:border-color .2s,box-shadow .2s}
+  input:hover,select:hover,textarea:hover{border-color:var(--faint)}input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+  input[type=checkbox],input[type=radio]{min-height:0;accent-color:var(--accent);width:16px;height:16px}
+  fieldset{border:1px solid var(--line);border-radius:10px;grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;padding:10px 14px 12px;margin:0}
+  fieldset legend{font-size:12.5px;font-weight:500;color:var(--muted);padding:0 4px}fieldset label{display:flex;gap:7px;color:var(--ink);align-items:center;font-size:14px;font-weight:400}
+
+  /* Cards and forms. */
+  form.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  form.box label>input,form.box label>select,form.box label>textarea{width:100%;min-width:0}
+  form.box .wide{grid-column:1/-1}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}
+  form.box h3{grid-column:1/-1;margin:8px 0 -4px;font-size:13px;color:var(--muted);font-weight:600}
+  .code{font:600 24px/1.2 var(--mono);letter-spacing:.06em;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 18px;display:inline-block}
+  .codebox{display:flex;gap:10px;align-items:center}
   .copy .i+.i,.copy.done .i:first-child{display:none}.copy.done .i+.i{display:block}.copy.done{border-color:var(--accent);color:var(--accent)}
-  .field{position:relative;flex:1;display:flex}.field .i{position:absolute;left:10px;top:50%;margin-top:-8px;color:var(--muted);pointer-events:none}.field input{flex:1;padding-left:32px}
-  .brand{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}.brand .logo{display:block}.brand span{color:var(--muted);font-weight:500}
-  h1.brand{margin:0 0 10px}h1.brand span{font-size:22px}
-  @media (max-width:700px){header.top{grid-template-columns:1fr auto}header.top nav{grid-column:1/-1;grid-row:2}}
-  button.small{padding:4px 10px;font-size:13px}.linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{background:#fff;border:1px solid var(--line);padding:6px 8px;font-size:13px;word-break:break-all}
-  .flash{display:flex;gap:8px;align-items:center;color:var(--accent);font-weight:600}
-  .session:target{box-shadow:0 0 0 2px var(--accent)}.cap::first-letter{text-transform:uppercase}.small{font-size:13px}
-  nav.tabs{display:flex;gap:6px;margin:12px 0 18px}nav.tabs a{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border:1px solid var(--line);background:#fff;text-decoration:none}nav.tabs a[aria-current]{background:var(--accent);border-color:var(--accent);color:#fff}
-  .calnav{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.calnav h2{margin:0}.calnav a{text-decoration:none}.calnav .muted{margin-left:auto}
-  main:has(.cal){max-width:1240px}.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
-  .cal .dow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .cal .cell{min-height:104px;min-width:0;padding:4px;display:flex;flex-direction:column;gap:3px;background:#fff;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .cal .cell.out{background:transparent}.cal .out .date,.cal .past .date{color:var(--muted)}.cal .cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
-  .cal .date{align-self:flex-start;padding:0 3px;font-size:13px;color:var(--ink);text-decoration:none}.cal .w{display:none}.cal .past .chip{opacity:.6}
-  .chip{display:flex;gap:4px;align-items:baseline;min-width:0;padding:2px 4px;font-size:12px;line-height:1.35;color:var(--ink);text-decoration:none;background:var(--bg);border-left:3px solid var(--line)}
-  .chip .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chip.some{border-left-color:var(--accent)}.chip.full{border-left-color:var(--warn);background:#f3e3da}
-  .titlebar{display:flex;gap:8px 16px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
-  a.action{display:inline-flex;align-items:center;padding:6px 14px;border:1px solid var(--accent);color:var(--accent);background:none;text-decoration:none;font-size:14px;white-space:nowrap}
-  nav.tabs{flex-wrap:wrap}nav.tabs a.action{margin-left:auto;border-color:var(--accent);background:none}
+  .linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{font-family:var(--mono);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;word-break:break-all}
+  .flash{display:flex;gap:8px;align-items:center;color:var(--accent);font-weight:500;background:var(--accent-soft);border-radius:10px;padding:10px 14px;margin:12px 0}
+  .search{display:flex;gap:8px;margin:0 0 14px}.search input{flex:1}
+  .field{position:relative;flex:1;display:flex}.field .i{position:absolute;left:12px;top:50%;margin-top:-8px;color:var(--faint);pointer-events:none}.field input{flex:1;padding-left:36px;border-radius:999px}
+  .titlebar{display:flex;gap:10px 16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.titlebar h1,.titlebar h2{margin:0}
+  .titlebar:has(>h2){margin:36px 0 12px}
+
+  /* Badges: a state at a glance (paid, to pay, full, where a code comes from). */
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:var(--sunken);color:var(--muted);padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .pill.full{background:var(--warn-soft);color:var(--warn)}.pill.some{background:var(--accent-soft);color:var(--accent)}
+  .st{display:inline-flex;align-items:center;gap:6px}.st.ok,.st.off,.st.muted{padding:3px 10px 3px 8px;border-radius:8px;font-size:13px;line-height:1.4}
+  .st.ok{background:var(--accent-soft);color:var(--accent)}.st.off{background:var(--warn-soft);color:var(--warn)}.st.muted{background:var(--sunken);color:var(--muted)}
+  a.st.ok{text-decoration:none}a.st.ok:hover{background:#dde6db}
+  p.st{display:flex}
+
+  /* List tables: one white card, sentence-case headers, quiet hover. */
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:500;color:var(--muted);font-size:12.5px;background:#fbfaf7}
+  table:has(>thead){background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  table:has(>thead) tbody tr:last-child td{border-bottom:0}
+  tbody tr{transition:background .15s}table:has(>thead) tbody tr:hover{background:#fbfaf7}
+
+  /* Cours: each class a card; a class nobody booked yet is one quiet line. */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 18px}.toolbar .action{margin-left:auto}
+  .seg{display:inline-flex;gap:2px;padding:3px;background:var(--sunken);border-radius:999px}
+  .seg a{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:500;font-size:14px}
+  .seg a:hover{color:var(--ink)}.seg a[aria-current]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(27,27,25,.08)}
+  .day{margin:30px 0 10px;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.01em}.day::first-letter{text-transform:uppercase}
+  .session{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;margin:0 0 10px;scroll-margin-top:90px}
+  .session .head{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}.session .head b{font-weight:600}.session .head .t{font-variant-numeric:tabular-nums}
+  .session .head .grow{flex:1}.session table.people{margin-top:10px}
+  .session.empty{background:transparent;box-shadow:none;padding:9px 16px;margin-bottom:8px}.session.empty .head b{font-weight:500}
+  .session:target{border-color:var(--accent);box-shadow:var(--ring)}
+  table.people td{font-size:14px;padding:10px 0;border-bottom:1px solid var(--line)}table.people td+td{padding-left:12px}table.people tr:last-child td{border-bottom:0}
+  table.people td.act{text-align:right;white-space:nowrap;width:1%}
+  .session table:not(.people){margin-top:8px}.session table:not(.people) td{padding:8px 0}.session table tr:last-child td{border-bottom:0}
+  .contact{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:2px;font-size:13px}.contact a{display:inline-flex;align-items:center;gap:5px;color:var(--muted);text-decoration:none}.contact a:hover{color:var(--accent)}
+  .person{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  /* Attendance: came / no-show, a two-way switch per person. */
+  .att{display:inline-flex;gap:2px;padding:2px;background:var(--sunken);border-radius:999px;vertical-align:middle}
+  .att button{background:none;border:0;color:var(--faint);padding:4px 9px;font-size:12.5px;gap:4px}.att button:hover{background:var(--surface);color:var(--ink)}
+  .att button[aria-pressed=true].came{background:var(--accent);color:#fff}.att button[aria-pressed=true].gone{background:var(--warn);color:#fff}
+  /* Forms that fold away: Horaires' "add hours", Codes' "new code", Cours'
+     "add someone" and "paid at the studio". */
+  details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
+  details.add>summary,details.new>summary,details.inline>summary{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:500;font-size:14px;margin-top:10px;padding:6px 12px 6px 10px;border-radius:999px;transition:background .2s}
+  details.add>summary:hover,details.new>summary:hover,details.inline>summary:hover{background:var(--accent-soft)}
+  details.new>summary{background:var(--accent);color:#fff;margin:4px 0 0;padding:9px 16px 9px 13px}details.new>summary:hover{background:var(--accent-hover)}details.new[open]>summary{margin-bottom:14px}
+  details.inline>summary{margin:0;font-size:13px;padding:4px 10px 4px 8px}details.inline[open]>summary{background:var(--accent-soft)}
+  details.inline form{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:8px}
+  details.inline form label{font-size:12px}details.inline form input,details.inline form select{min-height:34px;padding:6px 10px}details.inline form button{min-height:34px}
+  form.box.compact{box-shadow:none;background:#fbfaf7;padding:14px;margin-top:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .inline-form{display:inline}
+  .paycell{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}.paycell details.inline[open]{flex-basis:100%}
+  .session{position:relative}.session>details.addp>summary{position:absolute;top:11px;right:12px;margin:0;font-size:13px;padding:4px 10px 4px 8px}
+  .session.empty>details.addp>summary{top:6px}.session:has(>details.addp) .head{padding-right:92px}.session>details.addp[open]>summary{background:var(--accent-soft)}
+
+  /* Calendar: a month as one card, 1px hairlines between days. */
+  .calnav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}.calnav h2{margin:0 6px}.calnav a:not(.ibtn){text-decoration:none;font-weight:500;font-size:14px}.calnav .muted{margin-left:auto}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+  .cal .dow{font-size:12px;font-weight:500;color:var(--muted);padding:8px 10px;background:#fbfaf7}
+  .cal .cell{min-height:110px;min-width:0;padding:6px;display:flex;flex-direction:column;gap:3px;background:var(--surface)}
+  .cal .cell.out{background:#faf9f6}.cal .out .date,.cal .past .date{color:var(--faint)}
+  .cal .date{align-self:flex-start;font-size:13px;font-weight:500;color:var(--ink);text-decoration:none;padding:1px 4px;border-radius:999px;min-width:24px;text-align:center}
+  .cal .date:hover{background:var(--sunken)}.cal .today .date{background:var(--accent);color:#fff}.cal .w{display:none}.cal .past .chip{opacity:.6}
+  .chip{display:flex;gap:5px;align-items:baseline;min-width:0;padding:3px 7px;font-size:12px;line-height:1.35;color:var(--ink);text-decoration:none;background:var(--sunken);border-radius:6px;transition:filter .15s}
+  .chip:hover{filter:brightness(.97);color:var(--ink)}.chip .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.chip b{font-weight:600}
+  .chip.some{background:var(--accent-soft)}.chip.some b{color:var(--accent)}.chip.full{background:var(--warn-soft)}.chip.full b{color:var(--warn)}
+
+  /* Class form: the site's photos to pick from. */
   fieldset.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}fieldset.photos legend{margin-bottom:4px}
   fieldset.photos label{display:block;position:relative;cursor:pointer}fieldset.photos input{position:absolute;opacity:0;pointer-events:none}
-  fieldset.photos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border:3px solid transparent}
-  fieldset.photos input:checked+img{border-color:var(--accent)}fieldset.photos input:focus-visible+img{outline:2px solid var(--ink);outline-offset:1px}
-  form.box .wide{grid-column:1/-1}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}form.box h3{grid-column:1/-1;margin:6px 0 -4px;font-size:14px}
-  @media (max-width:700px){.cal{display:block;border:0}.cal .dow,.cal .cell.empty,.cal .cell.out{display:none}.cal .cell{min-height:0;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--line)}.cal .cell.today{box-shadow:none}.cal .n{display:none}.cal .w{display:block;font-weight:600;margin-bottom:4px}.chip{padding:6px 8px;font-size:14px}}
-  /* Polish: quiet hover on list rows, a clear keyboard focus. */
-  tbody tr{transition:background .15s}tbody tr:hover{background:rgba(255,255,255,.55)}
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  /* Cours: a class nobody booked yet is one quiet line; a full one is flagged. */
-  .session.empty{padding:9px 14px;margin-bottom:8px}.session.empty .head{margin:0}.session.empty .head b{font-weight:500}
-  .pill.full{border-color:var(--warn);color:var(--warn)}
-  /* Forms that fold away (Horaires' "add hours", Codes' "new code"). */
-  details.add>summary,details.new>summary{cursor:pointer;color:var(--accent);font-size:14px;list-style:none;display:inline-block;margin-top:10px}
-  details.add>summary::-webkit-details-marker,details.new>summary::-webkit-details-marker{display:none}
-  details.new>summary{border:1px solid var(--accent);padding:6px 14px;margin:4px 0 0}details.new[open]>summary{margin-bottom:12px}
+  fieldset.photos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;outline:2px solid transparent;outline-offset:1px;transition:outline-color .2s}
+  fieldset.photos input:checked+img{outline-color:var(--accent)}fieldset.photos input:focus-visible+img{outline-color:var(--ink)}
+
   /* A code's balance at a glance: a notch per class or hour, or a bar. */
-  .meter{display:flex;gap:2px;max-width:150px;margin-top:6px}.meter i{flex:1;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--f),var(--line) var(--f))}
+  .meter{display:flex;gap:2px;max-width:150px;margin-top:6px}.meter i{flex:1;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--f),var(--line-strong) var(--f))}
   .meter-wide .meter{max-width:320px;margin:0 0 12px}
+
+  /* Sign-in: one centred card. */
+  .login{max-width:380px;margin:12vh auto 0}.login .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+  .login form.box{grid-template-columns:1fr;box-shadow:var(--shadow-lg)}.login form.box button{width:100%}
+  h1.brand{margin:0}h1.brand span{font-size:13px}
+
   /* Motion: saved notes and opened forms settle in; nothing for reduced motion. */
   @media (prefers-reduced-motion:no-preference){
     @keyframes admin-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
-    .flash,details[open]>form{animation:admin-in .3s cubic-bezier(.22,1,.36,1) both}
+    .flash,details[open]>form,details[open]>.box{animation:admin-in .3s var(--ease) both}
   }
-  /* Phones: list tables stack into rows, each cell labelled with its column
-     (page()'s script copies the headers into data-label); a class's people
-     list puts how each paid under their name. */
+
+  /* Phones: the menu becomes a tab bar under the logo; list tables stack into
+     rows, each cell labelled with its column (page()'s script copies the
+     headers into data-label); a class's people put how each paid under their
+     name. */
   @media (max-width:700px){
+    main{padding:20px 16px 64px}h1{font-size:22px}
+    header.top .bar{grid-template-columns:1fr auto;padding:8px 16px 6px}
+    header.top nav{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:repeat(5,1fr);background:none;padding:0;gap:0}
+    header.top nav a{flex-direction:column;gap:2px;padding:6px 2px;font-size:11px;border-radius:10px}
+    header.top nav a .i{width:20px;height:20px}header.top nav a[aria-current]{box-shadow:none;background:var(--surface)}
+    .toolbar .action{margin-left:0}
+    .cal{display:block;border:0;background:none;box-shadow:none;border-radius:0}.cal .dow,.cal .cell.empty,.cal .cell.out{display:none}
+    .cal .cell{min-height:0;padding:12px 0;background:none;border-bottom:1px solid var(--line)}.cal .today .date{background:none;color:var(--accent)}
+    .cal .n{display:none}.cal .w{display:block;font-weight:600;margin-bottom:4px}.cal .date{text-align:left;padding:0}.chip{padding:7px 10px;font-size:14px}
     table:has(>thead) thead{display:none}
     table:has(>thead),table:has(>thead) tbody,table:has(>thead) tr,table:has(>thead) td{display:block;width:100%}
-    table:has(>thead) tr{padding:10px 0;border-bottom:1px solid var(--line)}
+    table:has(>thead) tr{padding:10px 14px;border-bottom:1px solid var(--line)}table:has(>thead) tr:last-child{border-bottom:0}
     table:has(>thead) td{border:0;padding:2px 0}table:has(>thead) td:empty{display:none}
-    table:has(>thead) td[data-label]:not(:first-child)::before{content:attr(data-label) " · ";color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-    table.people tr{display:block;padding:8px 0;border-bottom:1px solid var(--line)}table.people tr:last-child{border-bottom:0}table.people td{display:block;border:0;padding:3px 0}
+    table:has(>thead) td[data-label]:not(:first-child)::before{content:attr(data-label) " · ";color:var(--faint);font-size:12px}
+    table.people tr{display:block;padding:10px 0;border-bottom:1px solid var(--line)}table.people tr:last-child{border-bottom:0}
+    table.people td{display:block;border:0;padding:3px 0}table.people td+td{padding-left:0}table.people td.act{text-align:left;width:auto;padding-top:6px}
   }
 `;
-// Icons: Heroicons 2.2 (MIT, Tailwind Labs, heroicons.com), inlined. Only where
-// they carry meaning: a payment state, a control, a kind of contact, where a
-// code comes from. 16 is the micro set, drawn for text; 20 the mini set, for
-// round buttons.
+// Icons: Iconsax, Linear set (MIT, iconsax-reactjs, as on the site), inlined.
+// Only where they carry meaning: the menu, a payment state, a control, a kind
+// of contact, where a code comes from. The keys name what they show.
 const ICONS = {
-  "check-circle": [16, '<path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.844-8.791a.75.75 0 0 0-1.188-.918l-3.7 4.79-1.649-1.833a.75.75 0 1 0-1.114 1.004l2.25 2.5a.75.75 0 0 0 1.15-.043l4.25-5.5Z" clip-rule="evenodd"/>'],
-  "ticket": [16, '<path fill-rule="evenodd" d="M1 4.5A1.5 1.5 0 0 1 2.5 3h11A1.5 1.5 0 0 1 15 4.5v1c0 .276-.227.494-.495.562a2 2 0 0 0 0 3.876c.268.068.495.286.495.562v1a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 11.5v-1c0-.276.227-.494.495-.562a2 2 0 0 0 0-3.876C1.227 5.994 1 5.776 1 5.5v-1Zm9 1.25a.75.75 0 0 1 1.5 0v1a.75.75 0 0 1-1.5 0v-1Zm.75 2.75a.75.75 0 0 0-.75.75v1a.75.75 0 0 0 1.5 0v-1a.75.75 0 0 0-.75-.75Z" clip-rule="evenodd"/>'],
-  "exclamation-circle": [16, '<path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>'],
-  "exclamation-triangle": [16, '<path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>'],
-  "question-mark-circle": [16, '<path fill-rule="evenodd" d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0Zm-6 3.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM7.293 5.293a1 1 0 1 1 .99 1.667c-.459.134-1.033.566-1.033 1.29v.25a.75.75 0 1 0 1.5 0v-.115a2.5 2.5 0 1 0-2.518-4.153.75.75 0 1 0 1.061 1.06Z" clip-rule="evenodd"/>'],
-  "clock": [16, '<path fill-rule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .414.336.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z" clip-rule="evenodd"/>'],
-  "envelope": [16, '<path d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"/><path d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"/>'],
-  "phone": [16, '<path fill-rule="evenodd" d="m3.855 7.286 1.067-.534a1 1 0 0 0 .542-1.046l-.44-2.858A1 1 0 0 0 4.036 2H3a1 1 0 0 0-1 1v2c0 .709.082 1.4.238 2.062a9.012 9.012 0 0 0 6.7 6.7A9.024 9.024 0 0 0 11 14h2a1 1 0 0 0 1-1v-1.036a1 1 0 0 0-.848-.988l-2.858-.44a1 1 0 0 0-1.046.542l-.534 1.067a7.52 7.52 0 0 1-4.86-4.859Z" clip-rule="evenodd"/>'],
-  "magnifying-glass": [16, '<path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd"/>'],
-  "building-storefront": [16, '<path d="M4.5 7c.681 0 1.3-.273 1.75-.715C6.7 6.727 7.319 7 8 7s1.3-.273 1.75-.715A2.5 2.5 0 1 0 11.5 2h-7a2.5 2.5 0 0 0 0 5ZM6.25 8.097A3.986 3.986 0 0 1 4.5 8.5c-.53 0-1.037-.103-1.5-.29v4.29h-.25a.75.75 0 0 0 0 1.5h.5a.754.754 0 0 0 .138-.013A.5.5 0 0 0 3.5 14H6a.5.5 0 0 0 .5-.5v-3A.5.5 0 0 1 7 10h2a.5.5 0 0 1 .5.5v3a.5.5 0 0 0 .5.5h2.5a.5.5 0 0 0 .112-.013c.045.009.09.013.138.013h.5a.75.75 0 1 0 0-1.5H13V8.21c-.463.187-.97.29-1.5.29a3.986 3.986 0 0 1-1.75-.403A3.986 3.986 0 0 1 8 8.5a3.986 3.986 0 0 1-1.75-.403Z"/>'],
-  "globe-alt": [16, '<path fill-rule="evenodd" d="M3.757 4.5c.18.217.376.42.586.608.153-.61.354-1.175.596-1.678A5.53 5.53 0 0 0 3.757 4.5ZM8 1a6.994 6.994 0 0 0-7 7 7 7 0 1 0 7-7Zm0 1.5c-.476 0-1.091.386-1.633 1.427-.293.564-.531 1.267-.683 2.063A5.48 5.48 0 0 0 8 6.5a5.48 5.48 0 0 0 2.316-.51c-.152-.796-.39-1.499-.683-2.063C9.09 2.886 8.476 2.5 8 2.5Zm3.657 2.608a8.823 8.823 0 0 0-.596-1.678c.444.298.842.659 1.182 1.07-.18.217-.376.42-.586.608Zm-1.166 2.436A6.983 6.983 0 0 1 8 8a6.983 6.983 0 0 1-2.49-.456 10.703 10.703 0 0 0 .202 2.6c.72.231 1.49.356 2.288.356.798 0 1.568-.125 2.29-.356a10.705 10.705 0 0 0 .2-2.6Zm1.433 1.85a12.652 12.652 0 0 0 .018-2.609c.405-.276.78-.594 1.117-.947a5.48 5.48 0 0 1 .44 2.262 7.536 7.536 0 0 1-1.575 1.293Zm-2.172 2.435a9.046 9.046 0 0 1-3.504 0c.039.084.078.166.12.244C6.907 13.114 7.523 13.5 8 13.5s1.091-.386 1.633-1.427c.04-.078.08-.16.12-.244Zm1.31.74a8.5 8.5 0 0 0 .492-1.298c.457-.197.893-.43 1.307-.696a5.526 5.526 0 0 1-1.8 1.995Zm-6.123 0a8.507 8.507 0 0 1-.493-1.298 8.985 8.985 0 0 1-1.307-.696 5.526 5.526 0 0 0 1.8 1.995ZM2.5 8.1c.463.5.993.935 1.575 1.293a12.652 12.652 0 0 1-.018-2.608 7.037 7.037 0 0 1-1.117-.947 5.48 5.48 0 0 0-.44 2.262Z" clip-rule="evenodd"/>'],
-  "arrow-down-tray": [16, '<path d="M8.75 2.75a.75.75 0 0 0-1.5 0v5.69L5.03 6.22a.75.75 0 0 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 0 0-1.06-1.06L8.75 8.44V2.75Z"/><path d="M3.5 9.75a.75.75 0 0 0-1.5 0v1.5A2.75 2.75 0 0 0 4.75 14h6.5A2.75 2.75 0 0 0 14 11.25v-1.5a.75.75 0 0 0-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25v-1.5Z"/>'],
-  "list-bullet": [16, '<path d="M3 4.75a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM6.25 3a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-7ZM6.25 7.25a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-7ZM6.25 11.5a.75.75 0 0 0 0 1.5h7a.75.75 0 0 0 0-1.5h-7ZM4 12.25a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM3 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/>'],
-  "calendar-days": [16, '<path d="M5.75 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM5 10.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM10.25 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM7.25 8.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM8 9.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0-1.5Z"/><path fill-rule="evenodd" d="M4.75 1a.75.75 0 0 0-.75.75V3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2V1.75a.75.75 0 0 0-1.5 0V3h-5V1.75A.75.75 0 0 0 4.75 1ZM3.5 7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V7Z" clip-rule="evenodd"/>'],
-  "chevron-left": [20, '<path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/>'],
-  "chevron-right": [20, '<path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/>'],
-  "clipboard-document": [20, '<path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0 1 18 5.25v6.5A2.25 2.25 0 0 1 15.75 14H13.5v-3.379a3 3 0 0 0-.879-2.121l-3.12-3.121a3 3 0 0 0-1.402-.791 2.252 2.252 0 0 1 1.913-1.576A2.25 2.25 0 0 1 12.25 1h1.5a2.25 2.25 0 0 1 2.238 2.012ZM11.5 3.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v.25h-3v-.25Z" clip-rule="evenodd"/><path d="M3.5 6A1.5 1.5 0 0 0 2 7.5v9A1.5 1.5 0 0 0 3.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L8.44 6.439A1.5 1.5 0 0 0 7.378 6H3.5Z"/>'],
-  "check": [20, '<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/>'],};
-const icon = (name, label) => {
-  const [size, paths] = ICONS[name];
+  "check-circle": '<path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10Z"></path><path d="m7.75 12 2.83 2.83 5.67-5.66"></path>',
+  "ticket": '<path d="M19.5 12.5A2.5 2.5 0 0 1 22 10V9c0-4-1-5-5-5H7C3 4 2 5 2 9v.5a2.5 2.5 0 0 1 0 5v.5c0 4 1 5 5 5h10c4 0 5-1 5-5a2.5 2.5 0 0 1-2.5-2.5Z"></path><path d="M10 4v16" stroke-dasharray="5 5"></path>',
+  "exclamation-circle": '<path d="M12 7.75V13M21.08 8.58v6.84c0 1.12-.6 2.16-1.57 2.73l-5.94 3.43c-.97.56-2.17.56-3.15 0l-5.94-3.43a3.15 3.15 0 0 1-1.57-2.73V8.58c0-1.12.6-2.16 1.57-2.73l5.94-3.43c.97-.56 2.17-.56 3.15 0l5.94 3.43c.97.57 1.57 1.6 1.57 2.73Z"></path><path d="M12 16.2v.1" stroke-width="2"></path>',
+  "exclamation-triangle": '<path d="M12 9v5M12 21.41H5.94c-3.47 0-4.92-2.48-3.24-5.51l3.12-5.62L8.76 5c1.78-3.21 4.7-3.21 6.48 0l2.94 5.29 3.12 5.62c1.68 3.03.22 5.51-3.24 5.51H12v-.01Z"></path><path d="M11.995 17h.009" stroke-width="2"></path>',
+  "question-mark-circle": '<path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10ZM12 8v5"></path><path d="M11.995 16h.009" stroke-width="2"></path>',
+  "info": '<path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10ZM12 8v5"></path><path d="M11.995 16h.009" stroke-width="2"></path>',
+  "clock": '<path d="M22 12c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2s10 4.48 10 10Z"></path><path d="m15.71 15.18-3.1-1.85c-.54-.32-.98-1.09-.98-1.72v-4.1"></path>',
+  "envelope": '<path d="M17 20.5H7c-3 0-5-1.5-5-5v-7c0-3.5 2-5 5-5h10c3 0 5 1.5 5 5v7c0 3.5-2 5-5 5Z"></path><path d="m17 9-3.13 2.5c-1.03.82-2.72.82-3.75 0L7 9"></path>',
+  "phone": '<path d="M21.97 18.33c0 .36-.08.73-.25 1.09-.17.36-.39.7-.68 1.02-.49.54-1.03.93-1.64 1.18-.6.25-1.25.38-1.95.38-1.02 0-2.11-.24-3.26-.73s-2.3-1.15-3.44-1.98a28.75 28.75 0 0 1-3.28-2.8 28.414 28.414 0 0 1-2.79-3.27c-.82-1.14-1.48-2.28-1.96-3.41C2.24 8.67 2 7.58 2 6.54c0-.68.12-1.33.36-1.93.24-.61.62-1.17 1.15-1.67C4.15 2.31 4.85 2 5.59 2c.28 0 .56.06.81.18.26.12.49.3.67.56l2.32 3.27c.18.25.31.48.4.7.09.21.14.42.14.61 0 .24-.07.48-.21.71-.13.23-.32.47-.56.71l-.76.79c-.11.11-.16.24-.16.4 0 .08.01.15.03.23.03.08.06.14.08.2.18.33.49.76.93 1.28.45.52.93 1.05 1.45 1.58.54.53 1.06 1.02 1.59 1.47.52.44.95.74 1.29.92.05.02.11.05.18.08.08.03.16.04.25.04.17 0 .3-.06.41-.17l.76-.75c.25-.25.49-.44.72-.56.23-.14.46-.21.71-.21.19 0 .39.04.61.13.22.09.45.22.7.39l3.31 2.35c.26.18.44.39.55.64.1.25.16.5.16.78Z"></path>',
+  "magnifying-glass": '<path d="M11.5 21a9.5 9.5 0 1 0 0-19 9.5 9.5 0 0 0 0 19ZM22 22l-2-2"></path>',
+  "building-storefront": '<path d="M3.01 11.22v4.49C3.01 20.2 4.81 22 9.3 22h5.39c4.49 0 6.29-1.8 6.29-6.29v-4.49"></path><path d="M12 12c1.83 0 3.18-1.49 3-3.32L14.34 2H9.67L9 8.68C8.82 10.51 10.17 12 12 12Z"></path><path d="M18.31 12c2.02 0 3.5-1.64 3.3-3.65l-.28-2.75C20.97 3 19.97 2 17.35 2H14.3l.7 7.01c.17 1.65 1.66 2.99 3.31 2.99ZM5.64 12c1.65 0 3.14-1.34 3.3-2.99l.22-2.21.48-4.8H6.59C3.97 2 2.97 3 2.61 5.6l-.27 2.75C2.14 10.36 3.62 12 5.64 12ZM12 17c-1.67 0-2.5.83-2.5 2.5V22h5v-2.5c0-1.67-.83-2.5-2.5-2.5Z"></path>',
+  "globe-alt": '<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"></path><path d="M8 3h1a28.424 28.424 0 0 0 0 18H8M15 3a28.424 28.424 0 0 1 0 18"></path><path d="M3 16v-1a28.424 28.424 0 0 0 18 0v1M3 9a28.424 28.424 0 0 1 18 0"></path>',
+  "arrow-down-tray": '<path d="M9.32 11.68l2.56 2.56 2.56-2.56M11.88 4v10.17"></path><path d="M20 12.18c0 4.42-3 8-8 8s-8-3.58-8-8"></path>',
+  "list-bullet": '<path d="M19.9 13.5H4.1c-1.5 0-2.1.64-2.1 2.23v4.04C2 21.36 2.6 22 4.1 22h15.8c1.5 0 2.1-.64 2.1-2.23v-4.04c0-1.59-.6-2.23-2.1-2.23ZM19.9 2H4.1C2.6 2 2 2.64 2 4.23v4.04c0 1.59.6 2.23 2.1 2.23h15.8c1.5 0 2.1-.64 2.1-2.23V4.23C22 2.64 21.4 2 19.9 2Z"></path>',
+  "calendar-days": '<path d="M8 2v3M16 2v3M3.5 9.09h17M21 8.5V17c0 3-1.5 5-5 5H8c-3.5 0-5-2-5-5V8.5c0-3 1.5-5 5-5h8c3.5 0 5 2 5 5Z"></path><path d="M15.695 13.7h.009M15.695 16.7h.009M11.995 13.7h.01M11.995 16.7h.01M8.294 13.7h.01M8.294 16.7h.01" stroke-width="2"></path>',
+  "chevron-left": '<path d="M15 19.92L8.48 13.4c-.77-.77-.77-2.03 0-2.8L15 4.08"></path>',
+  "chevron-right": '<path d="M8.91 19.92l6.52-6.52c.77-.77.77-2.03 0-2.8L8.91 4.08"></path>',
+  "clipboard-document": '<path d="M16 12.9v4.2c0 3.5-1.4 4.9-4.9 4.9H6.9C3.4 22 2 20.6 2 17.1v-4.2C2 9.4 3.4 8 6.9 8h4.2c3.5 0 4.9 1.4 4.9 4.9z"></path><path d="M22 6.9v4.2c0 3.5-1.4 4.9-4.9 4.9H16v-3.1C16 9.4 14.6 8 11.1 8H8V6.9C8 3.4 9.4 2 12.9 2h4.2C20.6 2 22 3.4 22 6.9z"></path>',
+  "check": '<path d="M9 22h6c5 0 7-2 7-7V9c0-5-2-7-7-7H9C4 2 2 4 2 9v6c0 5 2 7 7 7Z"></path><path d="m7.75 12 2.83 2.83 5.67-5.66"></path>',
+  "people": '<path d="M18 7.16a.605.605 0 0 0-.19 0 2.573 2.573 0 0 1-2.48-2.58c0-1.43 1.15-2.58 2.58-2.58a2.58 2.58 0 0 1 2.58 2.58A2.589 2.589 0 0 1 18 7.16ZM16.97 14.44c1.37.23 2.88-.01 3.94-.72 1.41-.94 1.41-2.48 0-3.42-1.07-.71-2.6-.95-3.97-.71M5.97 7.16c.06-.01.13-.01.19 0a2.573 2.573 0 0 0 2.48-2.58C8.64 3.15 7.49 2 6.06 2a2.58 2.58 0 0 0-2.58 2.58c.01 1.4 1.11 2.53 2.49 2.58ZM7 14.44c-1.37.23-2.88-.01-3.94-.72-1.41-.94-1.41-2.48 0-3.42 1.07-.71 2.6-.95 3.97-.71M12 14.63a.605.605 0 0 0-.19 0 2.573 2.573 0 0 1-2.48-2.58c0-1.43 1.15-2.58 2.58-2.58a2.58 2.58 0 0 1 2.58 2.58c-.01 1.4-1.11 2.54-2.49 2.58ZM9.09 17.78c-1.41.94-1.41 2.48 0 3.42 1.6 1.07 4.22 1.07 5.82 0 1.41-.94 1.41-2.48 0-3.42-1.59-1.06-4.22-1.06-5.82 0Z"></path>',
+  "bag": '<path d="M7.5 7.67V6.7c0-2.25 1.81-4.46 4.06-4.67a4.5 4.5 0 0 1 4.94 4.48v1.38M9 22h6c4.02 0 4.74-1.61 4.95-3.57l.75-6C20.97 9.99 20.27 8 16 8H8c-4.27 0-4.97 1.99-4.7 4.43l.75 6C4.26 20.39 4.98 22 9 22Z"></path><path d="M15.495 12h.01M8.495 12h.008" stroke-width="2"></path>',
+  "add": '<path d="M6 12h12M12 18V6"></path>',
+  "edit": '<path d="m13.26 3.6-8.21 8.69c-.31.33-.61.98-.67 1.43l-.37 3.24c-.13 1.17.71 1.97 1.87 1.77l3.22-.55c.45-.08 1.08-.41 1.39-.75l8.21-8.69c1.42-1.5 2.06-3.21-.15-5.3-2.2-2.07-3.87-1.34-5.29.16Z"></path><path d="M11.89 5.05a6.126 6.126 0 0 0 5.45 5.15M3 22h18"></path>',
+  "trash": '<path d="M21 5.98c-3.33-.33-6.68-.5-10.02-.5-1.98 0-3.96.1-5.94.3L3 5.98M8.5 4.97l.22-1.31C8.88 2.71 9 2 10.69 2h2.62c1.69 0 1.82.75 1.97 1.67l.22 1.3M18.85 9.14l-.65 10.07C18.09 20.78 18 22 15.21 22H8.79C6 22 5.91 20.78 5.8 19.21L5.15 9.14M10.33 16.5h3.33M9.5 12.5h5"></path>',
+  "logout": '<path d="M8.9 7.56c.31-3.6 2.16-5.07 6.21-5.07h.13c4.47 0 6.26 1.79 6.26 6.26v6.52c0 4.47-1.79 6.26-6.26 6.26h-.13c-4.02 0-5.87-1.45-6.2-4.99M15 12H3.62M5.85 8.65L2.5 12l3.35 3.35"></path>',
+  "cash": '<path d="M19.3 7.92v5.15c0 3.08-1.76 4.4-4.4 4.4H6.11c-.45 0-.88-.04-1.28-.13-.25-.04-.49-.11-.71-.19-1.5-.56-2.41-1.86-2.41-4.08V7.92c0-3.08 1.76-4.4 4.4-4.4h8.79c2.24 0 3.85.95 4.28 3.12.07.4.12.81.12 1.28Z"></path><path d="M22.301 10.92v5.15c0 3.08-1.76 4.4-4.4 4.4h-8.79c-.74 0-1.41-.1-1.99-.32-1.19-.44-2-1.35-2.29-2.81.4.09.83.13 1.28.13h8.79c2.64 0 4.4-1.32 4.4-4.4V7.92c0-.47-.04-.89-.12-1.28 1.9.4 3.12 1.74 3.12 4.28Z"></path><path d="M10.498 13.14a2.64 2.64 0 1 0 0-5.28 2.64 2.64 0 0 0 0 5.28ZM4.78 8.3v4.4M16.222 8.3v4.4"></path>',
+  "card": '<path d="M2 8.505h20M6 16.505h2M10.5 16.505h4"></path><path d="M6.44 3.505h11.11c3.56 0 4.45.88 4.45 4.39v8.21c0 3.51-.89 4.39-4.44 4.39H6.44c-3.55.01-4.44-.87-4.44-4.38v-8.22c0-3.51.89-4.39 4.44-4.39Z"></path>',
+  "gift": '<path d="M19.97 10h-16v8c0 3 1 4 4 4h8c3 0 4-1 4-4v-8ZM21.5 7v1c0 1.1-.53 2-2 2h-15c-1.53 0-2-.9-2-2V7c0-1.1.47-2 2-2h15c1.47 0 2 .9 2 2ZM11.64 5H6.12a.936.936 0 0 1 .03-1.3l1.42-1.42a.96.96 0 0 1 1.35 0L11.64 5ZM17.87 5h-5.52l2.72-2.72a.96.96 0 0 1 1.35 0l1.42 1.42c.36.36.37.93.03 1.3Z"></path><path d="M8.94 10v5.14c0 .8.88 1.27 1.55.84l.94-.62a1 1 0 0 1 1.1 0l.89.6a.997.997 0 0 0 1.55-.83V10H8.94Z"></path>',
+  "user-add": '<path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM3.41 22c0-3.87 3.85-7 8.59-7 .96 0 1.89.13 2.76.37"></path><path d="M22 18c0 .32-.04.63-.12.93-.09.4-.25.79-.46 1.13A3.97 3.97 0 0 1 18 22a3.92 3.92 0 0 1-2.66-1.03c-.3-.26-.56-.57-.76-.91A3.92 3.92 0 0 1 14 18a3.995 3.995 0 0 1 4-4c1.18 0 2.25.51 2.97 1.33.64.71 1.03 1.65 1.03 2.67ZM19.49 17.98h-2.98M18 16.52v2.99"></path>',
+  "came": '<path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM3.41 22c0-3.87 3.85-7 8.59-7 .96 0 1.89.13 2.76.37"></path><path d="M22 18c0 .75-.21 1.46-.58 2.06-.21.36-.48.68-.79.94-.7.63-1.62 1-2.63 1a3.97 3.97 0 0 1-3.42-1.94A3.92 3.92 0 0 1 14 18c0-1.26.58-2.39 1.5-3.12A3.999 3.999 0 0 1 22 18Z"></path><path d="m16.44 18 .99.99 2.13-1.97"></path>',
+  "no-show": '<path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM3.41 22c0-3.87 3.85-7 8.59-7 .96 0 1.89.13 2.76.37"></path><path d="M22 18c0 .32-.04.63-.12.93-.09.4-.25.79-.46 1.13A3.97 3.97 0 0 1 18 22a3.92 3.92 0 0 1-2.66-1.03c-.3-.26-.56-.57-.76-.91A3.92 3.92 0 0 1 14 18a3.995 3.995 0 0 1 4-4c1.18 0 2.25.51 2.97 1.33.64.71 1.03 1.65 1.03 2.67ZM19.03 16.94l-2.11 2.11M16.94 16.96l2.12 2.11"></path>',
+  "undo": '<path d="M7.25 22h4.5C15.5 22 17 20.5 17 16.75v-4.5C17 8.5 15.5 7 11.75 7h-4.5C3.5 7 2 8.5 2 12.25v4.5C2 20.5 3.5 22 7.25 22ZM22 9c0-3.87-3.13-7-7-7l1.05 1.75"></path>',
+  "pause": '<path d="M11.97 22c5.523 0 10-4.477 10-10s-4.477-10-10-10-10 4.477-10 10 4.477 10 10 10Z"></path><path d="M10.72 14.53V9.47c0-.48-.2-.67-.71-.67h-1.3c-.51 0-.71.19-.71.67v5.06c0 .48.2.67.71.67H10c.52 0 .72-.19.72-.67ZM16 14.53V9.47c0-.48-.2-.67-.71-.67H14c-.51 0-.71.19-.71.67v5.06c0 .48.2.67.71.67h1.29c.51 0 .71-.19.71-.67Z"></path>',
+  "play": '<path d="M11.97 22c5.523 0 10-4.477 10-10s-4.477-10-10-10-10 4.477-10 10 4.477 10 10 10Z"></path><path d="M8.74 12.23v-1.67c0-2.08 1.47-2.93 3.27-1.89l1.45.84 1.45.84c1.8 1.04 1.8 2.74 0 3.78l-1.45.84-1.45.84c-1.8 1.04-3.27.19-3.27-1.89v-1.69Z"></path>',
+  "link": '<path d="M13.5 12c0 3.18-2.57 5.75-5.75 5.75S2 15.18 2 12s2.57-5.75 5.75-5.75"></path><path d="M10 12c0-3.31 2.69-6 6-6s6 2.69 6 6-2.69 6-6 6"></path>',
+  "eye": '<path d="M15.58 12c0 1.98-1.6 3.58-3.58 3.58S8.42 13.98 8.42 12s1.6-3.58 3.58-3.58 3.58 1.6 3.58 3.58Z"></path><path d="M12 20.27c3.53 0 6.82-2.08 9.11-5.68.9-1.41.9-3.78 0-5.19-2.29-3.6-5.58-5.68-9.11-5.68-3.53 0-6.82 2.08-9.11 5.68-.9 1.41-.9 3.78 0 5.19 2.29 3.6 5.58 5.68 9.11 5.68Z"></path>',
+  "eye-slash": '<path d="m14.53 9.47-5.06 5.06a3.576 3.576 0 1 1 5.06-5.06Z"></path><path d="M17.82 5.77C16.07 4.45 14.07 3.73 12 3.73c-3.53 0-6.82 2.08-9.11 5.68-.9 1.41-.9 3.78 0 5.19.79 1.24 1.71 2.31 2.71 3.17M8.42 19.53c1.14.48 2.35.74 3.58.74 3.53 0 6.82-2.08 9.11-5.68.9-1.41.9-3.78 0-5.19-.33-.52-.69-1.01-1.06-1.47"></path><path d="M15.51 12.7a3.565 3.565 0 0 1-2.82 2.82M9.47 14.53 2 22M22 2l-7.47 7.47"></path>',
+  "close": '<path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10ZM9.17 14.83l5.66-5.66M14.83 14.83 9.17 9.17"></path>',
+  "crown": '<path d="M16.7 18.98H7.3c-.42 0-.89-.33-1.03-.73L2.13 6.67c-.59-1.66.1-2.17 1.52-1.15l3.9 2.79c.65.45 1.39.22 1.67-.51l1.76-4.69c.56-1.5 1.49-1.5 2.05 0l1.76 4.69c.28.73 1.02.96 1.66.51l3.66-2.61c1.56-1.12 2.31-.55 1.67 1.26l-4.04 11.31c-.15.38-.62.71-1.04.71ZM6.5 22h11M9.5 14h5"></path>',
+  "export": '<path d="M16.44 8.9c3.6.31 5.07 2.16 5.07 6.21v.13c0 4.47-1.79 6.26-6.26 6.26H8.74c-4.47 0-6.26-1.79-6.26-6.26v-.13c0-4.02 1.45-5.87 4.99-6.2M12 15V3.62M15.35 5.85L12 2.5 8.65 5.85"></path>',
+};
+const icon = (name, label, size = 16) => {
   const a11y = label ? `role="img" aria-label="${esc(label)}"` : `aria-hidden="true"`;
-  return `<svg class="i" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="currentColor" ${a11y}>${paths}</svg>`;
+  return `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" ${a11y}>${ICONS[name]}</svg>`;
 };
 
 // The studio's logo (the site's assets/logo-rusc-trim.webp, 719 × 118), in
@@ -1055,39 +1170,44 @@ const brand = (height) =>
 // layout (STYLE, max-width 700px).
 const LABEL_CELLS = `document.querySelectorAll("table").forEach(function(t){var h=[].map.call(t.querySelectorAll("thead th"),function(th){return th.textContent.trim()});if(!h.length)return;t.querySelectorAll("tbody tr").forEach(function(tr){[].forEach.call(tr.children,function(td,i){if(h[i])td.setAttribute("data-label",h[i])})})})`;
 
-const page = (title, body) =>
-  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)} · rūsc admin</title><style>${STYLE}</style></head><body><main>${body}</main><script>${LABEL_CELLS}</script></body></html>`;
+// Geist and Geist Mono (OFL), from Google Fonts; the system font until they load.
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap">`;
+const page = (title, body, top = "") =>
+  `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="theme-color" content="#f6f5f1"><title>${esc(title)} · rūsc admin</title>${FONTS}<style>${STYLE}</style></head><body>${top}<main>${body}</main><script>${LABEL_CELLS}</script></body></html>`;
 
 // FR · EN links: the page's own address comes back after the switch.
 function langSwitch() {
   const back = encodeURIComponent(request.getStore()?.path ?? "/admin/cours");
   return ["fr", "en"]
-    .map((l) => (l === lang() ? `<b>${l.toUpperCase()}</b>` : `<a href="/lang?to=${l}&back=${back}">${l.toUpperCase()}</a>`))
-    .join(" · ");
+    .map((l) => (l === lang() ? `<b>${l.toUpperCase()}</b>` : `<a href="/lang?to=${l}&back=${back}" hreflang="${l}">${l.toUpperCase()}</a>`))
+    .join("");
 }
 
 // Every studio page: the same header and menu. SOON items are next.
-const MENU = [["cours", "Cours", "Classes"], ["clients", "Clients", "Clients"], ["codes", "Codes", "Codes"], ["commandes", "Commandes", "Orders"], ["horaires", "Horaires", "Timetable"]];
+const MENU = [["cours", "calendar-days", "Cours", "Classes"], ["clients", "people", "Clients", "Clients"], ["codes", "ticket", "Codes", "Codes"], ["commandes", "bag", "Commandes", "Orders"], ["horaires", "clock", "Horaires", "Timetable"]];
 const SOON = new Set(); // menu items not ready yet: shown greyed out
 function shell(active, title, body) {
-  const menu = MENU.map(([key, fr, en]) =>
+  const menu = MENU.map(([key, name, fr, en]) =>
     SOON.has(key)
-      ? `<span class="soon" title="${tr("Bientôt", "Soon")}">${tr(fr, en)}</span>`
-      : `<a href="/admin/${key}"${key === active ? ' aria-current="page"' : ""}>${tr(fr, en)}</a>`,
+      ? `<span class="soon" title="${tr("Bientôt", "Soon")}">${icon(name)}${tr(fr, en)}</span>`
+      : `<a href="/admin/${key}"${key === active ? ' aria-current="page"' : ""}>${icon(name)}${tr(fr, en)}</a>`,
   ).join("");
+  const out = tr("Déconnexion", "Sign out");
   return page(
     title,
-    `<header class="top"><a class="brand" href="/admin/cours">${brand(18)}</a><nav>${menu}</nav><div class="right"><span class="muted lang">${langSwitch()}</span><a class="muted" href="/logout">${tr("Déconnexion", "Sign out")}</a></div></header>${body}`,
+    body,
+    `<header class="top"><div class="bar"><a class="brand" href="/admin/cours">${brand(18)}</a><nav aria-label="Menu">${menu}</nav><div class="right"><span class="lang">${langSwitch()}</span><a class="ibtn" href="/logout" title="${out}">${icon("logout", out)}</a></div></div></header>`,
   );
 }
 
 const loginPage = (error, next) =>
   page(
     tr("Connexion", "Sign in"),
-    `<div class="login"><p class="muted" style="text-align:right">${langSwitch()}</p><h1 class="brand">${brand(30)}</h1>
-     <p class="muted">${tr("L’espace de l’atelier : cours, codes, commandes.", "The studio’s back office: classes, codes, orders.")}</p>
-     ${error ? `<p class="off"><b>${esc(error)}</b></p>` : ""}
+    `<div class="login"><div class="top"><h1 class="brand">${brand(26)}</h1><span class="lang">${langSwitch()}</span></div>
      <form class="box" method="post" action="/login"><input type="hidden" name="next" value="${esc(next)}">
+       <div><p style="margin:0;font-weight:600;font-size:17px;letter-spacing:-.01em">${tr("Connexion", "Sign in")}</p>
+         <p class="muted small" style="margin:2px 0 0">${tr("L’espace de l’atelier : cours, codes, commandes.", "The studio’s back office: classes, codes, orders.")}</p></div>
+       ${error ? `<p class="st off" style="margin:0">${icon("exclamation-triangle")}<span>${esc(error)}</span></p>` : ""}
        <label>${tr("Mot de passe", "Password")}<input type="password" name="password" required autofocus autocomplete="current-password"></label>
        <div><button type="submit">${tr("Entrer", "Sign in")}</button></div></form></div>`,
   );
@@ -1119,7 +1239,7 @@ async function loadSessions(from, to) {
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
             c.display AS code, u.amount AS code_amount, c.unit AS code_unit, c.initial AS code_initial, ps.order_id AS paid_order, x.pay AS acuity_pay,
-            h.expires_at AS held_until
+            h.expires_at AS held_until, dp.method AS desk_method, dp.amount_cents AS desk_cents, att.came, s.data->>'rusc_added' AS added
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
@@ -1129,6 +1249,8 @@ async function loadSessions(from, to) {
        LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
        LEFT JOIN rusc.acuity_seats x ON x.seat_uid = s."referenceUid"
        LEFT JOIN rusc.holds h ON h.seat_uid = coalesce(s.data->>'rusc_holder', s."referenceUid") AND h.released_at IS NULL
+       LEFT JOIN rusc.desk_payments dp ON dp.seat_uid = s."referenceUid"
+       LEFT JOIN rusc.attendance att ON att.seat_uid = s."referenceUid"
       WHERE b.status IN ('accepted', 'pending')
         AND b."startTime" AT TIME ZONE 'UTC' >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
         AND b."startTime" AT TIME ZONE 'UTC' < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
@@ -1235,6 +1357,7 @@ function payment(p) {
     return `<span class="st ok">${icon("ticket")}${part}${per ? ` · <span class="muted">${esc(per)}</span>` : ""}</span>`;
   }
   if (p.paid_order) return `<a class="st ok" href="/admin/commandes#${esc(p.paid_order)}">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</a>`;
+  if (p.desk_method) return deskPaid(p);
   if (p.acuity_pay) {
     // Booked on Acuity before the switch: "code XXXX", "payé 50.00" or "à régler".
     const code = p.acuity_pay.match(/^code (.+)$/)?.[1];
@@ -1250,12 +1373,14 @@ function payment(p) {
     const at = new Date(p.held_until).toLocaleTimeString(LOCALE(), { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
     return `<span class="st muted">${icon("clock")}<span>${tr(`dans un panier, pas encore payé · libéré à ${at} sinon`, `in a cart, not paid yet · freed at ${at} otherwise`)}</span></span>`;
   }
+  // Added by the studio (Cours → Ajouter): paid at the desk later.
+  if (p.added === "admin") return `<span class="st off">${icon("exclamation-circle")}<span>${tr("à régler à l’atelier", "to pay at the studio")}</span></span>`;
   return WEBHOOK_SECRET
     ? `<span class="st off">${icon("exclamation-circle")}<span>${tr("à régler (panier non payé, ou sur place)", "to pay (cart not paid, or at the studio)")}</span></span>`
     : `<span class="st muted">${icon("question-mark-circle")}<span>${tr("à vérifier (paiement en ligne pas encore relié)", "to check (online payment not linked yet)")}</span></span>`;
 }
 
-const people = (list) =>
+const people = (list, s) =>
   list.length
     ? `<table class="people"><tbody>${list
         .map((p) => {
@@ -1265,7 +1390,8 @@ const people = (list) =>
             reachable ? `<a href="mailto:${esc(p.email)}">${icon("envelope")}${esc(p.email)}</a>` : "",
             p.phone ? `<a href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(p.phone)}</a>` : "",
           ].join("");
-          return `<tr><td><b>${esc(p.name)}</b>${contact ? `<span class="contact">${contact}</span>` : ""}</td><td>${payment(p)}</td></tr>`;
+          const presence = s ? attendanceSwitch(p, s) : "";
+          return `<tr><td><b>${esc(p.name)}</b>${contact ? `<span class="contact">${contact}</span>` : ""}</td><td><div class="paycell">${payment(p)}${s ? payActions(p, s) : ""}</div></td>${presence ? `<td class="act">${presence}</td>` : ""}</tr>`;
         })
         .join("")}</tbody></table>`
     : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
@@ -1275,25 +1401,278 @@ const sessionLabel = (s) => (OFFERS[s.slug] ? offerLabel(s.slug) : s.title);
 const placesTaken = (s) => (s.seats ? `${s.people.length}/${s.seats}` : `${s.people.length}`);
 
 // One class, with its people; the calendar links to it by its id.
-const sessionId = (s) => `c${s.time.replace(":", "")}-${s.slug.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()}`;
+// The day is part of it: the list shows the same class on several days.
+const sessionId = (s) => `c${s.day.replaceAll("-", "")}-${s.time.replace(":", "")}-${s.slug.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()}`;
 // A class nobody has booked yet is one quiet line; a full one says so.
 const sessionBox = (s) => {
   const taken = s.people.length;
   const full = s.seats && taken >= s.seats;
   const count = s.seats ? `${taken} / ${s.seats} ${tr("places", "places")}` : `${taken} ${tr("inscrits", "booked")}`;
-  return `<div class="session${taken ? "" : " empty"}" id="${esc(sessionId(s))}"><div class="head"><b>${esc(s.time)} · ${esc(sessionLabel(s))}</b>
-     <span class="pill${full ? " full" : ""}">${full ? `${tr("complet", "full")} · ` : ""}${count}</span>${taken ? "" : `<span class="muted small">${tr("personne pour l’instant", "nobody yet")}</span>`}</div>${taken ? people(s.people) : ""}</div>`;
+  const came = s.people.filter((p) => p.came === true).length;
+  const gone = s.people.filter((p) => p.came === false).length;
+  const presence = came || gone
+    ? `<span class="pill${gone ? " full" : " some"}">${[
+        came ? `${came} ${tr(came > 1 ? "venu·es" : "venu·e", "came")}` : "",
+        gone ? `${gone} ${tr(gone > 1 ? "absent·es" : "absent·e", gone > 1 ? "no-shows" : "no-show")}` : "",
+      ].filter(Boolean).join(" · ")}</span>`
+    : "";
+  return `<div class="session${taken ? "" : " empty"}" id="${esc(sessionId(s))}"><div class="head"><b><span class="t">${esc(s.time)}</span> · ${esc(sessionLabel(s))}</b>
+     <span class="pill${full ? " full" : ""}">${full ? `${tr("complet", "full")} · ` : ""}${count}</span>${presence}${taken ? "" : `<span class="muted small">${tr("personne pour l’instant", "nobody yet")}</span>`}</div>${taken ? people(s.people, s) : ""}${addPersonForm(s)}</div>`;
 };
+
+// ---------------------------------------------------------------- at the desk
+// What the studio does with a place, from Cours: takes payment at the desk
+// (cash, card, or offered), ticks who came, and adds someone to a class (a
+// phone or walk-in booking) without going through Cal's booker. Each place is
+// a Cal seat (its reference); rusc.desk_payments and rusc.attendance hold one
+// row per seat.
+const DESK = { cash: ["cash", "espèces", "cash"], card: ["card", "carte", "card"], free: ["gift", "offert", "offered"] };
+const deskPaid = (p) => {
+  const [name, fr, en] = DESK[p.desk_method];
+  const amount = p.desk_method !== "free" && p.desk_cents != null ? ` · ${esc(fmtAmount("euros", num(p.desk_cents) / 100))}` : "";
+  return `<span class="st ok">${icon(name)}<span>${p.desk_method === "free" ? tr("Offert à l’atelier", "Offered at the studio") : `${tr("Payé à l’atelier", "Paid at the studio")} · ${tr(fr, en)}`}${amount}</span></span>`;
+};
+// Still to pay: not online, no code, not at the desk, not on Acuity.
+const toPay = (p) => !p.history && p.seat_uid && !p.code && !p.paid_order && !p.desk_method && !/^(code |payé)/.test(p.acuity_pay ?? "");
+// Every Cours form returns to the page it was sent from, on its class.
+const returnFields = (s) =>
+  `<input type="hidden" name="back" value="${esc(request.getStore()?.path ?? "/admin/cours")}"><input type="hidden" name="at" value="${esc(sessionId(s))}">`;
+
+// "Encaisser" on a place still to pay; "Annuler" on one paid at the desk.
+function payActions(p, s) {
+  const seat = `<input type="hidden" name="seat" value="${esc(p.seat_uid ?? "")}">${returnFields(s)}`;
+  if (p.desk_method) {
+    const ask = tr("Annuler ce paiement à l’atelier ? La place redevient à régler.", "Undo this payment at the studio? The place goes back to unpaid.");
+    return `<form class="inline-form" method="post" action="/admin/places/unpaid" onsubmit="return confirm(${esc(JSON.stringify(ask))})">${seat}<button class="ghost small" type="submit" title="${tr("Annuler ce paiement", "Undo this payment")}">${icon("undo")}${tr("Annuler", "Undo")}</button></form>`;
+  }
+  if (!toPay(p)) return "";
+  const price = OFFERS[s.slug]?.price;
+  const methods = Object.entries(DESK).map(([key, [, fr, en]]) => `<option value="${key}">${esc(tr(fr, en)).replace(/^./, (c) => c.toUpperCase())}</option>`).join("");
+  return `<details class="inline"><summary>${icon("cash")}${tr("Encaisser", "Take payment")}</summary>
+    <form method="post" action="/admin/places/paid">${seat}
+      <label>${tr("Moyen", "Method")}<select name="method">${methods}</select></label>
+      <label>${tr("Montant (€)", "Amount (€)")}<input name="amount" inputmode="decimal" size="7" value="${price != null ? esc(String(price).replace(".", tr(",", "."))) : ""}"></label>
+      <button class="small" type="submit">${tr("Enregistrer", "Save")}</button></form></details>`;
+}
+
+// Came / no-show, from the day of the class on. Pressing the lit one clears it.
+function attendanceSwitch(p, s) {
+  if (p.history || !p.seat_uid || s.day > parisToday()) return "";
+  const button = (came, cls, name, label) =>
+    `<button type="submit" name="came" value="${p.came === came ? "clear" : came ? "1" : "0"}" class="${cls}" aria-pressed="${p.came === came}" title="${label}">${icon(name)}${label}</button>`;
+  return `<form class="inline-form" method="post" action="/admin/places/presence"><input type="hidden" name="seat" value="${esc(p.seat_uid)}">${returnFields(s)}
+    <span class="att" role="group" aria-label="${tr("Présence", "Attendance")}">${button(true, "came", "came", tr("Venu·e", "Came"))}${button(false, "gone", "no-show", tr("Absent·e", "No-show"))}</span></form>`;
+}
+
+// "Ajouter quelqu’un": a class of ours (a Cal event type), today or later,
+// with places left.
+function addPersonForm(s) {
+  const free = s.seats ? s.seats - s.people.length : 0;
+  if (!OFFERS[s.slug] || s.day < parisToday() || free < 1) return "";
+  const methods = Object.entries(DESK).map(([key, [, fr, en]]) => `<option value="${key}">${tr("Payé", "Paid")} · ${esc(tr(fr, en))}</option>`).join("");
+  return `<details class="add addp"><summary>${icon("user-add")}${tr("Ajouter", "Add")}</summary>
+    <form class="box compact" method="post" action="/admin/cours/ajouter">${returnFields(s)}
+      <input type="hidden" name="slug" value="${esc(s.slug)}"><input type="hidden" name="day" value="${esc(s.day)}"><input type="hidden" name="time" value="${esc(s.time)}">
+      <label>${tr("Nom", "Name")}<input name="name" required maxlength="120" autocomplete="off"></label>
+      <label>${tr("E-mail (facultatif)", "E-mail (optional)")}<input name="email" type="email" maxlength="200" autocomplete="off"></label>
+      <label>${tr("Téléphone (facultatif)", "Phone (optional)")}<input name="phone" type="tel" maxlength="40" autocomplete="off"></label>
+      <label>${tr("Places", "Places")}<input name="places" type="number" min="1" max="${free}" value="1" required></label>
+      <label>${tr("Paiement", "Payment")}<select name="pay"><option value="">${tr("À régler plus tard", "To pay later")}</option>${methods}</select></label>
+      <label>${tr("Ou un code (carnet, bon)", "Or a code (card, voucher)")}<input name="code" maxlength="40" autocomplete="off" spellcheck="false" style="font-family:var(--mono);text-transform:uppercase"></label>
+      <div class="wide"><button type="submit">${icon("user-add")}${tr("Ajouter au cours", "Add to the class")}</button></div>
+    </form></details>`;
+}
+
+// Where a Cours form goes back to: its page (list, calendar or day), with a
+// note to show, on the class it was about.
+function coursBack(form, note, why) {
+  const back = String(form.get("back") ?? "");
+  const target = new URL(back.startsWith("/admin/cours") ? back : "/admin/cours", "http://admin.invalid");
+  target.searchParams.delete("note");
+  target.searchParams.delete("why");
+  if (note) target.searchParams.set("note", note);
+  if (why) target.searchParams.set("why", why);
+  const at = String(form.get("at") ?? "");
+  return `${target.pathname}${target.search}${/^[a-z0-9-]+$/i.test(at) ? `#${at}` : ""}`;
+}
+const COURS_NOTES = {
+  added: ["Ajouté·e au cours.", "Added to the class."],
+  paid: ["Paiement enregistré.", "Payment recorded."],
+  undone: ["Paiement à l’atelier annulé : la place est à régler.", "Studio payment undone: the place is unpaid."],
+};
+const CODE_REFUSALS = {
+  unknown: ["code inconnu ou en pause", "unknown or paused code"],
+  expired: ["code expiré", "expired code"],
+  not_for_this_class: ["code pas valable pour ce cours", "code not valid for this class"],
+  insufficient: ["pas assez sur le code", "not enough left on the code"],
+  empty: ["code épuisé", "code used up"],
+  already_used: ["place déjà payée par un code", "place already paid with a code"],
+  past: ["cours terminé", "class over"],
+};
+function coursFlash(url) {
+  const note = url.searchParams.get("note");
+  if (note === "code") {
+    const [fr, en] = CODE_REFUSALS[url.searchParams.get("why")] ?? CODE_REFUSALS.unknown;
+    return `<p class="st off" style="margin:12px 0">${icon("exclamation-circle")}<span>${tr(`Ajouté·e au cours, mais pas payé : ${fr}. La place est à régler.`, `Added to the class, but not paid: ${en}. The place is unpaid.`)}</span></p>`;
+  }
+  return COURS_NOTES[note] ? `<p class="flash">${icon("check-circle")}${tr(...COURS_NOTES[note])}</p>` : "";
+}
+
+// The place behind a form: its Cal seat, booking and class (null if gone).
+async function seatOf(q, seatUid) {
+  const { rows } = await q.query(
+    `SELECT s."referenceUid" AS seat_uid, b.id AS booking_id, b.uid AS booking_uid, b.status, e.slug
+       FROM public."BookingSeat" s JOIN public."Booking" b ON b.id = s."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
+      WHERE s."referenceUid" = $1 AND b.status IN ('accepted', 'pending')`,
+    [String(seatUid ?? "").slice(0, 100)],
+  );
+  return rows[0] ?? null;
+}
+const deskAmount = (value) => {
+  const euros = Number(String(value ?? "").trim().replace(/\s|€/g, "").replace(",", "."));
+  if (!Number.isFinite(euros) || euros < 0 || euros > 10_000) throw refused("Montant invalide.", "Invalid amount.");
+  return Math.round(euros * 100);
+};
+// Paid at the desk: recorded per place, and the class booking is confirmed, as
+// a code or a card payment confirms it. Not for a place already paid.
+async function deskPay(q, seat, method, cents) {
+  await q.query(
+    `INSERT INTO rusc.desk_payments (seat_uid, method, amount_cents, offer) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (seat_uid) DO NOTHING`,
+    [seat.seat_uid, method, method === "free" ? 0 : cents, seat.slug],
+  );
+  if (seat.status === "pending") await q.query(`UPDATE public."Booking" SET status = 'accepted' WHERE id = $1 AND status = 'pending'`, [seat.booking_id]);
+}
+async function placePaid(form) {
+  const method = String(form.get("method") ?? "");
+  if (!DESK[method]) throw refused("Choisissez un moyen de paiement.", "Choose a payment method.");
+  const cents = method === "free" ? 0 : deskAmount(form.get("amount"));
+  await inTransaction(async (client) => {
+    const seat = await seatOf(client, form.get("seat"));
+    if (!seat) throw refused("Cette place n’existe plus.", "This place no longer exists.");
+    // Paid already: online, with a code, at the desk (undo it first to
+    // change how), or on Acuity (not one "à régler").
+    const paid = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM rusc.paid_seats WHERE seat_uid = $1)
+           OR EXISTS (SELECT 1 FROM rusc.uses WHERE seat_uid = $1 AND cancelled_at IS NULL)
+           OR EXISTS (SELECT 1 FROM rusc.desk_payments WHERE seat_uid = $1)
+           OR EXISTS (SELECT 1 FROM rusc.acuity_seats WHERE seat_uid = $1 AND pay <> 'à régler') AS paid`,
+      [seat.seat_uid],
+    );
+    if (paid.rows[0]?.paid) throw refused("Cette place est déjà payée.", "This place is already paid.");
+    await deskPay(client, seat, method, cents);
+  });
+}
+async function placeUnpaid(form) {
+  await db.query("DELETE FROM rusc.desk_payments WHERE seat_uid = $1", [String(form.get("seat") ?? "").slice(0, 100)]);
+}
+async function placePresence(form) {
+  const seat = await seatOf(db, form.get("seat"));
+  if (!seat) throw refused("Cette place n’existe plus.", "This place no longer exists.");
+  const came = String(form.get("came") ?? "");
+  if (came === "clear") await db.query("DELETE FROM rusc.attendance WHERE seat_uid = $1", [seat.seat_uid]);
+  else await db.query(
+    `INSERT INTO rusc.attendance (seat_uid, came) VALUES ($1, $2) ON CONFLICT (seat_uid) DO UPDATE SET came = EXCLUDED.came, marked_at = now()`,
+    [seat.seat_uid, came === "1"],
+  );
+}
+
+// "Ajouter quelqu’un": the person joins the class's Cal booking at that time
+// (everyone in a class shares one, as when they book on the site), or a new
+// one is made, accepted, as scripts/continuity/acuity-apply.sql does for
+// Acuity's. Extra places are seats linked to theirs, as the cart's are. They
+// pay later, at the desk now, or with a code (taken off as on the site).
+async function addPerson(form) {
+  const slug = String(form.get("slug") ?? "");
+  const day = String(form.get("day") ?? "");
+  const time = String(form.get("time") ?? "");
+  const name = String(form.get("name") ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+  const email = String(form.get("email") ?? "").trim().toLowerCase().slice(0, 200);
+  const phone = String(form.get("phone") ?? "").trim().slice(0, 40) || null;
+  const places = Math.min(Math.max(Math.floor(Number(form.get("places"))) || 1, 1), 20);
+  const method = DESK[form.get("pay")] ? String(form.get("pay")) : null;
+  const code = normalize(form.get("code") ?? "");
+  if (!OFFERS[slug] || !isDay(day) || !/^\d{2}:\d{2}$/.test(time)) throw refused("Cours introuvable.", "Class not found.");
+  if (!name) throw refused("Il faut un nom.", "A name is needed.");
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw refused("E-mail invalide.", "Invalid e-mail.");
+  if (day < parisToday()) throw refused("Ce cours est passé.", "This class is over.");
+  const cents = method && method !== "free" ? Math.round(OFFERS[slug].price * 100) : 0;
+  // A code is checked first, for every place, so a typo books nobody.
+  if (code) {
+    const type = await db.query(`SELECT e.length FROM public."EventType" e JOIN public.users u ON u.id = e."userId" WHERE u.username = $1 AND e.slug = $2`, [HOST, slug]);
+    const row = (await db.query("SELECT * FROM rusc.codes WHERE key = $1", [code])).rows[0];
+    const why = refusal(row, slug, row ? needed(row.unit, slug, type.rows[0]?.length ?? 120) * places : 0);
+    if (why) {
+      const [fr, en] = CODE_REFUSALS[why] ?? CODE_REFUSALS.unknown;
+      throw refused(`Code refusé : ${fr}. Personne n’a été ajouté.`, `Code refused: ${en}. Nobody was added.`);
+    }
+  }
+
+  const seats = await inTransaction(async (client) => {
+    const host = await hostId(client);
+    const type = await client.query(`SELECT id, title, length, "seatsPerTimeSlot" AS capacity FROM public."EventType" WHERE "userId" = $1 AND slug = $2`, [host, slug]);
+    const et = type.rows[0];
+    if (!et) throw refused("Cours introuvable dans Cal.", "Class not found in Cal.");
+    // Cal keeps times in UTC, without a zone.
+    const start = `(($2::date + $3::time) AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'UTC'`;
+    const existing = await client.query(
+      `SELECT id, uid, status FROM public."Booking" WHERE "eventTypeId" = $1 AND "startTime" = ${start} AND status IN ('accepted', 'pending')
+        ORDER BY status = 'accepted' DESC, id LIMIT 1 FOR UPDATE`,
+      [et.id, day, time],
+    );
+    let booking = existing.rows[0];
+    if (booking) {
+      const taken = await client.query(`SELECT count(*)::int AS n FROM public."BookingSeat" WHERE "bookingId" = $1`, [booking.id]);
+      if (et.capacity && taken.rows[0].n + places > et.capacity) {
+        throw refused(`Plus assez de places : il en reste ${Math.max(0, et.capacity - taken.rows[0].n)}.`, `Not enough places: ${Math.max(0, et.capacity - taken.rows[0].n)} left.`);
+      }
+      if (booking.status === "pending") await client.query(`UPDATE public."Booking" SET status = 'accepted' WHERE id = $1`, [booking.id]);
+    } else {
+      if (et.capacity && places > et.capacity) throw refused(`Le cours a ${et.capacity} places.`, `The class has ${et.capacity} places.`);
+      const made = await client.query(
+        `INSERT INTO public."Booking" (uid, title, "startTime", "endTime", "userId", "eventTypeId", status)
+         VALUES ($4, $5, ${start}, ${start} + make_interval(mins => $6), $7, $1, 'accepted') RETURNING id, uid`,
+        [et.id, day, time, randomUUID(), et.title, et.length, host],
+      );
+      booking = made.rows[0];
+    }
+    const uids = [];
+    for (let i = 0; i < places; i++) {
+      const uid = randomUUID();
+      const extra = i > 0;
+      // No e-mail: a placeholder that, like a friend's extra place, shows no
+      // contact and doesn't join Clients.
+      const attendeeEmail = extra ? `place-${uid}${ANONYMOUS}` : email || `sans-email-${uid}${ANONYMOUS}`;
+      const attendee = await client.query(
+        `INSERT INTO public."Attendee" (email, name, "timeZone", locale, "bookingId", "phoneNumber") VALUES ($1, $2, 'Europe/Paris', $3, $4, $5) RETURNING id`,
+        [attendeeEmail, extra ? `${name} +${i}` : name, lang(), booking.id, extra ? null : phone],
+      );
+      const data = extra ? { rusc_holder: uids[0], rusc_added: "admin" } : { responses: { name, ...(email ? { email } : {}) }, rusc_added: "admin" };
+      await client.query(`INSERT INTO public."BookingSeat" ("referenceUid", "bookingId", "attendeeId", data) VALUES ($1, $2, $3, $4)`, [uid, booking.id, attendee.rows[0].id, data]);
+      uids.push(uid);
+      if (method && !code) await deskPay(client, { seat_uid: uid, booking_id: booking.id, status: "accepted", slug }, method, cents);
+    }
+    return uids;
+  });
+  // A code pays for each place, as on the site; the first refusal stops.
+  if (code) {
+    for (const seatUid of seats) {
+      const result = await apiRedeem({ code, seatUid });
+      if (!result.ok) return { refused: result.reason };
+    }
+  }
+  return { refused: null };
+}
 
 // List · Calendar, at the top of Cours.
 function coursTabs(active) {
   const tabs = [["liste", "list-bullet", tr("Liste", "List"), "/admin/cours"], ["calendrier", "calendar-days", tr("Calendrier", "Calendar"), "/admin/cours?vue=calendrier"]];
-  return `<nav class="tabs">${tabs.map(([key, name, label, href]) => `<a href="${href}"${key === active ? ' aria-current="page"' : ""}>${icon(name)}${label}</a>`).join("")}<a class="action" href="/admin/cours/nouveau">${tr("+ Nouveau cours", "+ New class")}</a></nav>`;
+  return `<div class="toolbar"><nav class="seg">${tabs.map(([key, name, label, href]) => `<a href="${href}"${key === active ? ' aria-current="page"' : ""}>${icon(name)}${label}</a>`).join("")}</nav><a class="action" href="/admin/cours/nouveau">${icon("add")}${tr("Nouveau cours", "New class")}</a></div>`;
 }
 
 async function coursPage(url) {
   const day = url.searchParams.get("jour");
-  if (isDay(day)) return coursDay(day);
+  if (isDay(day)) return coursDay(day, url);
   if (url.searchParams.get("vue") === "calendrier") return coursCalendar(url.searchParams.get("mois"));
   return coursList(url);
 }
@@ -1315,7 +1694,7 @@ async function coursList(url) {
   return shell(
     "cours",
     tr("Cours", "Classes"),
-    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("liste")}<p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
+    `<h1>${tr("Cours", "Classes")}</h1>${coursTabs("liste")}${coursFlash(url)}<p class="muted">${tr(`Les ${days} prochains jours, d’après les réservations et les horaires de Cal.`, `The next ${days} days, from Cal’s bookings and timetable.`)}
        ${days < 30 ? `<a href="?jours=30">${tr("Voir 30 jours", "Show 30 days")}</a>` : `<a href="?jours=14">${tr("Voir 14 jours", "Show 14 days")}</a>`}</p>
      ${body || `<p class="muted">${tr("Aucun cours sur cette période.", "No classes in this period.")}</p>`}`,
   );
@@ -1356,18 +1735,18 @@ async function coursCalendar(month) {
      <div class="calnav"><a class="ibtn" href="?vue=calendrier&mois=${previous}" title="${tr("Mois précédent", "Previous month")}">${icon("chevron-left", tr("Mois précédent", "Previous month"))}</a><a class="ibtn" href="?vue=calendrier&mois=${next}" title="${tr("Mois suivant", "Next month")}">${icon("chevron-right", tr("Mois suivant", "Next month"))}</a><h2 class="cap">${esc(title)}</h2>
        ${month !== today.slice(0, 7) ? `<a class="small" href="?vue=calendrier">${tr("Aujourd’hui", "Today")}</a>` : ""}<span class="muted small">${booked} ${tr(booked > 1 ? "places réservées" : "place réservée", booked === 1 ? "place booked" : "places booked")}</span></div>
      <div class="cal">${dows.map((d) => `<div class="dow">${esc(d)}</div>`).join("")}${cells.join("")}</div>
-     <p class="muted small">${tr("3/7 : places prises sur 7. Liseré vert : déjà des inscrits ; orange : complet. Un jour ou un cours ouvre la liste des personnes.", "3/7: 3 of 7 places taken. Green edge: people booked; orange: full. A day or a class opens its list of people.")}</p>`,
+     <p class="muted small">${tr("3/7 : places prises sur 7. Vert : déjà des inscrits ; orange : complet. Un jour ou un cours ouvre la liste des personnes.", "3/7: 3 of 7 places taken. Green: people booked; orange: full. A day or a class opens its list of people.")}</p>`,
   );
 }
 
 // One day: its classes and everyone booked, past or coming.
-async function coursDay(day) {
+async function coursDay(day, url) {
   const list = (await loadSessions(day, addDays(day, 1))).get(day) ?? [];
   const long = new Intl.DateTimeFormat(LOCALE(), { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(noon(day));
   return shell(
     "cours",
     `${tr("Cours", "Classes")} · ${long}`,
-    `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}
+    `<h1 class="cap">${esc(long)}</h1>${coursTabs("calendrier")}${coursFlash(url)}
      <div class="calnav"><a class="ibtn" href="?jour=${addDays(day, -1)}" title="${tr("Veille", "Previous day")}">${icon("chevron-left", tr("Veille", "Previous day"))}</a><a class="ibtn" href="?jour=${addDays(day, 1)}" title="${tr("Lendemain", "Next day")}">${icon("chevron-right", tr("Lendemain", "Next day"))}</a><a href="?vue=calendrier&mois=${day.slice(0, 7)}">${tr("Tout le mois", "The whole month")}</a></div>
      ${list.length ? list.map(sessionBox).join("") : `<p class="muted">${tr("Aucun cours ce jour-là.", "No classes that day.")}</p>`}`,
   );
@@ -1389,7 +1768,7 @@ async function calFeed() {
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, b."endTime" AT TIME ZONE 'UTC' AS ends,
             e.slug, e.title, a.name, a.email, a."phoneNumber" AS phone,
             c.display AS code, u.amount AS code_amount, c.unit AS code_unit,
-            ps.order_id AS paid_order, x.pay AS acuity_pay
+            ps.order_id AS paid_order, x.pay AS acuity_pay, dp.method AS desk_method
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
@@ -1398,6 +1777,7 @@ async function calFeed() {
        LEFT JOIN rusc.codes c ON c.key = u.key
        LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
        LEFT JOIN rusc.acuity_seats x ON x.seat_uid = s."referenceUid"
+       LEFT JOIN rusc.desk_payments dp ON dp.seat_uid = s."referenceUid"
       WHERE b.status IN ('accepted', 'pending')
         AND b."startTime" AT TIME ZONE 'UTC' >= $1::date::timestamp AT TIME ZONE 'Europe/Paris'
         AND b."startTime" AT TIME ZONE 'UTC' < $2::date::timestamp AT TIME ZONE 'Europe/Paris'
@@ -1410,7 +1790,7 @@ async function calFeed() {
     const title = OFFERS[r.slug] ? offerLabel(r.slug) : r.title;
     const pay = r.code
       ? `Code ${r.code}`
-      : r.paid_order ? "Payé en ligne" : r.acuity_pay ? "Payé (Acuity)" : "En attente de paiement";
+      : r.paid_order ? "Payé en ligne" : r.desk_method ? (r.desk_method === "free" ? "Offert" : "Payé à l’atelier") : r.acuity_pay ? "Payé (Acuity)" : "En attente de paiement";
     const desc = [`Élève : ${r.name || "—"}`, `Téléphone : ${r.phone || "—"}`, `Email : ${r.email || "—"}`, `Paiement : ${pay}`].join("\n");
     return [
       "BEGIN:VEVENT",
@@ -1469,6 +1849,7 @@ async function horairesPage(url) {
   // Removing hours takes them off the booking calendar at once: ask first.
   const removeButton = (id, label, ask) =>
     `<form method="post" action="/admin/horaires/remove" style="display:inline"${ask ? ` onsubmit="return confirm(${esc(JSON.stringify(ask))})"` : ""}><input type="hidden" name="id" value="${id}"><button class="plain small" type="submit">${label}</button></form>`;
+  const trash = (label) => `${icon("trash")}${label}`;
   const askRemove = tr("Retirer cet horaire ? Il disparaît du calendrier de réservation (les réservations faites restent).", "Remove these hours? They leave the booking calendar (bookings already made stay).");
   const dayOptions = [1, 2, 3, 4, 5, 6, 0].map((d) => `<option value="${d}">${esc(weekdayName(d))}</option>`).join("");
   const blocks = classes
@@ -1479,9 +1860,9 @@ async function horairesPage(url) {
       const past = c.rows.filter((r) => r.date && r.date < today).length;
       const line = (label, action) => `<tr><td>${label}</td><td style="text-align:right">${action}</td></tr>`;
       const lines = [
-        ...weekly.map((r) => line(`${esc(r.days.map(weekdayName).join(", "))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove"), askRemove))),
-        ...dated.map((r) => line(`${esc(fmtDate(r.date))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, tr("Retirer", "Remove"), askRemove))),
-        ...closed.map((r) => line(`<span class="off">${tr("Fermé le", "Closed on")} ${esc(fmtDate(r.date))}</span>`, removeButton(r.id, tr("Rouvrir", "Reopen")))),
+        ...weekly.map((r) => line(`${esc(r.days.map(weekdayName).join(", "))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, trash(tr("Retirer", "Remove")), askRemove))),
+        ...dated.map((r) => line(`${esc(fmtDate(r.date))} · ${hhmm(r.start)}–${hhmm(r.end)}`, removeButton(r.id, trash(tr("Retirer", "Remove")), askRemove))),
+        ...closed.map((r) => line(`<span class="off">${tr("Fermé le", "Closed on")} ${esc(fmtDate(r.date))}</span>`, removeButton(r.id, `${icon("undo")}${tr("Rouvrir", "Reopen")}`))),
       ].join("");
       const openStudio = c.slug === "atelier-libre-1h";
       const endField = `<label>${tr("Fin", "End")}<input name="end" type="time" step="1800" ${openStudio ? "required" : `placeholder="${tr("auto", "auto")}"`}></label>`;
@@ -1490,10 +1871,10 @@ async function horairesPage(url) {
       return `<div class="session" id="${esc(c.slug)}"><div class="head"><b>${esc(OFFERS[c.slug] ? offerLabel(c.slug) : c.title)}</b>
           <span class="pill">${c.length} min · ${c.seats} ${tr("places", "places")}${row ? ` · ${esc(fmtAmount("euros", row.price_cents / 100))}` : ""}</span>
           ${row && !row.active ? `<span class="pill off">${tr("masqué du site", "hidden from the site")}</span>` : ""}
-          ${row ? `<a class="small" href="/admin/cours/offre/${esc(c.slug)}">${tr("Modifier", "Edit")}</a>` : ""}</div>
+          ${row ? `<span class="grow"></span><a class="button plain small" href="/admin/cours/offre/${esc(c.slug)}">${icon("edit")}${tr("Modifier", "Edit")}</a>` : ""}</div>
         ${lines ? `<table><tbody>${lines}</tbody></table>` : `<p class="muted" style="margin:0">${tr("Aucun horaire.", "No hours.")}</p>`}
         ${past ? `<p class="muted small">${tr(`${past} date(s) passée(s) masquée(s).`, `${past} past date(s) hidden.`)}</p>` : ""}
-        <details class="add"><summary>${tr("+ Ajouter un horaire", "+ Add hours")}</summary>
+        <details class="add"><summary>${icon("add")}${tr("Ajouter un horaire", "Add hours")}</summary>
         <form class="box" method="post" action="/admin/horaires/add" style="margin-top:10px">
           <input type="hidden" name="class" value="${c.id}">
           <label>${tr("Chaque semaine le", "Every week on")}<select name="day"><option value="">—</option>${dayOptions}</select></label>
@@ -1513,7 +1894,7 @@ async function horairesPage(url) {
   return shell(
     "horaires",
     tr("Horaires", "Timetable"),
-    `<div class="titlebar"><h1>${tr("Horaires", "Timetable")}</h1><a class="action" href="/admin/cours/nouveau">${tr("+ Nouveau cours", "+ New class")}</a></div>
+    `<div class="titlebar"><h1>${tr("Horaires", "Timetable")}</h1><a class="action" href="/admin/cours/nouveau">${icon("add")}${tr("Nouveau cours", "New class")}</a></div>
      <p class="muted">${tr("Les horaires des cours, tels que Cal les propose à la réservation. Les réservations déjà faites ne bougent pas.", "The classes’ hours, as Cal offers them for booking. Bookings already made don’t move.")}</p>
      ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
      <h2>${tr("Fermer des jours (vacances, jours fériés)", "Close days (holidays)")}</h2>
@@ -1867,7 +2248,7 @@ async function classEditPage(key, flash) {
     c.title_fr,
     `<p><a href="/admin/horaires#${esc(key)}">${tr("← Horaires", "← Timetable")}</a></p>
      ${flash ? `<p class="flash">${icon("check-circle")}${esc(flash)}</p>` : ""}
-     <div class="titlebar"><h1>${esc(tr(c.title_fr, c.title_en))}</h1><a class="action" href="/admin/horaires#${esc(key)}">${tr("Ses horaires", "Its hours")}</a></div>
+     <div class="titlebar"><h1>${esc(tr(c.title_fr, c.title_en))}</h1><a class="action plain" href="/admin/horaires#${esc(key)}">${icon("clock")}${tr("Ses horaires", "Its hours")}</a></div>
      <p class="muted">${c.active ? tr("Sur la page Réserver du site.", "On the site’s booking page.") : `<span class="off">${tr("Masqué : le site ne le propose plus.", "Hidden: the site no longer offers it.")}</span>`}
        ${tr("Un changement s’y voit en moins d’une minute.", "A change shows there within a minute.")}</p>
      ${c.builtin ? `<p class="muted small">${icon("exclamation-circle")} ${tr("Les pages de présentation du site (Cours, Stages, Membres, accueil) gardent leur propre texte et leurs prix : à changer à part.", "The site’s own pages (Courses, Workshops, Members, home) keep their own text and prices: change those separately.")}</p>` : ""}
@@ -1904,7 +2285,8 @@ async function sendEmail(to, subject, text) {
 // Booking confirmation: sent to the student (and info@ in copy) the moment a
 // place becomes paid. Restores what the old Acuity system already did.
 async function sendBookingConfirmation(group, name, email, amount, lang, kind) {
-  if (!email) return;
+  // No address: an extra place, or someone the studio added without one.
+  if (!email || email.endsWith(ANONYMOUS)) return;
   const en = String(lang ?? "").toLowerCase() === "en";
   // kind: "card10" | "card5" | "gift" | null (drop-in / paid by card).
   const nature = kind === "card10" ? (en ? "card · €35 per class" : "abonnement · 35 € la séance")
@@ -2320,12 +2702,14 @@ async function clientPage(id, flash) {
     db.query("SELECT * FROM rusc.history WHERE $1 <> '' AND lower(email) = $1 ORDER BY starts_at DESC", [email]),
     db.query(
       `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, b.status, e.slug, e.title, s."referenceUid" AS seat_uid,
-              k.display AS code, ps.order_id AS paid_order
+              k.display AS code, ps.order_id AS paid_order, dp.method AS desk_method, dp.amount_cents AS desk_cents, att.came
          FROM public."Attendee" a JOIN public."Booking" b ON b.id = a."bookingId" JOIN public."EventType" e ON e.id = b."eventTypeId"
          LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
          LEFT JOIN rusc.uses u ON u.seat_uid = s."referenceUid" AND u.cancelled_at IS NULL
          LEFT JOIN rusc.codes k ON k.key = u.key
          LEFT JOIN rusc.paid_seats ps ON ps.seat_uid = s."referenceUid"
+         LEFT JOIN rusc.desk_payments dp ON dp.seat_uid = s."referenceUid"
+         LEFT JOIN rusc.attendance att ON att.seat_uid = s."referenceUid"
         WHERE $1 <> '' AND lower(a.email) = $1 ORDER BY b."startTime" DESC`,
       [email],
     ),
@@ -2340,10 +2724,12 @@ async function clientPage(id, flash) {
     ...cal.rows.map((b) => ({
       at: new Date(b.starts),
       what: OFFERS[b.slug] ? offerLabel(b.slug) : b.title,
+      came: b.came,
       how: b.status !== "accepted" && b.status !== "pending"
         ? `<span class="muted">${tr("annulée", "cancelled")}</span>`
         : b.code ? `<span class="st ok">${icon("ticket")}<span>Code ${esc(b.code)}</span></span>`
         : b.paid_order ? `<span class="st ok">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</span>`
+        : b.desk_method ? deskPaid(b)
         : `<span class="muted">${tr("site", "site")}</span>`,
     })),
     ...history.rows.map((h) => ({
@@ -2354,8 +2740,9 @@ async function clientPage(id, flash) {
       how: h.canceled ? `<span class="muted">${tr("annulé sur Acuity", "cancelled on Acuity")}</span>` : payment({ ...h, history: true }),
     })),
   ].sort((x, y) => y.at - x.at);
+  const noShows = visits.filter((v) => v.came === false).length;
   const visitRows = visits
-    .map((v) => `<tr><td>${esc(fmtDateTime(v.at))}${v.at > new Date() ? ` <span class="pill">${tr("à venir", "coming")}</span>` : ""}</td><td>${esc(v.what)}${v.who && v.who.toLowerCase() !== clientName(c).toLowerCase() ? `<br><span class="muted small">${esc(v.who)}</span>` : ""}${v.notes ? `<br><span class="muted small" style="white-space:pre-wrap">${esc(v.notes)}</span>` : ""}</td><td>${v.how}</td></tr>`)
+    .map((v) => `<tr><td>${esc(fmtDateTime(v.at))}${v.at > new Date() ? ` <span class="pill">${tr("à venir", "coming")}</span>` : ""}${v.came === true ? ` <span class="pill some">${tr("venu·e", "came")}</span>` : v.came === false ? ` <span class="pill full">${tr("absent·e", "no-show")}</span>` : ""}</td><td>${esc(v.what)}${v.who && v.who.toLowerCase() !== clientName(c).toLowerCase() ? `<br><span class="muted small">${esc(v.who)}</span>` : ""}${v.notes ? `<br><span class="muted small" style="white-space:pre-wrap">${esc(v.notes)}</span>` : ""}</td><td>${v.how}</td></tr>`)
     .join("");
   const codeRows = codes.rows
     .map((k) => `<tr><td><a href="/admin/codes/${esc(k.key)}"><b>${esc(k.display)}</b></a><br><span class="muted">${esc(k.label)}</span></td>
@@ -2385,9 +2772,9 @@ async function clientPage(id, flash) {
      ${c.notes ? `<h2>${tr("Notes (Acuity)", "Notes (Acuity)")}</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
      ${Array.isArray(c.others) && c.others.length ? `<h2>${tr("Aussi à cet e-mail", "Also under this e-mail")}</h2><ul>${c.others.map((o) => `<li>${esc([o.first_name, o.last_name].filter(Boolean).join(" ") || "—")}${o.phone ? ` · <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>` : ""}${o.notes ? `<br><span class="muted" style="white-space:pre-wrap">${esc(o.notes)}</span>` : ""}</li>`).join("")}</ul>` : ""}
      <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
-     <div class="titlebar"><h2>${tr("Codes", "Codes")}</h2><a class="action" href="/admin/codes?holder=${encodeURIComponent([clientName(c), c.email].filter(Boolean).join(" · "))}#nouveau">${tr("+ Nouveau code", "+ New code")}</a></div>
+     <div class="titlebar"><h2>${tr("Codes", "Codes")}</h2><a class="action" href="/admin/codes?holder=${encodeURIComponent([clientName(c), c.email].filter(Boolean).join(" · "))}#nouveau">${icon("add")}${tr("Nouveau code", "New code")}</a></div>
      ${codeRows ? `<table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th></tr></thead><tbody>${codeRows}</tbody></table>` : `<p class="muted">${tr("Aucun code à son nom.", "No codes in their name.")}</p>`}
-     <h2>${tr("Réservations", "Bookings")} (${visits.length})</h2>
+     <h2>${tr("Réservations", "Bookings")} (${visits.length})${noShows ? ` <span class="pill full">${noShows} ${tr(noShows > 1 ? "absences" : "absence", noShows > 1 ? "no-shows" : "no-show")}</span>` : ""}</h2>
      ${visitRows ? `<table><thead><tr><th>${tr("Quand", "When")}</th><th>${tr("Cours", "Class")}</th><th>${tr("Paiement", "Payment")}</th></tr></thead><tbody>${visitRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}
      <h2>${tr("Commandes", "Orders")}</h2>
      ${orderRows ? `<table><thead><tr><th>Date</th><th>${tr("Achat", "Bought")}</th><th>Total</th></tr></thead><tbody>${orderRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}`,
@@ -2461,7 +2848,7 @@ async function adminHome(url) {
     "codes",
     "Codes",
     `<h1>Codes</h1><p class="muted">${tr("Carnets, bons cadeaux et codes de l’atelier. Un client utilise son code sur la page Réserver du site : chaque réservation est déduite ici.", "Class cards, gift vouchers and studio codes. A customer uses their code on the site’s booking page: each booking is taken off here.")}</p>
-     <details class="new" id="nouveau"${["preset", "nouveau", "holder"].some((k) => url.searchParams.has(k)) ? " open" : ""}><summary>${tr("+ Nouveau code", "+ New code")}</summary>
+     <details class="new" id="nouveau"${["preset", "nouveau", "holder"].some((k) => url.searchParams.has(k)) ? " open" : ""}><summary>${icon("add")}${tr("Nouveau code", "New code")}</summary>
        ${newCodeForm(url.searchParams.get("preset"), String(url.searchParams.get("holder") ?? "").slice(0, 120))}</details>
      <h2>${tr("Tous les codes", "All codes")}</h2>
      <form class="search" method="get" action="/admin/codes"><span class="field">${icon("magnifying-glass")}<input name="q" type="search" value="${esc(q)}" placeholder="${tr("Chercher un code, un client, un type", "Search a code, a customer, a type")}" aria-label="${tr("Chercher", "Search")}"></span><button class="plain">${tr("Chercher", "Search")}</button></form>
@@ -2733,6 +3120,22 @@ async function handle(req, res, url) {
         if (clientAction && clientAction[2] === "member") {
           await clientMembership(clientAction[1], form);
           return send(res, 303, "", { location: `/admin/clients/${clientAction[1]}?saved=1` });
+        }
+        if (url.pathname === "/admin/cours/ajouter") {
+          const { refused: why } = await addPerson(form);
+          return send(res, 303, "", { location: coursBack(form, why ? "code" : "added", why) });
+        }
+        if (url.pathname === "/admin/places/paid") {
+          await placePaid(form);
+          return send(res, 303, "", { location: coursBack(form, "paid") });
+        }
+        if (url.pathname === "/admin/places/unpaid") {
+          await placeUnpaid(form);
+          return send(res, 303, "", { location: coursBack(form, "undone") });
+        }
+        if (url.pathname === "/admin/places/presence") {
+          await placePresence(form);
+          return send(res, 303, "", { location: coursBack(form) });
         }
         if (url.pathname === "/admin/horaires/add") {
           const slug = await horairesAdd(form);

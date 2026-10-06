@@ -50,6 +50,11 @@ Keep this section current; the migration log below keeps the history.
   - Horaires (step 29);
   - **+ Nouveau cours** (step 36): the studio creates a class (names FR/EN, price, length, places, photo, codes it takes, first session). rūsc admin makes its Cal event type like the seed script does; the booking page, cart, checkout, codes, Cours and Horaires all take it in.
   - **Modifier** (step 37): the same form edits the nine built-in classes too (names, price line, price, photo, description, length, places; hide). The site's own pages (Cours, Stages, Membres, home) keep their hand-written prices.
+  - **At the desk** (step 45), in Cours:
+    - "Encaisser" records a place paid at the studio (cash, card or offered);
+    - "Venu·e / Absent·e" ticks who came, and a client's page counts their no-shows;
+    - "Ajouter" books someone into a class (phone or walk-in) without Cal's booker, paid later, at once, or with a code.
+  - Look (step 44): Geist, white cards on the warm canvas, pill controls, tinted badges, Iconsax icons (as on the site).
 - **Acuity continuity:**
   - 46 codes still worth something, and the 1 upcoming booking;
   - the whole history: 1,616 appointments, 216 orders, 730 clients plus 92 people under shared e-mails (step 30, `scripts/continuity/README.md`);
@@ -712,3 +717,63 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - Codes: search and list first; "+ Nouveau code" unfolds the form (open when a preset or a client is given, and the preset switch keeps them); each balance has a small meter (a notch per class or hour, or a bar), also on a code's page and in a client's codes. A client's page has "+ Nouveau code" with their name and e-mail filled in. Pausing a code and taking a class off the site ask for confirmation.
   - Polish: quiet row hover, a visible keyboard focus, saved notes and opened forms settle in (off for reduced motion).
 - **Checked** in the preview: every page at 390 and 1280 px fits and has no layout shift; FR and EN; the folds open; the confirmations are on Retirer and Fermer but not on Rouvrir; the client shortcut opens the form with the holder filled.
+
+### 44. rūsc admin: a modern look, Iconsax icons (2026-10-06)
+- **Owner's request:** "improve UI system to look less like 90s and use icons where u see fit, Iconsax". Design skill `match-fekry-design`, utility mode.
+- **Style** (`STYLE` in `deploy/admin/server.mjs`, rewritten around tokens on `:root`):
+  - Geist and Geist Mono (Google Fonts) instead of the system font, with tabular figures;
+  - the same warm canvas and green accent; white cards with hairline borders, 12–14 px corners and a faint shadow for list tables, class boxes, forms and the month calendar (one card, 1 px lines between days, today's date in a green dot);
+  - pill buttons and inputs with a focus ring;
+  - tinted badges for states: green paid, orange to pay or full, grey neutral;
+  - table headers in sentence case.
+- **Header:** sticky and blurred over the page, outside `<main>`. The menu is a pill switcher with an icon per section (on phones, a five-column tab bar under the logo). FR · EN is a small pill, and sign-out is an icon button. List · Calendar is the same kind of switch, with "Nouveau cours" beside it.
+- **Icons:** Iconsax, Linear set (MIT, the site's `iconsax-reactjs`), rendered once to path data and inlined in `ICONS`. They replace the Heroicons, keep their old keys (`check-circle`, `ticket`, …), and add the menu's, add, edit, trash, undo, sign-out and the desk actions'. Buttons that act (Nouveau cours / code, Ajouter un horaire, Modifier, Retirer, Rouvrir, Ses horaires) carry one.
+- **Sign-in:** one centred card, the logo and FR · EN above it.
+
+### 45. rūsc admin: paid at the desk, attendance, adding someone (2026-10-06)
+- **Owner's request:** integrate three features offered after step 43:
+  - mark a place paid at the studio (an unpaid place stayed "à régler" for ever);
+  - add someone to a class from the admin, for phone or walk-in bookings, without going into Cal;
+  - attendance, ticking who came, to spot no-shows.
+- **Database** (`schema.sql`, under `rusc_codes`):
+  - `rusc.desk_payments`: one row per Cal seat, with method `cash` / `card` / `free` and the amount in cents.
+  - `rusc.attendance`: one row per seat, `came` true or false.
+  - Grants: insert on `Booking` and its sequence.
+- **Paid at the desk.** "Encaisser" under any place still to pay (method, amount pre-filled with the class price) records it and confirms the Cal booking, as a code does. The place then reads "Payé à l'atelier · espèces · 50 €" (or "Offert à l'atelier"), with "Annuler" (asks first). A place already paid (online, code, desk, or on Acuity) is refused; an Acuity place "à régler" can be paid.
+  - `PAID_SEAT` counts desk payments, so the cart, holds, checkout and the member's space treat them as paid.
+  - Rrose's dormant clean-up (`cancelUnpaidPending`) skips them too.
+  - The team calendar feed says "Payé à l'atelier" or "Offert".
+- **Attendance.** From the day of a class, each person has a "Venu·e / Absent·e" switch (pressing the lit one clears it). The class's head counts them ("3 venu·es · 1 absent·e"). A client's page tags each booking and counts their no-shows next to "Réservations".
+- **Adding someone.** "Ajouter" on any class of ours, today or later, with places left, opens a form with these fields:
+  - name;
+  - e-mail and phone (optional);
+  - places;
+  - payment: to pay later, paid (cash, card), or offered;
+  - or a code.
+
+  How it books:
+  - The person joins the class's Cal booking at that time, as everyone in a class shares one, and it becomes accepted. If there is none, a new accepted booking is made, the way `acuity-apply.sql` made Acuity's.
+  - Extra places are seats linked to theirs, as the cart's are.
+  - Without an e-mail, the attendee gets an `@anonymous.invalid` placeholder: no contact shown, not added to Clients, no e-mail sent (`sendBookingConfirmation` now skips those addresses).
+  - A code is checked for every place before anything is booked, so a typo books nobody; then it's taken off per place as on the site.
+  - Unpaid, the place reads "à régler à l'atelier".
+  - Each form returns to its page and class with a short note.
+- **Also:** class anchors include the date (`c20261007-1600-atelier-modelage-2h`), since the list shows the same class on several days.
+- **Checked** against a local Postgres:
+  - Setup: Cal's tables and Cal's own `BookingDenormalized` triggers (from the pinned Cal.diy migration), the real `schema.sql` (run twice), and rūsc admin connected as `rusc_codes`.
+  - Adding someone:
+    - a new booking in Paris time, accepted, with its `BookingDenormalized` row;
+    - joining a cart's pending booking, which becomes accepted;
+    - a full class refused, a past day refused;
+    - a carnet paying 1 and then 3 places (10 → 9 → 6);
+    - an unknown code booking nobody.
+  - Payments and attendance:
+    - cash for 2 places, card with "45,50", offered;
+    - paying twice and a bad amount refused;
+    - undo;
+    - came, no-show, clear;
+    - `/api/places` counting a desk-paid place as paid.
+  - In the browser (a local copy accepting the http origin, deleted after): the switch, "Encaisser" and "Ajouter" by real clicks, each returning to its class with its note. FR and EN.
+  - Preview (made-up data): every page at 390 and 1280 px, no sideways scroll.
+- **Not done:** no e-mail goes to someone the studio adds (bookings made outside Cal's booker send none, and Resend isn't verified yet). Paying at the desk doesn't create an order in Commandes; the place's own line says how it was paid.
+

@@ -6,12 +6,18 @@ The menu:
 - **Cours / Classes:** from Cal's bookings and timetable. For each class: who's coming (name, email, tap-to-call phone), places taken, and how each person paid:
   - with a code;
   - paid online;
+  - paid at the studio (cash, card, or offered);
   - booked on Acuity before the switch (code, paid, or to pay);
   - still to pay.
 
+  At the desk (step 45 in `AGENTS.md`):
+  - **Encaisser** under a place still to pay records it paid at the studio (`rusc.desk_payments`) and confirms the Cal booking; **Annuler** undoes it.
+  - **Venu·e / Absent·e**, from the day of the class, ticks who came (`rusc.attendance`). The class's head counts them, and a client's page counts their no-shows.
+  - **Ajouter** (any class of ours, today or later, with places left) books someone straight into the class's Cal booking, or makes one: name, optional e-mail and phone, places, paid later / at once / offered, or a code (checked first, then taken off as on the site).
+
   Three views:
   - **List** (`/admin/cours`): the coming 14 or 30 days.
-  - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. A green edge means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
+  - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. Green means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
   - **Day** (`?jour=YYYY-MM-DD`): one day's classes and everyone booked, past or coming. The calendar opens it.
 - **Clients:** everyone the studio knows. That's Acuity's client list and history, then everyone who books, buys or opens an account (added every few minutes). A client's page shows:
   - contact, and the studio's notes from Acuity;
@@ -107,19 +113,23 @@ In the desktop app, use the launch config `admin-preview` instead. It serves `se
 
 ## Look
 
-Utility first:
-- warm off-white page (`--bg`) and one green accent (`--accent`), set in `STYLE`;
-- orange (`--warn`) only for what needs action: to pay, full, paused.
+Utility first (the owner's design skill `match-fekry-design`, utility mode). The tokens are on `:root` in `STYLE`:
+- a warm off-white page (`--bg`) and white cards (`--surface`) with hairline borders (`--line`);
+- one green accent (`--accent`);
+- orange (`--warn`) only for what needs action: to pay, full, paused, a no-show.
+- Geist and Geist Mono, loaded from Google Fonts.
+- Controls are pills with a focus ring (`--ring`). States are tinted badges (`.st.ok`, `.st.off`, `.pill.some`, `.pill.full`).
+- The header is sticky, with the menu as a pill switcher (a tab bar on phones).
 
-**Icons:** [Heroicons](https://heroicons.com) 2.2 (MIT), inlined as path data in `ICONS` and drawn with `icon(name, label?)`. Add one only where it carries meaning:
-- a payment state (ticket, check, alert);
-- a kind of contact (e-mail, phone);
-- a control (previous/next arrows, the List / Calendar switch, copy);
-- the search field, where a code comes from, a notice.
+**Icons:** [Iconsax](https://iconsax.io), Linear set (MIT), the same set as the site. Each is inlined as path data in `ICONS` (24 × 24, stroked) and drawn with `icon(name, label?, size?)`. Add one only where it carries meaning:
+- a payment state;
+- a kind of contact;
+- a menu section;
+- a control (arrows, switches, copy);
+- an action button;
+- where a code comes from.
 
-Menus, calendar entries and plain buttons stay text. Take new icons from the npm package `heroicons`:
-- `16/solid` (micro) next to text;
-- `20/solid` (mini) in the round `.ibtn` buttons.
+To add one, render it from the site's `iconsax-reactjs` with `react-dom/server` (`renderToStaticMarkup(<Icon variant="Linear" color="currentColor" />)`) and keep the inner paths.
 
 ## Setup (done 2026-09-24; first deployed as `rusc-codes`, renamed `rusc-admin` the same day)
 

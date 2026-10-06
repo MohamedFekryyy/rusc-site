@@ -45,14 +45,18 @@ const at = (d, hm) => {
 const T = { slug: "atelier-ceramique-2h", title: "tournage 2h", seats: 7 };
 const M = { slug: "atelier-modelage-2h", title: "modelage 2h", seats: 8 };
 const L = { slug: "atelier-libre-1h", title: "atelier libre", seats: 7 };
-const person = (i, more = {}) => ({ name: `Personne ${i}`, email: `personne${i}@example.invalid`, phone: null, seat_uid: `seat-${i}`, code: null, paid_order: null, acuity_pay: null, ...more });
+const person = (i, more = {}) => ({ name: `Personne ${i}`, email: `personne${i}@example.invalid`, phone: null, seat_uid: `seat-${i}`, code: null, paid_order: null, acuity_pay: null, desk_method: null, came: null, ...more });
 const bookings = [
-  { starts: at(day(-1), "18:00"), ...T, ...person(1, { code: "RUSC-AB12-CD34", code_amount: "1", code_unit: "sessions" }) },
+  { starts: at(day(-1), "18:00"), ...T, ...person(1, { code: "RUSC-AB12-CD34", code_amount: "1", code_unit: "sessions", came: true }) },
   { starts: at(day(0), "14:00"), ...L, ...person(2, { acuity_pay: "code ABCD1234" }) },
   { starts: at(day(1), "17:00"), ...T, ...person(3, { paid_order: "cs_sample_1", phone: "+33 6 12 34 56 78" }) },
   { starts: at(day(1), "17:00"), ...T, ...person(4, { acuity_pay: "payé 50.00" }) },
   { starts: at(day(2), "16:00"), ...M, ...person(5, { acuity_pay: "à régler" }) },
   ...[6, 7, 8, 9, 10, 11, 12].map((i) => ({ starts: at(day(3), "18:30"), ...T, ...person(i) })),
+  // Today at the desk: paid in cash and came, a no-show, one still to pay.
+  { starts: at(day(0), "18:00"), ...M, ...person(16, { desk_method: "cash", desk_cents: 5000, came: true, phone: "+33 6 98 76 54 32" }) },
+  { starts: at(day(0), "18:00"), ...M, ...person(17, { came: false }) },
+  { starts: at(day(0), "18:00"), ...M, ...person(18, { email: `sans-email-18@anonymous.invalid`, phone: "+33 7 11 22 33 44" }) },
 ];
 const weekly = (slug, title, seats, days, start, end) => ({ slug, title, seats, days, date: null, start: `${start}:00`, end: `${end}:00` });
 const timetable = [

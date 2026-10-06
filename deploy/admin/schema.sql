@@ -33,6 +33,11 @@ GRANT USAGE, SELECT ON SEQUENCE public."Schedule_id_seq" TO rusc_codes;
 GRANT SELECT, INSERT ON public."_user_eventtype" TO rusc_codes;
 GRANT SELECT, INSERT, DELETE ON public."EventTypeTranslation" TO rusc_codes;
 GRANT UPDATE ("eventLength") ON public."BookingDenormalized" TO rusc_codes;
+-- Cours → "Ajouter quelqu’un": the studio books a person into a class (by
+-- phone, at the desk). They join the class's Cal booking at that time, or a
+-- new one is made, as scripts/continuity/acuity-apply.sql makes Acuity's.
+GRANT INSERT ON public."Booking" TO rusc_codes;
+GRANT USAGE, SELECT ON SEQUENCE public."Booking_id_seq" TO rusc_codes;
 
 SET ROLE rusc_codes;
 
@@ -301,5 +306,22 @@ SELECT v.key, e.id, true, v.title_fr, v.title_en, v.tag_fr, v.tag_en, v.note_fr,
   JOIN public."EventType" e ON e.slug = v.key AND e."userId" = (SELECT id FROM public.users WHERE username = 'raquel')
   LEFT JOIN public."EventTypeTranslation" t ON t."eventTypeId" = e.id AND t.field = 'DESCRIPTION' AND t."targetLocale" = 'en'
 ON CONFLICT (key) DO NOTHING;
+
+-- A place paid at the studio (cash or card at the desk, or offered): one row
+-- per Cal seat, like rusc.paid_seats for card payments online.
+CREATE TABLE IF NOT EXISTS rusc.desk_payments (
+  seat_uid text PRIMARY KEY,
+  method text NOT NULL CHECK (method IN ('cash', 'card', 'free')),
+  amount_cents integer CHECK (amount_cents >= 0),
+  offer text,
+  paid_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Who came: ticked in Cours on the day, to spot no-shows. One row per Cal seat.
+CREATE TABLE IF NOT EXISTS rusc.attendance (
+  seat_uid text PRIMARY KEY,
+  came boolean NOT NULL,
+  marked_at timestamptz NOT NULL DEFAULT now()
+);
 
 RESET ROLE;
