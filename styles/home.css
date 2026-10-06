@@ -4,9 +4,9 @@ h1,h2,h3,.display{font-family:var(--display);font-weight:400;line-height:1.15}
 
 /* NAV */
 header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.nav{display:flex;align-items:center;gap:12px;padding:12px 0;position:relative}
+.nav{display:flex;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px;position:relative}
 .nav-left{display:flex;justify-content:flex-start;flex:0 0 auto;position:relative;z-index:1}
-.nav-right{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex:0 0 auto;margin-left:auto;position:relative;z-index:1}
+.nav-right{display:flex;justify-content:flex-end;align-items:center;gap:20px;flex:0 0 auto;margin-left:auto;position:relative;z-index:1}
 .nav .logo{display:flex;align-items:center;text-align:left;padding:0 8px;min-width:0;margin-right:auto}
 .nav .logo img{height:28px;width:auto;max-width:240px;object-fit:contain;display:block}
 .nav a{color:var(--ink);text-decoration:none;font-size:12px;letter-spacing:.09em;text-transform:uppercase;transition:color .2s;white-space:nowrap}
@@ -16,7 +16,7 @@ header{position:sticky;top:0;z-index:70;background:rgba(227,229,215,.93);backdro
 .lang a.on{background:var(--accent);color:var(--bg)}
 .cta{border:1px solid var(--ink);padding:9px 16px;transition:all .2s}
 .cta:hover{background:var(--ink);color:var(--bg)!important}
-.auth,.cart{font-size:12px;letter-spacing:.07em;padding:9px 2px}
+.auth,.cart{font-size:12px;letter-spacing:.07em;padding:9px 0}
 .auth[aria-disabled],.cart[aria-disabled]{color:var(--muted);cursor:default}
 
 /* Burger (always visible; opens the panel) */
@@ -207,8 +207,8 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 
 /* Nav responsiveness: keep the right cluster from overflowing on small screens. */
 @media(max-width:820px){
-  .nav{gap:8px;padding:10px 0}
-  .nav-right{gap:6px}
+  .nav{gap:8px;padding-top:10px;padding-bottom:10px}
+  .nav-right{gap:14px}
   .nav .logo img{height:24px;max-width:180px}
   .cta{padding:8px 12px}
   .auth,.cart{padding:8px 0}
@@ -224,7 +224,7 @@ footer .copy{margin-top:28px;font-size:11px;letter-spacing:.22em;text-transform:
 @media(max-width:640px){
   /* Keep FR/EN + Réserver + Connexion + Panier all visible; compact so
      nothing overflows. */
-  .nav-right{gap:4px}
+  .nav-right{gap:10px}
   .nav .logo-word{font-size:15px;letter-spacing:.02em}
   .nav-right .lang.lang-top a{padding:3px 6px;font-size:10px}
   .nav-right .cta{padding:6px 8px;font-size:10px;letter-spacing:.04em}

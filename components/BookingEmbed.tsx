@@ -470,10 +470,12 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
     });
     cal.ns[ns]("inline", {
       elementOrSelector: el,
+      // The page's language goes once, on the calLink (?lang=): the embed
+      // turns config keys into query parameters too, and a second lang made
+      // Cal read it as a list and fall back to French labels on the English
+      // page (booker-lang.patch reads a single value).
       calLink: offerCalLink(sessionKey, lang),
-      // Force the booker to the page's language (calLink's event types are
-      // already translated); otherwise Cal follows the visitor's browser.
-      config: { layout: "month_view", theme: "light", lang, ...(member ? { name: member.name, email: member.email } : {}) },
+      config: { layout: "month_view", theme: "light", ...(member ? { name: member.name, email: member.email } : {}) },
     });
     return () => {
       activeNs.current = null;
