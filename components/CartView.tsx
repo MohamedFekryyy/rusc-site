@@ -6,7 +6,7 @@ import { Add, ArrowLeft, Minus } from "iconsax-reactjs";
 import { offerByKey } from "@/lib/cal";
 import { applyCode, cart, cartTotal, clearAppliedCode, linePrice, useAppliedCode, useCart } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
-import { formatBalance, orderCodes, type OrderCodes } from "@/lib/codes";
+import { checkCode, formatBalance, orderCodes, redeemCode, type CodeResult, type OrderCodes } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatPrice, formatSlot, formatTime } from "@/lib/format";
 import { getToken } from "@/lib/auth";
@@ -39,7 +39,23 @@ const TEXT = {
     codeRemove: "Retirer",
     codePlaceholder: "Vous avez un code ? Ex. RUSC-XXXX-XXXX",
     codeApply: "Utiliser ce code",
-    codeHint: "Un bon cadeau d’un montant peut régler une partie de votre panier ; le reste est payé par carte.",
+    codeHint: "Un carnet ou une carte d’atelier libre règle vos créneaux ; un bon cadeau d’un montant, une partie du panier (le reste par carte).",
+    codeChecking: "On vérifie…",
+    codeBalance: (left: string) => `${left} disponibles, déduits au paiement`,
+    codePaid: (paid: string, left: string) => `Votre code a réglé ${paid} : c’est confirmé. Il vous reste ${left}.`,
+    codeErrors: {
+      unknown: "Code inconnu.",
+      expired: "Ce code a expiré.",
+      not_for_this_class: "Ce code n’est valable pour aucun cours de votre panier.",
+      insufficient: "Le solde de ce code ne suffit pas pour ces créneaux.",
+      empty: "Ce code est épuisé.",
+      classesOnly: "Ce code règle des cours : il s’utilise sur un créneau réservé, pas sur les carnets ni les bons.",
+      too_many: "Trop d’essais : réessayez dans quelques minutes.",
+      error: "Vérification impossible pour le moment, réessayez.",
+    } as Record<string, string>,
+    codeDropped: "Ce code ne pouvait pas régler le panier : il a été retiré. Saisissez-le à nouveau ci-dessous.",
+    codeCoversFull: "Votre bon couvre tout le panier, mais le paiement en ligne a besoin d’un reste à payer. Écrivez-nous : l’atelier valide la commande avec vous.",
+    payFailed: "Le paiement n’a pas pu s’ouvrir. Réessayez dans un instant ; si cela continue, écrivez-nous.",
     lessPlace: "Une place de moins",
     morePlace: "Une place de plus",
     heldUntil: (time: string, many: boolean) =>
@@ -75,7 +91,23 @@ const TEXT = {
     codeRemove: "Remove",
     codePlaceholder: "Have a code? e.g. RUSC-XXXX-XXXX",
     codeApply: "Use this code",
-    codeHint: "A gift voucher of an amount can pay for part of your cart; the rest is paid by card.",
+    codeHint: "A class pass or open-studio card pays for your slots; a gift voucher of an amount pays part of the cart (the rest by card).",
+    codeChecking: "Checking…",
+    codeBalance: (left: string) => `${left} available, taken off at payment`,
+    codePaid: (paid: string, left: string) => `Your code paid for ${paid}, so it’s confirmed. ${left} left.`,
+    codeErrors: {
+      unknown: "Unknown code.",
+      expired: "This code has expired.",
+      not_for_this_class: "This code isn’t valid for any class in your cart.",
+      insufficient: "This code’s balance doesn’t cover these slots.",
+      empty: "This code is used up.",
+      classesOnly: "This code pays for classes: use it on a booked slot, not on cards or vouchers.",
+      too_many: "Too many tries: please try again in a few minutes.",
+      error: "Can’t check codes right now, please try again.",
+    } as Record<string, string>,
+    codeDropped: "This code couldn’t pay for the cart, so it was removed. Enter it again below.",
+    codeCoversFull: "Your voucher covers the whole cart, but online payment needs something left to pay. Write to us and the studio will confirm the order with you.",
+    payFailed: "Payment couldn’t open. Please try again in a moment; if it keeps happening, write to us.",
     lessPlace: "One place less",
     morePlace: "One more place",
     heldUntil: (time: string, many: boolean) =>
@@ -105,6 +137,41 @@ const textButton: CSSProperties = {
 
 type Stage = "cart" | "checkout" | "done" | "unavailable";
 
+// A class that a code is asked about: one in the cart if there is one (a code
+// for other classes then says so), else any (the code's kind is what matters).
+function probeOffer() {
+  return cart.items().find((i) => i.booking)?.key ?? "atelier-ceramique-2h";
+}
+
+// A carnet or open-studio card typed in the cart pays for the classes in it,
+// place by place, as on the booking page: the booker's own place first, then
+// friends' and later hours (rūsc admin takes each off the code and confirms
+// it). It stops when the code runs out; what's left stays in the cart.
+async function payPlacesWithCode(code: string, offers: string[] | undefined) {
+  const seats = cart.items().map((i) => i.booking?.seat).filter((s): s is string => !!s);
+  const states = seats.length ? await placesState(seats) : [];
+  if (!states) return { matched: false, used: 0, last: null, reason: "error" };
+  let matched = false;
+  let used = 0;
+  let last: CodeResult | null = null;
+  let reason: string | undefined;
+  for (const state of states) {
+    if (!state.ok || !state.unpaid || !state.seat || (offers && !offers.includes(state.offer ?? ""))) continue;
+    matched = true;
+    const extras = state.extras ?? [];
+    for (const seat of [...(state.unpaid > extras.length ? [state.seat] : []), ...extras]) {
+      const result = await redeemCode(code, seat);
+      if (!result.ok) {
+        reason = result.reason;
+        return { matched, used, last, reason };
+      }
+      used += result.used ?? 0;
+      last = result;
+    }
+  }
+  return { matched, used, last, reason };
+}
+
 // The cart page: lines, quantities, total, then Stripe's checkout embedded in
 // the page (redirect_on_completion "never": the thanks appear in place).
 export default function CartView({ lang }: { lang: Lang }) {
@@ -116,6 +183,10 @@ export default function CartView({ lang }: { lang: Lang }) {
     appliedCodeRef.current = appliedCode;
   }, [appliedCode]);
   const [codeInput, setCodeInput] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  // The applied gift voucher, as rūsc admin last answered for it (its balance).
+  const [codeBalance, setCodeBalance] = useState<(CodeResult & { applied: string }) | null>(null);
   const [stage, setStage] = useState<Stage>("cart");
   const checkoutRef = useRef<HTMLDivElement>(null);
   // "Payer directement" on a booking page lands here with ?pay=1 and skips the
@@ -197,6 +268,61 @@ export default function CartView({ lang }: { lang: Lang }) {
     setNotice(state.note === "full" ? t.full : null);
   }
 
+  // A code typed in the cart. A carnet or an open-studio card pays for the
+  // classes here at once (payPlacesWithCode); a gift voucher of an amount stays
+  // applied and pays part of the total at checkout (W3).
+  async function submitCode(raw: string) {
+    const value = raw.trim();
+    if (!value || codeBusy) return;
+    setCodeBusy(true);
+    setCodeError(null);
+    setNotice(null);
+    const info = await checkCode(value, probeOffer());
+    let error: string | null = null;
+    if (!info.unit) {
+      error = info.reason ?? "error";
+    } else if (info.reason === "expired" || info.reason === "empty") {
+      error = info.reason;
+    } else if (info.unit === "euros") {
+      setCodeBalance({ ...info, applied: value });
+      applyCode(value);
+      setCodeInput("");
+    } else if (!items.some((i) => i.booking?.seat)) {
+      error = "classesOnly";
+    } else {
+      const { matched, used, last, reason } = await payPlacesWithCode(value, info.offers);
+      if (!matched) error = "not_for_this_class";
+      else if (!used || !last) error = reason ?? "error";
+      else {
+        setNotice(t.codePaid(formatBalance({ ...last, remaining: used }, lang), formatBalance(last, lang)));
+        setCodeInput("");
+      }
+      // Paid places leave the cart; any left unpaid stay, with their count.
+      setRefresh((n) => n + 1);
+    }
+    setCodeBusy(false);
+    if (error) setCodeError(t.codeErrors[error] ?? t.codeErrors.error);
+  }
+
+  // The applied voucher, checked again on load: one that can't pay at checkout
+  // (unknown, used up, expired, or a carnet kept from before) leaves the cart.
+  useEffect(() => {
+    if (!appliedCode || codeBalance?.applied === appliedCode) return;
+    let alive = true;
+    checkCode(appliedCode, probeOffer()).then((info) => {
+      if (!alive) return;
+      if (info.unit === "euros" && info.reason !== "expired" && info.reason !== "empty") {
+        setCodeBalance({ ...info, applied: appliedCode });
+      } else if (info.unit || info.reason === "unknown") {
+        clearAppliedCode();
+        setNotice(t.codeDropped);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [appliedCode, codeBalance, t]);
+
   useEffect(() => {
     const host = checkoutRef.current;
     if (stage !== "checkout" || !host || !PUBLISHABLE_KEY) return;
@@ -217,25 +343,33 @@ export default function CartView({ lang }: { lang: Lang }) {
               // The applied code (W3) pays for part of product totals.
               body: JSON.stringify({ lang, items: cart.items(), token: getToken(), code: appliedCodeRef.current }),
             });
-            // A place was freed meanwhile: back to the cart, which checks again.
-            if (res.status === 409) {
-              cancelled = true;
-              setNotice(t.placesGone);
-              setStage("cart");
-              setRefresh((n) => n + 1);
-            }
-            // A members-only item (open studio) in the cart of a non-member.
-            if (res.status === 400) {
+            // No checkout: back to the cart, which checks again and says why.
+            // (Thrown into Stripe's frame, it only reads "Something went wrong".)
+            if (!res.ok) {
               let err = "";
               try { err = ((await res.json()) as { error?: string }).error ?? ""; } catch { err = ""; }
-              if (err === "members_only") {
-                cancelled = true;
+              cancelled = true;
+              if (res.status === 409) {
+                // A place was freed meanwhile.
+                setNotice(t.placesGone);
+              } else if (err === "members_only") {
+                // A members-only item (open studio) in the cart of a non-member.
                 setNotice(items.some((i) => offerByKey(i.key)?.kind === "session") ? t.membersOnlySeat : t.membersOnly);
-                setStage("cart");
-                setRefresh((n) => n + 1);
+              } else if (err === "code_covers_full") {
+                setNotice(t.codeCoversFull);
+              } else if (err.startsWith("code_") || ["inactive", "expired", "empty"].includes(err)) {
+                // The applied code can't pay (a carnet kept from before, used up…).
+                clearAppliedCode();
+                setNotice(t.codeDropped);
+              } else {
+                setNotice(t.payFailed);
               }
+              setStage("cart");
+              setRefresh((n) => n + 1);
+              // Leaving the checkout destroys Stripe's frame: nothing to hand it
+              // (an error thrown here only shows up as uncaught in the console).
+              return new Promise<string>(() => {});
             }
-            if (!res.ok) throw new Error(`checkout ${res.status}`);
             const data = (await res.json()) as { clientSecret: string; id: string; codeCovered: { code: string; cents: number } | null };
             orderRef.current = data.id;
             setCovered(data.codeCovered);
@@ -427,6 +561,7 @@ export default function CartView({ lang }: { lang: Lang }) {
             <div style={{ textAlign: "center" }}>
               <span style={{ color: "var(--muted)", fontSize: "14px" }}>
                 {t.codeApplied} <code style={{ fontFamily: "ui-monospace, Menlo, monospace" }}>{appliedCode}</code>
+                {codeBalance?.applied === appliedCode && ` · ${t.codeBalance(formatBalance(codeBalance, lang))}`}
               </span>{" "}
               <button type="button" style={textButton} onClick={clearAppliedCode}>{t.codeRemove}</button>
             </div>
@@ -435,18 +570,23 @@ export default function CartView({ lang }: { lang: Lang }) {
               style={{ display: "flex", gap: "8px", justifyContent: "center", alignItems: "stretch" }}
               onSubmit={(e) => {
                 e.preventDefault();
-                if (codeInput.trim()) applyCode(codeInput);
+                submitCode(codeInput);
               }}
             >
               <input
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value)}
                 placeholder={t.codePlaceholder}
+                autoComplete="off"
+                spellCheck={false}
                 style={{ padding: "8px 12px", border: "1px solid var(--line)", borderBottom: "none", background: "#fff", color: "var(--ink)", font: "inherit", flex: "1 1 auto", minWidth: "0" }}
               />
-              <button type="submit" className="btn guest" style={{ whiteSpace: "nowrap" }}>{t.codeApply}</button>
+              <button type="submit" className="btn guest" style={{ whiteSpace: "nowrap" }} disabled={codeBusy}>
+                {codeBusy ? t.codeChecking : t.codeApply}
+              </button>
             </form>
           )}
+          {codeError && <p role="alert" style={{ ...note, margin: "10px 0 0", color: "var(--ochre)" }}>{codeError}</p>}
           <p style={{ ...note, margin: "10px 0 0" }}>{t.codeHint}</p>
         </div>
       )}

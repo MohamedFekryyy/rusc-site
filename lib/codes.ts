@@ -15,6 +15,9 @@ export type CodeResult = {
   unit?: CodeUnit;
   remaining?: number;
   expiresOn?: string | null;
+  // The classes it pays for (offer keys), and what a redeem just took off it.
+  offers?: string[];
+  used?: number;
 };
 
 async function post(path: string, body: unknown): Promise<CodeResult> {
