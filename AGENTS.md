@@ -30,7 +30,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-10-06)
+## Where things stand (updated 2026-10-07)
 
 Keep this section current; the migration log below keeps the history.
 
@@ -40,6 +40,7 @@ Keep this section current; the migration log below keeps the history.
 - **Places** (step 34): a class booked on the site goes to the cart, its places held 30 minutes (40 while paying), then freed unless paid. "Nombre de places" in the booker and + / − in the cart add or remove places for friends, up to the class's seats; "Retirer" frees them at once. Payment is per place (`rusc.paid_seats`, codes, Acuity). Open studio: members pick 1–4 hours in a row, and the cart holds them as one line (step 47).
 - **Payments:** Stripe, live mode, account "Studio-rusc". Both keys are in Vercel. The webhook `we_1UIvjEBwkJn18YegcHTOBfMr` → `https://rusc-admin.fly.dev/stripe/webhook`. Until 2026-10-03 the webhook failed on any cart with a class (step 34); no real order had been paid yet.
 - **Member price and codes in the cart** (Rrose, 2026-10-01, `64228bb`, `ef0afbd`; not yet checked end to end): signed-in members get 10% off classes and carnets at checkout (`lib/pricing.ts`; `MEMBER_DISCOUNT_PERCENT=0` in Vercel turns it off), and a euro code can pay part of a cart.
+- **Codes in the cart** (step 48): a carnet or an open-studio hours card typed in the cart pays for its classes there at once, place by place and hour by hour; a euro voucher pays part of the total at checkout. A checkout that can't open goes back to the cart with the reason, never Stripe's "Something went wrong".
 - **Gift vouchers:** fixed ones, and one of any amount (10–1,000 €, step 32), which becomes a euro code for every class.
 - **Member accounts** (`/connexion/`, `/en/login/`): sign-up, sign-in, and the member's space (membership, coming classes, codes, past classes including Acuity's). The booking page fills in a signed-in member's name and e-mail (step 31).
 - **rūsc admin** (`rusc-admin` on Fly), in French and English:
@@ -847,4 +848,17 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Deployed** (`d52beef8`): rūsc admin on Fly first, then the site (Vercel success).
   - Live, rūsc admin's `/health`, `/api/classes` and `/api/places` answer 200, and a hold with `hours` for an unknown seat answers `gone` as before.
   - The live booking page loads the picker's code. As a visitor it shows the members-only notice (no picker, as meant), with no console errors.
+
+### 48. Codes in the cart: carnets and hours cards pay for classes (`934237b`, 2026-10-07)
+- **Raquel's report** (2026-10-07, through the owner): open studio for 2 hours books fine, but "it doesn't take the voucher in count if they had a 10h or 20h", and paying showed Stripe's "Something went wrong" (screenshot, English cart on studio-rusc.com).
+- **What happened**, from the live data (counts only): at 11:13 Lisbon time a 2-hour open-studio booking was made for 8 October (18:00 and 19:00, one group, step 47). No code was used on it at booking. The hold was then stretched to 40 minutes, which only `/api/places/checkout` does, so the checkout route ran. It ran out unpaid and was freed at 11:55. Vercel keeps an hour of logs and the Stripe CLI here is signed in to another account, so neither shows the request itself.
+- **Cause:** the cart's code field stored any code without checking it ("Code applied", total unchanged), and the checkout only takes euro vouchers: an hours card answers `code_not_euros` (400). The cart threw that into Stripe's frame, which only says "Something went wrong". The same happened for any other checkout error but a freed place or members-only (unknown or used-up code, `code_covers_full`, rūsc admin or Stripe down).
+- **Fix** (`components/CartView.tsx`, site only; rūsc admin's endpoints are unchanged):
+  - A code typed in the cart is checked at once (`/api/check`). A carnet or an hours card pays for the cart's classes it's valid for, place by place, as the booking page does: the booker's own place, then friends' and later hours (`/api/redeem`, which confirms the booking). Paid places leave the cart; if the code runs out, the rest stays to pay by card. The cart says what it paid and what's left.
+  - A euro voucher stays applied, now with its balance ("180 € disponibles, déduits au paiement"), and pays part of the total at checkout as before (W3).
+  - An applied code is checked again on load: one that can't pay (a carnet saved there before this change, unknown, used up, expired) is removed with a note. Raquel's browser still holds the hours card from this morning: the cart will remove it and ask for it again.
+  - Any checkout error goes back to the cart with its reason in FR or EN.
+- **Checked** locally against a stand-in for rūsc admin (same response shapes, in memory; nothing live), EN and FR: with open studio 2 h and wheel throwing in the cart and the hours card saved from before, the cart removed the card on load; typed again, it paid both open-studio hours (two redeems: the booker's seat and their second hour, not the class), the line left, 10 → 8 hours. Unknown code, a code for other classes, a voucher shown with its balance, a voucher covering the whole cart and a Stripe failure all came back to the cart with their message. Lint (0 errors) and build pass.
+- **Deployed** (`934237b`, Vercel success). Live on studio-rusc.com, in the browser with a throwaway cart (emptied after): a made-up code saved as applied was removed on load with the note, a made-up code typed in answered "Unknown code." at once, the French cart serves the new copy, no console errors. Not tried live: a real carnet or hours card, which would spend a customer's balance. The first real one is Raquel's retry.
+- **Not changed:** a euro voucher worth more than the whole cart still can't be used online (Stripe needs something to pay); the cart now says so and sends the customer to the studio.
 
