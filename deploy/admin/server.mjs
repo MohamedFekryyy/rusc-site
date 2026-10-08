@@ -2662,7 +2662,8 @@ async function sendBookingConfirmation(group, name, email, amount, lang, kind) {
   const clock = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
   const timeFmt = clock(start);
   const endFmt = clock(end);
-  const first = String(name ?? "").split(/\s+/)[0] || "";
+  const fullName = String(name ?? "").trim();
+  const first = fullName.split(/\s+/)[0] || "";
   const subject = en ? "Your booking at rūsc is confirmed" : "Votre réservation chez rūsc est confirmée";
   const addr = "99 Promenade Marie-Paradis, 74400 Chamonix-Mont-Blanc";
   const paid = amount != null && Number(amount) > 0 ? Number(amount) : null;
@@ -2700,9 +2701,9 @@ async function sendBookingConfirmation(group, name, email, amount, lang, kind) {
       "",
       `${title}`,
       `${dateFmt} · ${timeFmt} – ${endFmt}`,
-      paid != null ? `Payé : ${paid.toFixed(2).replace(".", ",")} €` : `Payé : ${nature ?? "—"}`,
+      paid != null ? `Payé : ${paid.toFixed(2).replace(".", ",")} €` : (nature ? `Règlement : ${nature}` : `Règlement : à l'atelier`),
     ].join("\n");
-    await sendEmail(REPLY_TO, `Nouvelle réservation — ${title} (${first || email})`, teamText);
+    await sendEmail(REPLY_TO, `Nouvelle réservation — ${title} (${fullName || first || email})`, teamText);
   }
 }
 
