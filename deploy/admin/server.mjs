@@ -965,6 +965,10 @@ async function recordOrder(session) {
     }
     await client.query("COMMIT");
     console.log("order recorded", session.id);
+    // Alert the studio on every paid order (as the old Acuity system did).
+    // Goes to info@ with the buyer's name + email, the amount and what they
+    // bought, so the team sees it even when nothing else emails them.
+    await sendPaymentAlert(name, email, (session.amount_total ?? 0) / 100, items, metadata.lang);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -2686,6 +2690,22 @@ async function sendEmail(to, subject, text) {
   } catch (error) {
     console.error("resend send error", error);
   }
+}
+
+// Alert the studio on every paid online order (adhesion, card, voucher) so the
+// team sees the sale with the buyer's name, email, amount and what was bought.
+async function sendPaymentAlert(name, email, amount, items, lang) {
+  const en = String(lang ?? "").toLowerCase() === "en";
+  const total = num(amount) > 0 ? `${Number(amount).toLocaleString(en ? "en-GB" : "fr-FR", { minimumFractionDigits: Number(amount) % 1 ? 2 : 0 })} €` : "—";
+  const text = [
+    en ? "New online payment — rūsc" : "Nouveau paiement en ligne — rūsc",
+    "",
+    `${en ? "Customer" : "Client"} : ${name || "—"}`,
+    `${en ? "Email" : "E-mail"} : ${email || "—"}`,
+    `${en ? "Paid" : "Payé"} : ${total}`,
+    `${en ? "Bought" : "Acheté"} : ${items || "—"}`,
+  ].join("\n");
+  await sendEmail(REPLY_TO, en ? "New online payment" : "Nouveau paiement en ligne", text);
 }
 
 // Booking confirmation: sent to the student (and info@ in copy) the moment a
