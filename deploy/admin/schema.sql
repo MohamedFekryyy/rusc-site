@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS rusc.members (
   since date NOT NULL DEFAULT current_date,
   until date NOT NULL,
   order_id text REFERENCES rusc.orders (id),
-  note text
+  note text,
+  reminded_on date
 );
 
 -- One-off imports (Acuity's codes and upcoming bookings, sent from the

@@ -763,6 +763,51 @@ async function releaseExpired() {
   await cancelUnpaidPending().catch((error) => console.error("cancel pending", error.message));
 }
 
+// Membership renewal reminders: once a day (each time Cal's cron wakes rūsc
+// admin), email members whose membership ends in ~30 days (renewal nudge), and
+// members whose membership just ended (expired notice). Each email goes out in
+// copy to info@ (sendEmail does that). `reminded_on` prevents repeats.
+let lastRemind = 0;
+async function memberReminders() {
+  if (Date.now() - lastRemind < 60_000) return; // at most once a minute
+  lastRemind = Date.now();
+  const today = parisToday();
+  const soon = addDays(today, 30);
+  const { rows } = await db.query(
+    `SELECT email, name, until FROM rusc.members
+      WHERE until >= $1 AND (reminded_on IS NULL OR reminded_on < today)`,
+    [today],
+  );
+  for (const m of rows) {
+    const until = isoDate(m.until);
+    const first = String(m.name ?? "").split(/\s+/)[0] || "";
+    const d = new Date(`${until}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    if (until === soon) {
+      // Expires in 30 days: renewal nudge.
+      const text = [
+        `Bonjour ${first},`, "",
+        `Votre adhésion au studio rūsc arrive à échéance le ${d}.`, "",
+        "Pour continuer à profiter de l'atelier libre et de vos tarifs membres (−10 %), pensez à renouveler. Un clic sur studio-rusc.com, rubrique « Devenir membre ».", "",
+        "À très vite, les mains dans la terre.", "",
+        "rūsc · Chamonix", "@studiorusc",
+      ].join("\n");
+      await sendEmail(m.email, "Votre adhésion rūsc touche à sa fin", text);
+      await db.query("UPDATE rusc.members SET reminded_on = $1 WHERE email = $2", [today, m.email]);
+    } else if (until < today) {
+      // Recently expired: a short notice so they can come back.
+      const text = [
+        `Bonjour ${first},`, "",
+        `Votre adhésion au studio rūsc a pris fin le ${d}.`, "",
+        "Pour retrouver l'atelier libre et vos tarifs membres, renouvelez quand vous voulez sur studio-rusc.com.", "",
+        "On espère vous revoir bientôt.", "",
+        "rūsc · Chamonix", "@studiorusc",
+      ].join("\n");
+      await sendEmail(m.email, "Votre adhésion rūsc a expiré", text);
+      await db.query("UPDATE rusc.members SET reminded_on = $1 WHERE email = $2", [today, m.email]);
+    }
+  }
+}
+
 // Cancels Cal bookings that are still PENDING and unpaid, whose oldest hold has
 // expired and is older than the release tolerance. Covers the gap where a hold
 // was already marked released but the booking was never cancelled.
@@ -2635,7 +2680,7 @@ async function sendEmail(to, subject, text) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, text, reply_to: REPLY_TO }),
+      body: JSON.stringify({ from: EMAIL_FROM, to: [to], cc: REPLY_TO && String(to).toLowerCase() !== REPLY_TO.toLowerCase() ? [REPLY_TO] : [], subject, text, reply_to: REPLY_TO }),
     });
     if (!res.ok) console.error("resend send failed", res.status, await res.text().catch(() => ""));
   } catch (error) {
@@ -3356,6 +3401,7 @@ async function handle(req, res, url) {
     // wakes rūsc admin, which then frees unpaid places whose hold ran out.
     if (url.pathname === "/tasks/release-places") {
       await releaseExpired();
+      await memberReminders().catch((e) => console.error("reminders", e.message));
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/logo.webp") return send(res, 200, LOGO, { "content-type": "image/webp", "cache-control": "public, max-age=604800" });
