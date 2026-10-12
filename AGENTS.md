@@ -30,7 +30,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-10-07)
+## Where things stand (updated 2026-10-12)
 
 Keep this section current; the migration log below keeps the history.
 
@@ -45,7 +45,7 @@ Keep this section current; the migration log below keeps the history.
 - **Member accounts** (`/connexion/`, `/en/login/`): sign-up, sign-in, and the member's space (membership, coming classes, codes, past classes including Acuity's). The booking page fills in a signed-in member's name and e-mail (step 31).
 - **rūsc admin** (`rusc-admin` on Fly), in French and English:
   - Cours (list, month calendar, day, with Acuity's history on past days);
-  - Clients;
+  - Clients, which the studio can also add by hand and edit (step 49);
   - Codes;
   - Commandes (online and Acuity);
   - Horaires (step 29);
@@ -101,6 +101,7 @@ Keep this section current; the migration log below keeps the history.
   - The Acuity admin is the studio's account: only use it in the owner's browser, with their go-ahead.
 - **Tests on live systems:** clean up after yourself. For example, a throwaway member account made to test sign-in is deleted right after (step 31). A test booking is freed with the cart's "Retirer" (or its hold run out), which cancels it in Cal.
 - **Say "done" only after seeing it work** where Raquel will: the live site, in a real browser, French and English. Cal's booker is a cross-origin frame: screenshots and the network log are the only view into it.
+- **Before `fly deploy`:** run `git fetch` and make sure `main` contains `origin/main`. Changes also arrive from other machines: on 2026-10-12, `origin/main` was 4 commits ahead with admin changes already live on Fly, and deploying the local copy would have rolled them back.
 - **Cal image:** each push to `deploy/cal/patches/` builds for about 13 minutes. Check the whole patch set applies on the pinned source first (`deploy/cal/patches/README.md`), batch changes, then `sh deploy/cal/deploy.sh` (it warms the bookers up).
 
 ## Commands
@@ -862,3 +863,38 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
 - **Deployed** (`934237b`, Vercel success). Live on studio-rusc.com, in the browser with a throwaway cart (emptied after): a made-up code saved as applied was removed on load with the note, a made-up code typed in answered "Unknown code." at once, the French cart serves the new copy, no console errors. Not tried live: a real carnet or hours card, which would spend a customer's balance. The first real one is Raquel's retry.
 - **Not changed:** a euro voucher worth more than the whole cart still can't be used online (Stripe needs something to pay); the cart now says so and sends the customer to the studio.
 
+### 49. Clients added by hand in rūsc admin (`48d62da`, 2026-10-12)
+- **Owner's request:** "right now there is no way to create clients on admin, only codes! we want to be able to add clients by their name, email and phone".
+- **Clients → "+ Nouveau client"** (`deploy/admin/server.mjs`, `clientCreate`), a fold like Codes' "Nouveau code":
+  - the fields: first name (required), last name, e-mail, phone, notes; an e-mail or a phone is needed;
+  - the client is stored with source `studio` ("Ajout à l’atelier");
+  - it then opens the new client's page, where "Nouveau code" is one click away. "Ajouter" in Cours suggests them as their name is typed.
+- **Duplicates:** one client per e-mail (the unique index on `rusc.clients`).
+  - A known e-mail opens that client's page ("Déjà dans vos clients", nothing changed) when the first word of the name matches: "Marie" matches a booking's "Marie Exemple", stored in one field.
+  - A different name under a known e-mail (a child booked by a parent) joins that client's "Aussi à cet e-mail", as Acuity's shared e-mails did (step 30).
+  - Without an e-mail, the same first name and phone digits count as the same client; someone else sharing that phone is added.
+- **A search that finds nobody** offers "Ajouter « … » comme client", with the form filled from what was typed (an e-mail, a phone, or a first and last name).
+- **"Modifier" on a client's page** (`clientUpdate`) edits the same fields. The e-mail ties a client to their bookings (Acuity's or Cal's), orders, account, membership and codes in their name, and `reconcile()` would bring the old address back as a new client. So it can only change while none of these exist (a typo just after adding them); otherwise it's read-only, and the server refuses a change too (`emailLinked`). An e-mail another client has is refused. The notes heading is now "Notes", since the studio can write them.
+- **Smaller:**
+  - a client without an e-mail is told to add one (a link that opens Modifier);
+  - both folds put the cursor in "Prénom" when opened;
+  - a fold reached by its anchor (`#nouveau` here and on Codes, `#modifier`) clears the sticky header, on phones too.
+- **No database change:** `rusc_codes` owns `rusc.clients`. Only `schema.sql`'s comment on `source` lists `studio`.
+- **Checked** against a local Postgres (stand-ins for Cal's tables, the real `schema.sql`, rūsc admin as `rusc_codes`, a local copy accepting the http origin; all deleted after), with made-up people:
+  - In the browser: adding a client by real clicks, with the required first name enforced. The e-mail was stored in lower case. Modifier then fixed its e-mail and phone.
+  - With curl:
+    - a known e-mail in capitals → that client;
+    - a child under a parent's e-mail → "Aussi à cet e-mail", and again → no second copy;
+    - "Marie" + "Exemple" against a booking's "Marie Exemple" → the same client;
+    - phone only: new, the same person again, someone else on that phone;
+    - the five refusals: no first name, bad e-mail, bad phone, too short, neither e-mail nor phone;
+    - an e-mail change refused for an Acuity client and for a Cal booker, and to another client's e-mail;
+    - an unchanged e-mail typed in capitals accepted;
+    - a phone-only client given an e-mail;
+    - an unknown client (404);
+    - membership refused without an e-mail;
+    - the suggest endpoint finding the new clients;
+    - the search's "Ajouter" link and the prefill;
+    - English.
+  - At 390 px: no sideways scroll, the read-only e-mail greyed.
+- **Deployed:** rūsc admin on Fly (release 51), after rebasing on `origin/main`, which had 4 commits not in this checkout. Three of them change rūsc admin (`6bc9f29` team booking e-mail, `0ba4198` auto-CC info@ and membership renewal reminders, `2964df6` payment alert to info@), and they were live since releases 47–50 (8–9 October). They are kept, and aren't logged here by whoever made them. Live: `/health`, `/login`, `/api/classes` and `/tasks/release-places` answer 200. `/admin/clients`, a POST to it and a POST to `/admin/clients/<id>/edit` all go to sign-in. The served page carries the new script and style. The form wasn't used live (agents don't sign in to rūsc admin): the studio's first "Nouveau client" is the first.
