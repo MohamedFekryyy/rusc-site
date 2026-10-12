@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS rusc.clients (
   last_name text,
   phone text,
   notes text,                          -- the studio's notes, from Acuity
-  source text NOT NULL DEFAULT 'acuity', -- acuity, cal, online, account
+  source text NOT NULL DEFAULT 'acuity', -- acuity, cal, online, account, studio (added in rūsc admin)
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS clients_email ON rusc.clients (lower(email)) WHERE email IS NOT NULL;

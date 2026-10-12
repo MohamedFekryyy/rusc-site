@@ -21,8 +21,12 @@ The menu:
   - **List** (`/admin/cours`): the coming 14 or 30 days.
   - **Calendar** (`?vue=calendrier&mois=YYYY-MM`): a month, Monday to Sunday, with each class's time and places taken. Green means people are booked; orange means full. Past days only show classes someone was booked on. On a phone it becomes an agenda.
   - **Day** (`?jour=YYYY-MM-DD`): one day's classes and everyone booked, past or coming. The calendar opens it.
-- **Clients:** everyone the studio knows. That's Acuity's client list and history, then everyone who books, buys or opens an account (added every few minutes). A client's page shows:
-  - contact, and the studio's notes from Acuity;
+- **Clients:** everyone the studio knows. That's Acuity's client list and history, then everyone who books, buys or opens an account (added every few minutes), and clients the studio adds itself.
+  - **+ Nouveau client** (step 49 in `AGENTS.md`): first name, optional last name, an e-mail or a phone (or both), notes. One client per e-mail: a known e-mail opens that client's page instead ("Déjà dans vos clients", nothing changed), unless the name is someone else's, who then joins "Aussi à cet e-mail" (a child booked by a parent). Without an e-mail, the same first name and phone count as the same client. A search that finds nobody offers to add what was typed.
+  - **Modifier** on a client's page edits the same fields. The e-mail ties a client to their bookings, codes, orders, account and membership, so it can only change while none of these exist (a typo right after adding them); otherwise it's read-only.
+
+  A client's page shows:
+  - contact, and the studio's notes (Acuity's came with the import);
   - other people listed under the same e-mail (a parent booking for their children…);
   - membership, which can be set by hand ("Membre jusqu’au"), since Acuity had no export of members;
   - their account on the site, with a button making a 7-day password link to send them;

@@ -7,7 +7,8 @@
 //   /admin/codes   carnets, gift vouchers and codes the studio issues itself (a
 //                  carnet paid in cash at the studio…): create, adjust, pause
 //   /admin/clients everyone the studio knows (Acuity's list and history, then
-//                  bookings, orders, accounts): contact, notes, visits, codes
+//                  bookings, orders, accounts, and clients the studio adds):
+//                  contact, notes, visits, codes
 //   /admin/commandes  online orders (carnets and vouchers bought get their
 //                  code), then Acuity's orders
 //   /admin/horaires   the classes' hours in Cal: weekly slots, dates, closed days
@@ -1140,7 +1141,7 @@ const STYLE = `
   .ibtn:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
   label{display:grid;gap:5px;font-size:12.5px;font-weight:500;color:var(--muted)}
   input,select,textarea{font:inherit;font-size:14px;padding:8px 11px;min-height:38px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);transition:border-color .2s,box-shadow .2s}
-  input:hover,select:hover,textarea:hover{border-color:var(--faint)}input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+  input:hover,select:hover,textarea:hover{border-color:var(--faint)}input[readonly]{background:var(--sunken);color:var(--muted)}input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
   input[type=checkbox],input[type=radio]{min-height:0;accent-color:var(--accent);width:16px;height:16px}
   fieldset{border:1px solid var(--line);border-radius:10px;grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;padding:10px 14px 12px;margin:0}
   fieldset legend{font-size:12.5px;font-weight:500;color:var(--muted);padding:0 4px}fieldset label{display:flex;gap:7px;color:var(--ink);align-items:center;font-size:14px;font-weight:400}
@@ -1202,6 +1203,7 @@ const STYLE = `
   details.add>summary,details.new>summary,details.inline>summary{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:500;font-size:14px;margin-top:10px;padding:6px 12px 6px 10px;border-radius:999px;transition:background .2s}
   details.add>summary:hover,details.new>summary:hover,details.inline>summary:hover{background:var(--accent-soft)}
   details.new>summary{background:var(--accent);color:#fff;margin:4px 0 0;padding:9px 16px 9px 13px}details.new>summary:hover{background:var(--accent-hover)}details.new[open]>summary{margin-bottom:14px}
+  details[id]{scroll-margin-top:72px}@media (max-width:700px){details[id]{scroll-margin-top:126px}}
   details.inline>summary{margin:0;font-size:13px;padding:4px 10px 4px 8px}details.inline[open]>summary{background:var(--accent-soft)}
   details.inline form{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:8px}
   details.inline form label{font-size:12px}details.inline form input,details.inline form select{min-height:34px;padding:6px 10px}details.inline form button{min-height:34px}
@@ -1436,13 +1438,13 @@ const ADMIN_JS = `(function () {
   // A form that unfolds puts the cursor in its first field; Esc folds it.
   document.addEventListener("toggle", function (e) {
     var d = e.target;
-    if (!d.open || !d.matches || !d.matches("details.addp, details.inline")) return;
+    if (!d.open || !d.matches || !d.matches("details.addp, details.inline, details[data-focus]")) return;
     var first = d.querySelector("input:not([type=hidden]), select");
     if (first) first.focus();
   }, true);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-      document.querySelectorAll("details.addp[open], details.inline[open]").forEach(function (d) { d.open = false; });
+      document.querySelectorAll("details.addp[open], details.inline[open], details[data-focus][open]").forEach(function (d) { d.open = false; });
       return;
     }
     // "/" goes to the page's search field.
@@ -3010,6 +3012,84 @@ async function clientMembership(id, form) {
   );
 }
 
+// Clients the studio adds by hand (Clients → Nouveau client), and contact
+// details edited from a client's page. A name, then an e-mail or a phone.
+function clientFields(form) {
+  const text = (name, max) => String(form.get(name) ?? "").trim().slice(0, max);
+  const first = text("first_name", 80);
+  const email = text("email", 200).toLowerCase();
+  const phone = text("phone", 40);
+  if (!first) throw refused("Il faut au moins un prénom.", "A first name is needed.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw refused("Cet e-mail n’a pas l’air juste.", "This e-mail doesn’t look right.");
+  if (phone && (!/^[\d\s+().\/-]+$/.test(phone) || phone.replace(/\D/g, "").length < 6)) throw refused("Ce numéro n’a pas l’air juste.", "This phone number doesn’t look right.");
+  if (!email && !phone) throw refused("Il faut un e-mail ou un téléphone.", "An e-mail or a phone number is needed.");
+  return { first, last: text("last_name", 80) || null, email: email || null, phone: phone || null, notes: text("notes", 1000) || null };
+}
+// The first word of a name, without accents or case: "Marie Dupont" (one field,
+// as bookings bring it) and "Marie" + "Dupont" are the same person.
+const firstWord = (p) => [p.first_name, p.last_name].filter(Boolean).join(" ").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase().split(/\s+/)[0];
+
+// A new client, or the one who's already there. One client per e-mail: someone
+// else under a known e-mail (a child booked by a parent) joins that client's
+// "Aussi à cet e-mail", as Acuity's shared e-mails did.
+async function clientCreate(form) {
+  const f = clientFields(form);
+  const insert = () =>
+    db.query(
+      `INSERT INTO rusc.clients (email, first_name, last_name, phone, notes, source) VALUES ($1, $2, $3, $4, $5, 'studio')
+       ON CONFLICT (lower(email)) WHERE email IS NOT NULL DO NOTHING RETURNING id`,
+      [f.email, f.first, f.last, f.phone, f.notes],
+    );
+  const typed = firstWord({ first_name: f.first, last_name: f.last });
+  if (!f.email) {
+    const digits = f.phone.replace(/\D/g, "");
+    const same = await db.query("SELECT id, first_name, last_name FROM rusc.clients WHERE regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g') = $1", [digits]);
+    const twin = same.rows.find((c) => firstWord(c) === typed);
+    if (twin) return { id: twin.id, done: "exists" };
+    return { id: (await insert()).rows[0].id, done: "created" };
+  }
+  const made = await insert();
+  if (made.rowCount) return { id: made.rows[0].id, done: "created" };
+  const c = (await db.query("SELECT id, first_name, last_name, others FROM rusc.clients WHERE lower(email) = $1", [f.email])).rows[0];
+  const others = Array.isArray(c.others) ? c.others : [];
+  if (!firstWord(c) || firstWord(c) === typed || others.some((o) => firstWord(o) === typed)) return { id: c.id, done: "exists" };
+  await db.query("UPDATE rusc.clients SET others = others || $2::jsonb WHERE id = $1", [
+    c.id,
+    JSON.stringify([{ first_name: f.first, last_name: f.last, phone: f.phone, notes: f.notes }]),
+  ]);
+  return { id: c.id, done: "others" };
+}
+
+// Whether anything is tied to an e-mail: bookings (Acuity's or Cal's), orders,
+// an account, a membership, codes in that name.
+async function emailLinked(email) {
+  const { rows } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM rusc.history WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM public."Attendee" WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM rusc.orders WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM rusc.acuity_orders WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM rusc.accounts WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM rusc.members WHERE lower(email) = $1)
+         OR EXISTS (SELECT 1 FROM rusc.codes WHERE lower(coalesce(holder, '')) LIKE '%' || $1 || '%') AS linked`,
+    [email],
+  );
+  return rows[0].linked;
+}
+
+// "Modifier" on a client's page. The e-mail is what ties a client to the rest,
+// so it changes only while nothing uses it yet (a typo just after adding them).
+async function clientUpdate(id, form) {
+  const c = (await db.query("SELECT email FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  if (!c) throw Object.assign(new Error(tr("Client introuvable.", "Client not found.")), { status: 404 });
+  const f = clientFields(form);
+  const was = (c.email ?? "").toLowerCase();
+  if ((f.email ?? "") !== was) {
+    if (was && (await emailLinked(was))) throw refused("Cet e-mail a déjà des réservations, des codes ou un compte : il ne change plus. Pour une autre adresse, ajoutez un nouveau client.", "This e-mail already has bookings, codes or an account, so it stays. For another address, add a new client.");
+    if (f.email && (await db.query("SELECT 1 FROM rusc.clients WHERE lower(email) = $1 AND id <> $2", [f.email, id])).rowCount) throw refused("Un autre client a déjà cet e-mail.", "Another client already has this e-mail.");
+  }
+  await db.query("UPDATE rusc.clients SET first_name = $2, last_name = $3, email = $4, phone = $5, notes = $6 WHERE id = $1", [id, f.first, f.last, f.email, f.phone, f.notes]);
+}
+
 // Online orders, newest first, with what each one paid for.
 async function commandesPage() {
   const orders = await db.query("SELECT * FROM rusc.orders ORDER BY created_at DESC LIMIT 200");
@@ -3074,7 +3154,30 @@ async function acuityOrdersTable() {
 // ---------------------------------------------------------------- Clients
 
 const clientName = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || tr("Sans nom", "No name");
-const SOURCE_CLIENT = { acuity: ["Acuity", "Acuity"], cal: ["Réservation", "Booking"], online: ["Achat en ligne", "Online order"], account: ["Compte en ligne", "Online account"] };
+const SOURCE_CLIENT = { acuity: ["Acuity", "Acuity"], cal: ["Réservation", "Booking"], online: ["Achat en ligne", "Online order"], account: ["Compte en ligne", "Online account"], studio: ["Ajout à l’atelier", "Added at the studio"] };
+
+// A client's name, e-mail, phone and notes: "Nouveau client" on Clients, and
+// "Modifier" on a client's page (where a used e-mail is read-only).
+function clientForm(c, { action, submit, hint, emailLocked = false }) {
+  return `<form class="box" method="post" action="${action}">
+    <label>${tr("Prénom", "First name")}<input name="first_name" required maxlength="80" autocomplete="off" value="${esc(c.first_name ?? "")}"></label>
+    <label>${tr("Nom", "Last name")}<input name="last_name" maxlength="80" autocomplete="off" placeholder="${tr("facultatif", "optional")}" value="${esc(c.last_name ?? "")}"></label>
+    <label>E-mail<input name="email" type="email" maxlength="200" autocomplete="off" value="${esc(c.email ?? "")}"${emailLocked ? ` readonly title="${tr("Relié à ses réservations, codes ou compte", "Tied to their bookings, codes or account")}"` : ""}></label>
+    <label>${tr("Téléphone", "Phone")}<input name="phone" type="tel" maxlength="40" autocomplete="off" value="${esc(c.phone ?? "")}"></label>
+    <label class="wide">Notes<textarea name="notes" rows="2" maxlength="1000" placeholder="${tr("facultatif, pour l’atelier seulement", "optional, for the studio only")}">${esc(c.notes ?? "")}</textarea></label>
+    <p class="wide muted small" style="margin:0">${hint}</p>
+    <div><button type="submit">${submit}</button></div>
+  </form>`;
+}
+// What was searched, to start a new client with: an e-mail, a phone, or a name.
+function clientSeed(text) {
+  const t = String(text ?? "").trim().slice(0, 120);
+  if (!t) return {};
+  if (t.includes("@")) return { email: t };
+  if (/^[\d\s+().\/-]+$/.test(t)) return { phone: t };
+  const [first, ...rest] = t.split(/\s+/);
+  return { first_name: first, last_name: rest.join(" ") };
+}
 
 // Everyone the studio knows: Acuity's list and history, then bookings, orders
 // and accounts. Most recent visit first.
@@ -3106,17 +3209,24 @@ async function clientsPage(url) {
   return shell(
     "clients",
     tr("Clients", "Clients"),
-    `<h1>${tr("Clients", "Clients")}</h1><p class="muted">${tr(`${total} clients : la liste d’Acuity avec ses notes, puis chaque personne qui réserve, achète ou ouvre un compte.`, `${total} clients: Acuity’s list with its notes, then everyone who books, buys or opens an account.`)}</p>
+    `<h1>${tr("Clients", "Clients")}</h1><p class="muted">${tr(`${total} clients : la liste d’Acuity avec ses notes, puis chaque personne qui réserve, achète, ouvre un compte ou que l’atelier ajoute.`, `${total} clients: Acuity’s list with its notes, then everyone who books, buys, opens an account or is added by the studio.`)}</p>
+     <details class="new" id="nouveau" data-focus${url.searchParams.has("nouveau") ? " open" : ""}><summary>${icon("user-add")}${tr("Nouveau client", "New client")}</summary>
+       ${clientForm(clientSeed(url.searchParams.get("nouveau")), {
+         action: "/admin/clients",
+         submit: tr("Ajouter le client", "Add the client"),
+         hint: tr("Un e-mail ou un téléphone suffit. Avec l’e-mail, ses réservations, codes, commandes et son compte sur le site viennent sur sa fiche.", "An e-mail or a phone is enough. With the e-mail, their bookings, codes, orders and account on the site show on their page."),
+       })}</details>
+     <h2>${tr("Tous les clients", "All clients")}</h2>
      <form class="search" method="get" action="/admin/clients"><span class="field">${icon("magnifying-glass")}<input name="q" type="search" value="${esc(q)}" placeholder="${tr("Nom, e-mail ou téléphone", "Name, e-mail or phone")}" aria-label="${tr("Chercher", "Search")}"></span><button class="plain">${tr("Chercher", "Search")}</button></form>
      <table><thead><tr><th>${tr("Client", "Client")}</th><th>${tr("Téléphone", "Phone")}</th><th>${tr("Réservations", "Bookings")}</th><th>${tr("Dernière venue", "Last visit")}</th><th>${tr("Origine", "Source")}</th></tr></thead>
-     <tbody>${list || `<tr><td colspan="5" class="muted">${tr("Personne.", "Nobody.")}</td></tr>`}</tbody></table>
+     <tbody>${list || `<tr><td colspan="5" class="muted">${tr("Personne.", "Nobody.")}${q ? ` <a href="/admin/clients?nouveau=${encodeURIComponent(q)}#nouveau">${tr(`Ajouter « ${esc(q)} » comme client`, `Add “${esc(q)}” as a client`)}</a>` : ""}</td></tr>`}</tbody></table>
      ${rows.length === 400 ? `<p class="muted">${tr("Les 400 plus récents : cherchez pour trouver les autres.", "The 400 most recent: search to find the others.")}</p>` : ""}`,
   );
 }
 
 // One client: contact and notes, membership, online account, codes, every
 // booking (Acuity's history and Cal) and every order.
-async function clientPage(id, flash) {
+async function clientPage(id, flash, edit = false) {
   const c = (await db.query("SELECT * FROM rusc.clients WHERE id = $1", [id])).rows[0];
   if (!c) return null;
   const email = (c.email ?? "").toLowerCase();
@@ -3185,7 +3295,11 @@ async function clientPage(id, flash) {
   const accountBlock = a
     ? `<p>${tr("Compte créé le", "Account opened on")} ${esc(fmtDate(a.created_at))}${a.last_login_at ? ` · ${tr("dernière connexion", "last sign-in")} ${esc(fmtDate(a.last_login_at))}` : ""}</p>
        <form method="post" action="/admin/clients/${c.id}/reset"><button class="plain" type="submit">${tr("Créer un lien pour changer son mot de passe", "Make a link to change their password")}</button></form>`
-    : `<p class="muted">${tr("Pas de compte sur le site. Il suffit de s’inscrire avec cet e-mail : ses réservations, codes et adhésion y apparaissent.", "No account on the site. Signing up with this e-mail is enough: their bookings, codes and membership show there.")}</p>`;
+    : c.email
+      ? `<p class="muted">${tr("Pas de compte sur le site. Il suffit de s’inscrire avec cet e-mail : ses réservations, codes et adhésion y apparaissent.", "No account on the site. Signing up with this e-mail is enough: their bookings, codes and membership show there.")}</p>`
+      : `<p class="muted">${tr("Pas d’e-mail : ajoutez-le (<a href=\"?modifier#modifier\">Modifier</a>) pour relier ses réservations, ses codes et un compte sur le site.", "No e-mail: add it (<a href=\"?modifier#modifier\">Edit</a>) to tie their bookings, codes and an account on the site to this page.")}</p>`;
+  // The e-mail stays once anything uses it (clientUpdate checks the same).
+  const linked = Boolean(m || a || codes.rows.length || history.rows.length || cal.rows.length || orders.rows.length || acuityOrders.rows.length);
 
   return shell(
     "clients",
@@ -3194,11 +3308,20 @@ async function clientPage(id, flash) {
      ${flash ?? ""}
      <h1>${esc(clientName(c))}</h1>
      <div class="contact" style="font-size:15px">${c.email ? `<a href="mailto:${esc(c.email)}">${icon("envelope")}${esc(c.email)}</a>` : ""}${c.phone ? `<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(c.phone)}</a>` : ""}</div>
+     <details class="add" id="modifier" data-focus${edit ? " open" : ""}><summary>${icon("edit")}${tr("Modifier", "Edit")}</summary>
+       ${clientForm(c, {
+         action: `/admin/clients/${c.id}/edit`,
+         submit: tr("Enregistrer", "Save"),
+         hint: linked
+           ? tr("L’e-mail relie ses réservations, codes, commandes et compte : il ne change plus. Pour une autre adresse, ajoutez un nouveau client.", "The e-mail ties their bookings, codes, orders and account together, so it stays. For another address, add a new client.")
+           : tr("Un e-mail ou un téléphone suffit.", "An e-mail or a phone is enough."),
+         emailLocked: linked,
+       })}</details>
      <p class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))} · ${m ? (isoDate(m.until) >= today ? `<span class="ok">${tr("membre jusqu’au", "member until")} ${esc(fmtDate(m.until))}</span>` : `${tr("adhésion finie le", "membership ended on")} ${esc(fmtDate(m.until))}`) : tr("pas d’adhésion en ligne", "no online membership")}</p>
      <form class="linkbox" method="post" action="/admin/clients/${c.id}/member" style="margin:0 0 8px">
        <label style="display:flex;gap:8px;align-items:center">${tr("Membre jusqu’au", "Member until")}<input name="until" type="date" value="${m ? esc(isoDate(m.until)) : ""}"></label>
        <button class="plain small" type="submit">${tr("Enregistrer", "Save")}</button><span class="muted small">${tr("vide = pas membre", "empty = not a member")}</span></form>
-     ${c.notes ? `<h2>${tr("Notes (Acuity)", "Notes (Acuity)")}</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
+     ${c.notes ? `<h2>Notes</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
      ${Array.isArray(c.others) && c.others.length ? `<h2>${tr("Aussi à cet e-mail", "Also under this e-mail")}</h2><ul>${c.others.map((o) => `<li>${esc([o.first_name, o.last_name].filter(Boolean).join(" ") || "—")}${o.phone ? ` · <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>` : ""}${o.notes ? `<br><span class="muted" style="white-space:pre-wrap">${esc(o.notes)}</span>` : ""}</li>`).join("")}</ul>` : ""}
      <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
      <div class="titlebar"><h2>${tr("Codes", "Codes")}</h2><a class="action" href="/admin/codes?holder=${encodeURIComponent([clientName(c), c.email].filter(Boolean).join(" · "))}#nouveau">${icon("add")}${tr("Nouveau code", "New code")}</a></div>
@@ -3533,7 +3656,7 @@ async function handle(req, res, url) {
         if (origin && origin !== `https://${req.headers.host}`) return send(res, 403, page(tr("Refusé", "Refused"), `<p>${tr("Refusé.", "Refused.")}</p>`));
         const form = new URLSearchParams(await readBody(req));
         const match = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)\/(adjust|active)$/);
-        const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member)$/);
+        const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member|edit)$/);
         const classAction = url.pathname.match(/^\/admin\/cours\/offre\/([a-z0-9-]+)(\/site)?$/);
         if (url.pathname === "/admin/cours/nouveau") {
           const key = await classCreate(form);
@@ -3546,6 +3669,14 @@ async function handle(req, res, url) {
         }
         if (clientAction && clientAction[2] === "reset") {
           return send(res, 200, await clientPage(clientAction[1], await clientResetLink(clientAction[1])));
+        }
+        if (url.pathname === "/admin/clients") {
+          const { id, done } = await clientCreate(form);
+          return send(res, 303, "", { location: `/admin/clients/${id}?${done}=1` });
+        }
+        if (clientAction && clientAction[2] === "edit") {
+          await clientUpdate(clientAction[1], form);
+          return send(res, 303, "", { location: `/admin/clients/${clientAction[1]}?saved=1` });
         }
         if (clientAction && clientAction[2] === "member") {
           await clientMembership(clientAction[1], form);
@@ -3613,7 +3744,14 @@ async function handle(req, res, url) {
       }
       const client = url.pathname.match(/^\/admin\/clients\/(\d+)$/);
       if (client) {
-        const html = await clientPage(client[1], url.searchParams.has("saved") ? `<p class="flash">${icon("check-circle")}${tr("Enregistré.", "Saved.")}</p>` : "");
+        const said = {
+          saved: tr("Enregistré.", "Saved."),
+          created: tr("Client ajouté.", "Client added."),
+          exists: tr("Déjà dans vos clients : voici sa fiche, rien n’a changé.", "Already one of your clients: here’s their page, nothing changed."),
+          others: tr("Cet e-mail est déjà celui de ce client : la personne est ajoutée sous « Aussi à cet e-mail ».", "This e-mail already belongs to this client: the person is added under “Also under this e-mail”."),
+        };
+        const flash = Object.keys(said).find((k) => url.searchParams.has(k));
+        const html = await clientPage(client[1], flash ? `<p class="flash">${icon("check-circle")}${said[flash]}</p>` : "", url.searchParams.has("modifier"));
         return html ? send(res, 200, html) : send(res, 404, shell("clients", tr("Introuvable", "Not found"), `<p>${tr("Client introuvable.", "Client not found.")}</p>`));
       }
       const code = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)$/);
