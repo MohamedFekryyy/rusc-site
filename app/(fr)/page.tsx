@@ -114,20 +114,6 @@ export default function Home() {
         <figcaption>La terre, au cœur de rūsc.</figcaption>
       </figure>
 
-      <section className="event-banner wrap">
-        <div className="event-banner-inner">
-          <div className="txt">
-            <p className="k">Prochain événement · Vendredi 9 octobre</p>
-            <h2>rūsc pot &amp; wine</h2>
-            <p>Une soirée apéro modelage : la terre d&rsquo;un côté, un verre de l&rsquo;autre. Repartez avec le sourire — votre pièce vous attend après cuisson.</p>
-            <p className="meta">18h – 20h30 · 75 € · apéro et modelage inclus</p>
-          </div>
-          <div className="actions">
-            <BookingButton lang="fr" workshop="pot-and-wine" tone="guest">Je réserve</BookingButton>
-          </div>
-        </div>
-      </section>
-
       <section id="decouvrir">
         <div className="wrap">
           <SectionHead title="l&rsquo;atelier" sub="Ce que vous trouverez ici" />
