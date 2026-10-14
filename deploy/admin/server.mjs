@@ -289,7 +289,7 @@ async function reconcile() {
   await db.query(
     `INSERT INTO rusc.clients (email, first_name, phone, source)
      SELECT DISTINCT ON (lower(email)) lower(email), name, phone, source FROM (
-       SELECT a.email, a.name, a."phoneNumber" AS phone, 'cal' AS source, 1 AS rank FROM public."Attendee" a
+       SELECT a.email, a.name, s.data->'responses'->>'phone' AS phone, 'cal' AS source, 1 AS rank FROM public."Attendee" a LEFT JOIN public."BookingSeat" s ON s."attendeeId" = a.id
        UNION ALL SELECT o.email, o.name, NULL, 'online', 2 FROM rusc.orders o
        UNION ALL SELECT ac.email, ac.name, NULL, 'account', 3 FROM rusc.accounts ac
      ) x
@@ -364,7 +364,7 @@ async function apiRedeem(input) {
   // The booking just made in Cal: this attendee's seat.
   const booking = await db.query(
     `SELECT s."referenceUid" AS seat_uid, b.uid AS booking_uid, b."startTime" AS start_time,
-            b."endTime" AS end_time, b.status, e.slug, a.name, a.email, a."phoneNumber" AS phone
+            b."endTime" AS end_time, b.status, e.slug, a.name, a.email, coalesce(nullif(a."phoneNumber", ''), s.data->'responses'->>'phone') AS phone
        FROM public."BookingSeat" s
        JOIN public."Booking" b ON b.id = s."bookingId"
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -457,7 +457,7 @@ async function placeGroup(client, seatUid, lock = false) {
     `SELECT s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status, b."userId" AS host_id,
             b."startTime" AT TIME ZONE 'UTC' AS start_time, b."endTime" AT TIME ZONE 'UTC' AS end_time,
             e.id AS event_type_id, e.slug, e.title, e.length, e."scheduleId" AS schedule_id, e."seatsPerTimeSlot" AS capacity,
-            a.name, a.email, a."phoneNumber" AS phone, a."timeZone" AS time_zone, a.locale
+            a.name, a.email, coalesce(nullif(a."phoneNumber", ''), s.data->'responses'->>'phone') AS phone, a."timeZone" AS time_zone, a.locale
        FROM public."BookingSeat" s
        JOIN public."Booking" b ON b.id = s."bookingId"
        JOIN public."EventType" e ON e.id = b."eventTypeId"
@@ -1585,7 +1585,7 @@ async function loadSessions(from, to) {
   await releaseExpired().catch((e) => console.error("release", e.message));
   const bookings = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
-            a.name, a.email, a."phoneNumber" AS phone, s."referenceUid" AS seat_uid,
+            a.name, a.email, coalesce(nullif(a."phoneNumber", ''), s.data->'responses'->>'phone') AS phone, s."referenceUid" AS seat_uid,
             c.display AS code, u.amount AS code_amount, c.unit AS code_unit, c.initial AS code_initial, ps.order_id AS paid_order, x.pay AS acuity_pay,
             h.expires_at AS held_until, dp.method AS desk_method, dp.amount_cents AS desk_cents, att.came, s.data->>'rusc_added' AS added
        FROM public."Booking" b
@@ -2178,7 +2178,7 @@ async function calFeed() {
   const to = addDays(from, 90);
   const rows = await db.query(
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, b."endTime" AT TIME ZONE 'UTC' AS ends,
-            e.slug, e.title, a.name, a.email, a."phoneNumber" AS phone,
+            e.slug, e.title, a.name, a.email, coalesce(nullif(a."phoneNumber", ''), s.data->'responses'->>'phone') AS phone,
             c.display AS code, u.amount AS code_amount, c.unit AS code_unit,
             ps.order_id AS paid_order, x.pay AS acuity_pay, dp.method AS desk_method
        FROM public."Booking" b
