@@ -9,7 +9,7 @@ import { PAGES, bookingHref } from "@/lib/routes";
 import { SITE_URL, STUDIO_JSON_LD } from "@/lib/site";
 import logo from "@/assets/logo-rusc-trim.webp";
 import hero from "@/assets/photos/hero-o.jpg";
-import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
+import ceramique2h from "@/assets/photos/ceramique-2h-o.jpg";
 import residence from "@/assets/photos/residence-o.jpg";
 import membre from "@/assets/dessin-sylwia-light.webp";
 import stages from "@/assets/photos/stages-o.jpg";

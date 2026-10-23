@@ -4,7 +4,7 @@ import SitePage from "@/components/SitePage";
 import BookingButton from "@/components/BookingButton";
 import PageNav from "@/components/PageNav";
 import decorACru from "@/assets/photos/decor-a-cru-o.jpg";
-import ceramique2h from "@/assets/photos/ceramique-2h-o.png";
+import ceramique2h from "@/assets/photos/ceramique-2h-o.jpg";
 import modelage2h from "@/assets/photos/modelage-2h-o.jpg";
 import enfant from "@/assets/photos/enfant2-o.jpg";
 import mv3h from "@/assets/photos/model-vivant-3h-o.jpg";
