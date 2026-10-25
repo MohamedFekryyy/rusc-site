@@ -14,7 +14,7 @@ import {
   type BookingView,
   type OfferKey,
 } from "@/lib/cal";
-import { canOpenStudio, getSession, type AuthUser } from "@/lib/auth";
+import { AuthError, addCode, canOpenStudio, getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
@@ -78,6 +78,8 @@ const TEXT = {
     membersOnlyBody: "L’atelier libre est réservé aux membres et à qui a une carte atelier libre (10 h ou 20 h). Connectez-vous avec l’e-mail que l’atelier connaît (celui de votre adhésion, de votre carte ou de vos réservations), ou adhérez (50 € / an).",
     membersOnlyBodySignedIn: "Ce compte n’a ni adhésion ni carte atelier libre en cours. Vous avez une carte ? Ajoutez son code dans votre espace : l’atelier libre s’ouvre aussitôt.",
     membersOnlyCta: "Devenir membre",
+    codeSignIn: "Connectez-vous d’abord : votre carte s’ajoute à votre compte et ouvre l’atelier libre.",
+    codeTaken: "Ce code est déjà sur un autre compte. Écrivez-nous.",
     signIn: "Se connecter",
     mySpace: "Mon espace",
   },
@@ -134,6 +136,8 @@ const TEXT = {
     membersOnlyBody: "Open studio is for members and open-studio card holders (10 or 20 hours). Sign in with the e-mail the studio knows (from your membership, your card or your bookings), or join (€50 / year).",
     membersOnlyBodySignedIn: "This account has no current membership or open-studio card. Have a card? Add its code in your space and open studio opens at once.",
     membersOnlyCta: "Become a member",
+    codeSignIn: "Sign in first: your card joins your account and opens open studio.",
+    codeTaken: "This code is already on another account. Write to us.",
     signIn: "Sign in",
     mySpace: "My space",
   },
@@ -583,9 +587,26 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
                 event.preventDefault();
                 const value = codeInput.trim();
                 if (!value || codeBusy) return;
-                setCodeBusy(true);
                 setCodeError(null);
+                // Open studio still locked: a card typed here can only open it
+                // once it's on the visitor's account.
+                if (needsMember && !member) {
+                  setCodeError(t.codeSignIn);
+                  return;
+                }
+                setCodeBusy(true);
                 const result = await checkCode(value, offer.key);
+                if (result.ok && needsMember) {
+                  // It pays for open studio, so it's an open-studio card: add it
+                  // to the account, whose session then opens the booker.
+                  try {
+                    setMember((await addCode(value)).user);
+                  } catch (error) {
+                    setCodeBusy(false);
+                    setCodeError(error instanceof AuthError && error.code === "code_taken" ? t.codeTaken : t.codeErrors.error);
+                    return;
+                  }
+                }
                 setCodeBusy(false);
                 if (result.ok) {
                   setCode(result);
