@@ -45,7 +45,7 @@ Keep this section current; the migration log below keeps the history.
 - **Member accounts** (`/connexion/`, `/en/login/`): sign-up, sign-in, and the member's space (membership, coming classes, codes, past classes including Acuity's). The booking page fills in a signed-in member's name and e-mail (step 31).
 - **rūsc admin** (`rusc-admin` on Fly), in French and English:
   - Cours (list, month calendar, day, with Acuity's history on past days);
-  - Clients, which the studio can also add by hand and edit (step 49);
+  - Clients, which the studio can also add by hand and edit, e-mail included, with membership at the top and "Rattacher" for an existing code (steps 49, 51);
   - Codes;
   - Commandes (online and Acuity);
   - Horaires (step 29);
@@ -87,7 +87,7 @@ Keep this section current; the migration log below keeps the history.
 **Next for agents**
 - **Lena's requests of 2026-10-25, decided with the owner** (build in this order):
   1. **Open studio access:** live (step 50).
-  2. **Client card:** change the e-mail even once linked, carrying bookings, codes, membership, orders and the site account to the new one (merge if it exists); attach an existing code to the client; membership up top with "+1 an" or a date. No postal address.
+  2. **Client card:** built (step 51).
   3. **Cours, per person:** "Déplacer" to another session, the payment travelling with the place; "Annuler" frees it and, if the studio says so, gives it back (to the code if paid by code, otherwise a 1-class credit code). The default is "give back" at 24 h or more before the class, "keep" later; the studio can change it each time.
   4. **Horaires:** an optional end date per weekly slot (no Cal rebuild); editing a slot's time or one date moves the people booked in it and lists who to tell; places per single session as well as per class (a Cal patch, one image build).
 - **E-mails after payment:** once Resend works, Cal e-mails at booking time, before payment ("request received", and the studio gets a confirmation request for each cart booking). Better: turn Cal's class e-mails off (a patch: Cal.diy has no workflows) and have rūsc admin send "your place is confirmed" from the Stripe webhook.
@@ -916,3 +916,21 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - A local production build against a stand-in for `/api/auth` (made-up users; deleted after), FR and EN: signed out and a signed-in non-member get the notice with the right buttons and no booker; an answer without `openStudio` stays gated; a card holder gets Cal's booker and the hours picker (nothing booked), "Buy" on the cards and the 1h link in the space. Checkout (fake Stripe key): `members_only` for a guest, a non-member and the older answer; the card holder passes the gate and reaches Stripe. Lint and build pass; no console errors.
   - The code field, with a stand-in admin (made-up codes): signed out → "Connectez-vous d’abord…"; a code on another account → "déjà sur un autre compte"; a card → the booker and hours picker open with "Atelier libre 10 h · reste 8 heures". No console errors.
 - **Deployed:** rūsc admin on Fly (release 53, 2026-10-25): `/health`, `/login`, `/api/classes`, `/api/places` answer 200, `/api/auth/session` without a token 401; the only log error is the known `cancel pending rows is not iterable`. The site (`0a0a00e`, Vercel success): on studio-rusc.com, FR and EN, signed out, the open-studio page shows the new notice with "Se connecter / Sign in" and "Devenir membre / Become a member" and no booker, and the catalog's open-studio cards say "For members and open-studio card holders". The code-field change followed (`dd3a077`, Vercel success); live, signed out, a code typed there answers "Sign in first: your card joins your account and opens open studio." with no console errors. Not tried live: a real member or card holder signing in (agents don't use customers' accounts); the first is a member's.
+
+### 51. Client card: e-mail, codes and membership (2026-10-25)
+- **Lena's request** (through the owner): "edit completely a client card (code, adresse, emails, add them as member)". The owner chose: change the e-mail even once linked, carrying everything; attach an existing code; membership at the top. No postal address.
+- **E-mail** (`clientUpdate`, `moveEmail`, `mergeClient` in `deploy/admin/server.mjs`): step 49 made a linked e-mail read-only. Now "Modifier" changes it, after a confirmation when it's linked, and in one transaction moves to the new e-mail: Cal's `Attendee.email`, `rusc.history`, `rusc.acuity_orders`, `rusc.orders`, `rusc.accounts`, `rusc.members` (if both had one, the later end and the earlier start), codes whose holder names it and their uses' `attendee` (as a whole word: `jo@` never touches `majo@`), `rusc.unsubscribed`. If another client already has the new e-mail, the two pages become that one: the same first name joins notes and fills an empty phone and last name; another name joins "Aussi à cet e-mail" with its phone and notes. Refused, with nothing changed, when both e-mails have a site account (the client picks one). A linked e-mail can change but not be emptied. The signed-in member keeps their session and signs in with the new e-mail next time.
+- **Attach a code** (`clientAttachCode`, "Rattacher" under Codes): the code's holder becomes "Name · e-mail" and it goes on the client's site account, or off any account if they have none. The note shows the holder it had before. Needs the client's e-mail.
+- **Membership** in a strip under the contact line: its state (green with the days left, orange once ended, grey for none) and "+1 an", which adds a year to the current end, or starts a year from today once it ended (`since` then today). Another date and "Retirer l’adhésion" (asks first) wait behind "Autre date". Any new end re-arms the renewal reminder (`reminded_on`).
+- **Design pass** with the owner's skill (`match-fekry-design`, utility mode): one everyday action in view, the rest folded; state colours as elsewhere in the admin (`.st ok/off/muted`, `.strip`); the client's source moved from an orphan line into the contact row as quiet metadata; plainer copy ("Un code déjà donné sous un autre nom ?").
+- **Database:** `schema.sql` grants `UPDATE (email)` on Cal's `Attendee` to `rusc_codes`. Cal has no trigger on that table.
+- **Checked** against a local copy of the live database's structure (Cal's public schema dumped without data, the real `schema.sql`, rūsc admin as `rusc_codes`), with made-up people:
+  - a linked e-mail moved everywhere (two Cal attendees, one in capitals; Acuity history; both order tables; account; membership; two codes, one holder in capitals; a use; the opt-out), while `malice@` next to `alice@` stayed;
+  - without the new grant the whole change rolled back (a 500, nothing moved);
+  - both e-mails with an account: refused, nothing changed;
+  - a phone-only client given another's e-mail, the same person (notes joined, phone filled) and someone else (under "Aussi à cet e-mail" with phone and notes); two members merged (later end kept); emptying a linked e-mail refused;
+  - attaching: a code from Acuity's other name onto a client with an account, a code off someone else's account onto a client without one, a client without e-mail and an unknown code refused;
+  - membership: +1 an on an active one, on none, on an ended one (since today), a date, removal, a bad date refused;
+  - the client sync afterwards didn't bring the old e-mails back;
+  - in the browser: the page at 1280 and 390 px (no sideways scroll), the confirmation only when the e-mail changes, FR and EN; the local preview (`preview.mjs`) still renders.
+

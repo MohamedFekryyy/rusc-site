@@ -3010,20 +3010,46 @@ async function clientResetLink(id) {
 }
 
 // From a client's page: their membership (Acuity had no export of members).
+// "+1 an" adds a year from the end of the membership (or from today once it
+// ended); a date sets it; empty removes it. A new end date re-arms the renewal
+// reminder, and a membership that had ended starts again today.
 async function clientMembership(id, form) {
   const client = (await db.query("SELECT email, first_name, last_name FROM rusc.clients WHERE id = $1", [id])).rows[0];
   if (!client?.email) throw refused("Il faut un e-mail pour l’adhésion.", "Membership needs an e-mail.");
+  const today = parisToday();
+  const extend = form.get("extend") === "1";
   const until = String(form.get("until") ?? "");
-  if (!until) {
+  if (!extend && !until) {
     await db.query("DELETE FROM rusc.members WHERE lower(email) = lower($1)", [client.email]);
     return;
   }
-  if (!isDay(until)) throw refused("Date invalide.", "Invalid date.");
+  if (!extend && !isDay(until)) throw refused("Date invalide.", "Invalid date.");
   await db.query(
-    `INSERT INTO rusc.members (email, name, until, note) VALUES (lower($1), $2, $3::date, $4)
-     ON CONFLICT (email) DO UPDATE SET until = EXCLUDED.until, note = EXCLUDED.note`,
-    [client.email, [client.first_name, client.last_name].filter(Boolean).join(" ") || null, until, tr("saisi dans l’admin", "entered in the admin")],
+    `INSERT INTO rusc.members (email, name, since, until, note)
+     VALUES (lower($1), $2, $4::date, CASE WHEN $5 THEN ($4::date + interval '1 year')::date ELSE $3::date END, $6)
+     ON CONFLICT (email) DO UPDATE SET
+       until = CASE WHEN $5 THEN (greatest(rusc.members.until, $4::date) + interval '1 year')::date ELSE EXCLUDED.until END,
+       since = CASE WHEN rusc.members.until < $4::date THEN $4::date ELSE rusc.members.since END,
+       note = EXCLUDED.note, reminded_on = NULL`,
+    [client.email, [client.first_name, client.last_name].filter(Boolean).join(" ") || null, extend ? null : until, today, extend, tr("saisi dans l’admin", "entered in the admin")],
   );
+}
+
+// "Rattacher un code" on a client's page: a code (an Acuity carnet under
+// another name, a code typed wrong…) becomes theirs: in their name, and on
+// their site account if they have one (off anyone else's). It needs their
+// e-mail, which is what ties a code to a client and to an account.
+async function clientAttachCode(id, form) {
+  const c = (await db.query("SELECT * FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  if (!c) throw Object.assign(new Error(tr("Client introuvable.", "Client not found.")), { status: 404 });
+  if (!c.email) throw refused("Ajoutez d’abord son e-mail (Modifier) : c’est lui qui relie un code à ce client et à son compte.", "Add their e-mail first (Edit): it’s what ties a code to this client and their account.");
+  const code = (await db.query("SELECT key, display, holder FROM rusc.codes WHERE key = $1", [normalize(form.get("code"))])).rows[0];
+  if (!code) throw refused("Code inconnu.", "Unknown code.");
+  const holder = [clientName(c), c.email.toLowerCase()].join(" · ");
+  const account = (await db.query("SELECT id FROM rusc.accounts WHERE lower(email) = lower($1)", [c.email])).rows[0];
+  await db.query("UPDATE rusc.codes SET holder = $2, account_id = $3 WHERE key = $1", [code.key, holder, account?.id ?? null]);
+  const before = code.holder && code.holder !== holder ? ` ${tr("Avant :", "Before:")} « ${esc(code.holder)} ».` : "";
+  return `<p class="flash">${icon("check-circle")}${tr("Code", "Code")} <b>${esc(code.display)}</b> ${tr("rattaché à ce client.", "now belongs to this client.")}${before}</p>`;
 }
 
 // Clients the studio adds by hand (Clients → Nouveau client), and contact
@@ -3091,17 +3117,84 @@ async function emailLinked(email) {
 }
 
 // "Modifier" on a client's page. The e-mail is what ties a client to the rest,
-// so it changes only while nothing uses it yet (a typo just after adding them).
+// so a new one takes everything along (moveEmail). If another client already
+// has it, the two pages become one: theirs, with this person under "Aussi à
+// cet e-mail" when the name differs. Once linked, the e-mail can change but
+// not go. Returns the page to show: this one, or the one it merged into.
 async function clientUpdate(id, form) {
-  const c = (await db.query("SELECT email FROM rusc.clients WHERE id = $1", [id])).rows[0];
+  const c = (await db.query("SELECT * FROM rusc.clients WHERE id = $1", [id])).rows[0];
   if (!c) throw Object.assign(new Error(tr("Client introuvable.", "Client not found.")), { status: 404 });
   const f = clientFields(form);
   const was = (c.email ?? "").toLowerCase();
-  if ((f.email ?? "") !== was) {
-    if (was && (await emailLinked(was))) throw refused("Cet e-mail a déjà des réservations, des codes ou un compte : il ne change plus. Pour une autre adresse, ajoutez un nouveau client.", "This e-mail already has bookings, codes or an account, so it stays. For another address, add a new client.");
-    if (f.email && (await db.query("SELECT 1 FROM rusc.clients WHERE lower(email) = $1 AND id <> $2", [f.email, id])).rowCount) throw refused("Un autre client a déjà cet e-mail.", "Another client already has this e-mail.");
+  if (!f.email && was && (await emailLinked(was))) throw refused("Cet e-mail relie ses réservations, codes ou compte : il peut changer, pas disparaître.", "This e-mail ties their bookings, codes or account: it can change, but not go.");
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const twin = f.email && f.email !== was
+      ? (await client.query("SELECT * FROM rusc.clients WHERE lower(email) = $1 AND id <> $2 FOR UPDATE", [f.email, id])).rows[0]
+      : null;
+    if (f.email && was && f.email !== was) await moveEmail(client, was, f.email);
+    if (twin) {
+      await mergeClient(client, twin, { ...c, first_name: f.first, last_name: f.last, phone: f.phone, notes: f.notes });
+    } else {
+      await client.query("UPDATE rusc.clients SET first_name = $2, last_name = $3, email = $4, phone = $5, notes = $6 WHERE id = $1", [id, f.first, f.last, f.email, f.phone, f.notes]);
+    }
+    await client.query("COMMIT");
+    return twin ? { id: twin.id, done: "merged" } : { id, done: "saved" };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-  await db.query("UPDATE rusc.clients SET first_name = $2, last_name = $3, email = $4, phone = $5, notes = $6 WHERE id = $1", [id, f.first, f.last, f.email, f.phone, f.notes]);
+}
+
+// An e-mail as a whole word of a text ("Name · e-mail", "Name (e-mail)"), so
+// jo@x.fr doesn't match majo@x.fr. A POSIX pattern for Postgres.
+const emailPattern = (email) => `(^|[^[:alnum:]._%+-])${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^[:alnum:]._%+-])`;
+
+// Everything tied to an e-mail moves to the new one, in the caller's
+// transaction: Cal's bookings, Acuity's history and orders, online orders, the
+// site account, the membership, codes in that name, the mailing opt-out.
+async function moveEmail(client, from, to) {
+  const accounts = await client.query("SELECT 1 FROM rusc.accounts WHERE lower(email) IN ($1, $2)", [from, to]);
+  if (accounts.rowCount > 1) throw refused("Les deux e-mails ont chacun un compte sur le site : rien n’a changé. Demandez au client lequel garder.", "Both e-mails have an account on the site: nothing changed. Ask the client which one to keep.");
+  await client.query("UPDATE rusc.accounts SET email = $2 WHERE lower(email) = $1", [from, to]);
+  // One membership per e-mail: the longer one wins, from the earlier start.
+  await client.query(
+    `UPDATE rusc.members t SET until = greatest(t.until, f.until), since = least(t.since, f.since), reminded_on = NULL
+       FROM rusc.members f WHERE lower(t.email) = $2 AND lower(f.email) = $1`,
+    [from, to],
+  );
+  await client.query("DELETE FROM rusc.members WHERE lower(email) = $1 AND EXISTS (SELECT 1 FROM rusc.members WHERE lower(email) = $2)", [from, to]);
+  await client.query("UPDATE rusc.members SET email = $2 WHERE lower(email) = $1", [from, to]);
+  for (const table of ["rusc.history", "rusc.acuity_orders", "rusc.orders", `public."Attendee"`]) {
+    await client.query(`UPDATE ${table} SET email = $2 WHERE lower(email) = $1`, [from, to]);
+  }
+  // The code's holder, and the name · e-mail noted on each of its uses.
+  await client.query(`UPDATE rusc.codes SET holder = regexp_replace(holder, $1, '\\1' || $2 || '\\2', 'gi') WHERE holder ~* $1`, [emailPattern(from), to]);
+  await client.query(`UPDATE rusc.uses SET attendee = regexp_replace(attendee, $1, '\\1' || $2 || '\\2', 'gi') WHERE attendee ~* $1`, [emailPattern(from), to]);
+  await client.query("INSERT INTO rusc.unsubscribed (email) SELECT $2 FROM rusc.unsubscribed WHERE email = $1 ON CONFLICT DO NOTHING", [from, to]);
+  await client.query("DELETE FROM rusc.unsubscribed WHERE email = $1", [from]);
+}
+
+// Two pages for one e-mail become the twin's: this person joins its "Aussi à
+// cet e-mail" (unless it's the same name), with the people already under
+// theirs; an empty phone or last name is filled, notes are put together.
+async function mergeClient(client, twin, c) {
+  const others = Array.isArray(twin.others) ? [...twin.others] : [];
+  const known = (p) => firstWord(p) === firstWord(twin) || others.some((o) => firstWord(o) === firstWord(p));
+  // Someone else keeps their own phone and notes; the same person's are joined.
+  const same = firstWord(c) === firstWord(twin);
+  const person = { first_name: c.first_name, last_name: c.last_name, phone: c.phone, notes: same ? null : c.notes };
+  if (firstWord(person) && !known(person)) others.push(person);
+  for (const o of Array.isArray(c.others) ? c.others : []) if (!known(o)) others.push(o);
+  const notes = [twin.notes, same ? c.notes : null].filter(Boolean).filter((n, i, all) => all.indexOf(n) === i).join("\n\n") || null;
+  await client.query(
+    `UPDATE rusc.clients SET others = $2::jsonb, phone = coalesce(phone, $3), last_name = coalesce(last_name, $4), notes = $5 WHERE id = $1`,
+    [twin.id, JSON.stringify(others), same ? c.phone : null, same ? c.last_name : null, notes],
+  );
+  await client.query("DELETE FROM rusc.clients WHERE id = $1", [c.id]);
 }
 
 // Online orders, newest first, with what each one paid for.
@@ -3172,11 +3265,13 @@ const SOURCE_CLIENT = { acuity: ["Acuity", "Acuity"], cal: ["Réservation", "Boo
 
 // A client's name, e-mail, phone and notes: "Nouveau client" on Clients, and
 // "Modifier" on a client's page (where a used e-mail is read-only).
-function clientForm(c, { action, submit, hint, emailLocked = false }) {
-  return `<form class="box" method="post" action="${action}">
+function clientForm(c, { action, submit, hint, confirmEmail = "" }) {
+  // A linked e-mail asks before it changes (everything moves with it).
+  const ask = confirmEmail ? ` onsubmit="var e=this.elements.email;return !e.defaultValue||e.value.trim().toLowerCase()===e.defaultValue.toLowerCase()||confirm(${esc(JSON.stringify(confirmEmail))})"` : "";
+  return `<form class="box" method="post" action="${action}"${ask}>
     <label>${tr("Prénom", "First name")}<input name="first_name" required maxlength="80" autocomplete="off" value="${esc(c.first_name ?? "")}"></label>
     <label>${tr("Nom", "Last name")}<input name="last_name" maxlength="80" autocomplete="off" placeholder="${tr("facultatif", "optional")}" value="${esc(c.last_name ?? "")}"></label>
-    <label>E-mail<input name="email" type="email" maxlength="200" autocomplete="off" value="${esc(c.email ?? "")}"${emailLocked ? ` readonly title="${tr("Relié à ses réservations, codes ou compte", "Tied to their bookings, codes or account")}"` : ""}></label>
+    <label>E-mail<input name="email" type="email" maxlength="200" autocomplete="off" value="${esc(c.email ?? "")}"></label>
     <label>${tr("Téléphone", "Phone")}<input name="phone" type="tel" maxlength="40" autocomplete="off" value="${esc(c.phone ?? "")}"></label>
     <label class="wide">Notes<textarea name="notes" rows="2" maxlength="1000" placeholder="${tr("facultatif, pour l’atelier seulement", "optional, for the studio only")}">${esc(c.notes ?? "")}</textarea></label>
     <p class="wide muted small" style="margin:0">${hint}</p>
@@ -3312,8 +3407,30 @@ async function clientPage(id, flash, edit = false) {
     : c.email
       ? `<p class="muted">${tr("Pas de compte sur le site. Il suffit de s’inscrire avec cet e-mail : ses réservations, codes et adhésion y apparaissent.", "No account on the site. Signing up with this e-mail is enough: their bookings, codes and membership show there.")}</p>`
       : `<p class="muted">${tr("Pas d’e-mail : ajoutez-le (<a href=\"?modifier#modifier\">Modifier</a>) pour relier ses réservations, ses codes et un compte sur le site.", "No e-mail: add it (<a href=\"?modifier#modifier\">Edit</a>) to tie their bookings, codes and an account on the site to this page.")}</p>`;
-  // The e-mail stays once anything uses it (clientUpdate checks the same).
+  // Once anything uses the e-mail, changing it moves all of that (clientUpdate).
   const linked = Boolean(m || a || codes.rows.length || history.rows.length || cal.rows.length || orders.rows.length || acuityOrders.rows.length);
+  const memberNow = m && isoDate(m.until) >= today;
+  const memberAction = `/admin/clients/${c.id}/member`;
+  const daysLeft = memberNow ? Math.round((Date.parse(`${isoDate(m.until)}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000) : 0;
+  // Membership: its state, then the everyday action ("+1 an"); another date or
+  // removing it wait behind "Autre date".
+  const memberCard = `<div class="strip" style="justify-content:space-between;margin:14px 0 4px">
+       <span class="linkbox">
+         <span class="st ${memberNow ? "ok" : m ? "off" : "muted"}">${icon("crown")}${memberNow ? `${tr("Membre jusqu’au", "Member until")} ${esc(fmtDate(m.until))}` : m ? `${tr("Adhésion finie le", "Membership ended on")} ${esc(fmtDate(m.until))}` : tr("Pas membre", "Not a member")}</span>
+         ${memberNow ? `<span class="muted small">${daysLeft === 0 ? tr("dernier jour", "last day") : tr(`encore ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`, `${daysLeft} day${daysLeft > 1 ? "s" : ""} left`)}</span>` : ""}
+       </span>
+       ${c.email
+         ? `<span class="linkbox">
+             <form class="inline-form" method="post" action="${memberAction}"><input type="hidden" name="extend" value="1"><button class="small" type="submit" title="${memberNow ? tr("Un an de plus après la fin actuelle", "One more year after the current end") : tr("Un an à partir d’aujourd’hui", "One year from today")}">${memberNow ? tr("+1 an", "+1 year") : tr("Membre 1 an", "Member for 1 year")}</button></form>
+             <details class="inline"><summary style="margin:0">${tr("Autre date", "Other date")}</summary>
+               <div class="linkbox" style="margin-top:8px">
+                 <form class="linkbox" method="post" action="${memberAction}"><input name="until" type="date" required value="${m ? esc(isoDate(m.until)) : ""}" aria-label="${tr("Membre jusqu’au", "Member until")}"><button class="plain small" type="submit">${tr("Enregistrer", "Save")}</button></form>
+                 ${m ? `<form class="inline-form" method="post" action="${memberAction}" onsubmit="return confirm(${esc(JSON.stringify(tr("Retirer son adhésion ?", "Remove their membership?")))})"><input type="hidden" name="until" value=""><button class="ghost small" type="submit">${icon("trash")}${tr("Retirer l’adhésion", "Remove membership")}</button></form>` : ""}
+               </div>
+             </details>
+           </span>`
+         : `<span class="muted small">${tr("Il faut un e-mail pour l’adhésion (Modifier).", "Membership needs an e-mail (Edit).")}</span>`}
+     </div>`;
 
   return shell(
     "clients",
@@ -3321,25 +3438,26 @@ async function clientPage(id, flash, edit = false) {
     `<p><a href="/admin/clients">${tr("← Tous les clients", "← All clients")}</a></p>
      ${flash ?? ""}
      <h1>${esc(clientName(c))}</h1>
-     <div class="contact" style="font-size:15px">${c.email ? `<a href="mailto:${esc(c.email)}">${icon("envelope")}${esc(c.email)}</a>` : ""}${c.phone ? `<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(c.phone)}</a>` : ""}</div>
+     <div class="contact" style="font-size:15px">${c.email ? `<a href="mailto:${esc(c.email)}">${icon("envelope")}${esc(c.email)}</a>` : ""}${c.phone ? `<a href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(c.phone)}</a>` : ""}<span class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))}</span></div>
+     ${memberCard}
      <details class="add" id="modifier" data-focus${edit ? " open" : ""}><summary>${icon("edit")}${tr("Modifier", "Edit")}</summary>
        ${clientForm(c, {
          action: `/admin/clients/${c.id}/edit`,
          submit: tr("Enregistrer", "Save"),
          hint: linked
-           ? tr("L’e-mail relie ses réservations, codes, commandes et compte : il ne change plus. Pour une autre adresse, ajoutez un nouveau client.", "The e-mail ties their bookings, codes, orders and account together, so it stays. For another address, add a new client.")
+           ? tr("Un nouvel e-mail emporte ses réservations, codes, adhésion, commandes et compte. S’il est déjà celui d’un autre client, les deux fiches n’en font plus qu’une.", "A new e-mail takes their bookings, codes, membership, orders and account along. If another client already has it, the two pages become one.")
            : tr("Un e-mail ou un téléphone suffit.", "An e-mail or a phone is enough."),
-         emailLocked: linked,
+         confirmEmail: linked ? tr("Changer l’e-mail ? Ses réservations, codes, adhésion, commandes et compte passent au nouveau. Il se connectera au site avec le nouvel e-mail.", "Change the e-mail? Their bookings, codes, membership, orders and account move to the new one. They’ll sign in to the site with the new e-mail.") : "",
        })}</details>
-     <p class="muted">${esc(tr(...(SOURCE_CLIENT[c.source] ?? [c.source, c.source])))} · ${m ? (isoDate(m.until) >= today ? `<span class="ok">${tr("membre jusqu’au", "member until")} ${esc(fmtDate(m.until))}</span>` : `${tr("adhésion finie le", "membership ended on")} ${esc(fmtDate(m.until))}`) : tr("pas d’adhésion en ligne", "no online membership")}</p>
-     <form class="linkbox" method="post" action="/admin/clients/${c.id}/member" style="margin:0 0 8px">
-       <label style="display:flex;gap:8px;align-items:center">${tr("Membre jusqu’au", "Member until")}<input name="until" type="date" value="${m ? esc(isoDate(m.until)) : ""}"></label>
-       <button class="plain small" type="submit">${tr("Enregistrer", "Save")}</button><span class="muted small">${tr("vide = pas membre", "empty = not a member")}</span></form>
      ${c.notes ? `<h2>Notes</h2><p style="white-space:pre-wrap">${esc(c.notes)}</p>` : ""}
      ${Array.isArray(c.others) && c.others.length ? `<h2>${tr("Aussi à cet e-mail", "Also under this e-mail")}</h2><ul>${c.others.map((o) => `<li>${esc([o.first_name, o.last_name].filter(Boolean).join(" ") || "—")}${o.phone ? ` · <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>` : ""}${o.notes ? `<br><span class="muted" style="white-space:pre-wrap">${esc(o.notes)}</span>` : ""}</li>`).join("")}</ul>` : ""}
      <h2>${tr("Compte sur le site", "Account on the site")}</h2>${accountBlock}
      <div class="titlebar"><h2>${tr("Codes", "Codes")}</h2><a class="action" href="/admin/codes?holder=${encodeURIComponent([clientName(c), c.email].filter(Boolean).join(" · "))}#nouveau">${icon("add")}${tr("Nouveau code", "New code")}</a></div>
      ${codeRows ? `<table><thead><tr><th>Code</th><th>${tr("Reste", "Left")}</th><th>${tr("Valable jusqu’au", "Valid until")}</th></tr></thead><tbody>${codeRows}</tbody></table>` : `<p class="muted">${tr("Aucun code à son nom.", "No codes in their name.")}</p>`}
+     ${c.email ? `<form class="linkbox" method="post" action="/admin/clients/${c.id}/code" style="margin-top:10px">
+       <label class="muted small" for="attach-code">${tr("Un code déjà donné sous un autre nom ?", "A code they got under another name?")}</label>
+       <input id="attach-code" name="code" required maxlength="60" autocomplete="off" spellcheck="false" placeholder="${tr("Code existant", "Existing code")}" style="width:170px">
+       <button class="plain small" type="submit">${icon("link")}${tr("Rattacher", "Attach")}</button></form>` : ""}
      <h2>${tr("Réservations", "Bookings")} (${visits.length})${noShows ? ` <span class="pill full">${noShows} ${tr(noShows > 1 ? "absences" : "absence", noShows > 1 ? "no-shows" : "no-show")}</span>` : ""}</h2>
      ${visitRows ? `<table><thead><tr><th>${tr("Quand", "When")}</th><th>${tr("Cours", "Class")}</th><th>${tr("Paiement", "Payment")}</th></tr></thead><tbody>${visitRows}</tbody></table>` : `<p class="muted">${tr("Aucune.", "None.")}</p>`}
      <h2>${tr("Commandes", "Orders")}</h2>
@@ -3670,7 +3788,7 @@ async function handle(req, res, url) {
         if (origin && origin !== `https://${req.headers.host}`) return send(res, 403, page(tr("Refusé", "Refused"), `<p>${tr("Refusé.", "Refused.")}</p>`));
         const form = new URLSearchParams(await readBody(req));
         const match = url.pathname.match(/^\/admin\/codes\/([A-Z0-9]+)\/(adjust|active)$/);
-        const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member|edit)$/);
+        const clientAction = url.pathname.match(/^\/admin\/clients\/(\d+)\/(reset|member|edit|code)$/);
         const classAction = url.pathname.match(/^\/admin\/cours\/offre\/([a-z0-9-]+)(\/site)?$/);
         if (url.pathname === "/admin/cours/nouveau") {
           const key = await classCreate(form);
@@ -3689,8 +3807,11 @@ async function handle(req, res, url) {
           return send(res, 303, "", { location: `/admin/clients/${id}?${done}=1` });
         }
         if (clientAction && clientAction[2] === "edit") {
-          await clientUpdate(clientAction[1], form);
-          return send(res, 303, "", { location: `/admin/clients/${clientAction[1]}?saved=1` });
+          const { id, done } = await clientUpdate(clientAction[1], form);
+          return send(res, 303, "", { location: `/admin/clients/${id}?${done}=1` });
+        }
+        if (clientAction && clientAction[2] === "code") {
+          return send(res, 200, await clientPage(clientAction[1], await clientAttachCode(clientAction[1], form)));
         }
         if (clientAction && clientAction[2] === "member") {
           await clientMembership(clientAction[1], form);
@@ -3763,6 +3884,7 @@ async function handle(req, res, url) {
           created: tr("Client ajouté.", "Client added."),
           exists: tr("Déjà dans vos clients : voici sa fiche, rien n’a changé.", "Already one of your clients: here’s their page, nothing changed."),
           others: tr("Cet e-mail est déjà celui de ce client : la personne est ajoutée sous « Aussi à cet e-mail ».", "This e-mail already belongs to this client: the person is added under “Also under this e-mail”."),
+          merged: tr("Cet e-mail était celui de ce client : les deux fiches n’en font plus qu’une, avec ses réservations, codes, adhésion et compte.", "This e-mail was this client’s: the two pages are now one, with their bookings, codes, membership and account."),
         };
         const flash = Object.keys(said).find((k) => url.searchParams.has(k));
         const html = await clientPage(client[1], flash ? `<p class="flash">${icon("check-circle")}${said[flash]}</p>` : "", url.searchParams.has("modifier"));

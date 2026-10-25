@@ -23,12 +23,14 @@ The menu:
   - **Day** (`?jour=YYYY-MM-DD`): one day's classes and everyone booked, past or coming. The calendar opens it.
 - **Clients:** everyone the studio knows. That's Acuity's client list and history, then everyone who books, buys or opens an account (added every few minutes), and clients the studio adds itself.
   - **+ Nouveau client** (step 49 in `AGENTS.md`): first name, optional last name, an e-mail or a phone (or both), notes. One client per e-mail: a known e-mail opens that client's page instead ("Déjà dans vos clients", nothing changed), unless the name is someone else's, who then joins "Aussi à cet e-mail" (a child booked by a parent). Without an e-mail, the same first name and phone count as the same client. A search that finds nobody offers to add what was typed.
-  - **Modifier** on a client's page edits the same fields. The e-mail ties a client to their bookings, codes, orders, account and membership, so it can only change while none of these exist (a typo right after adding them); otherwise it's read-only.
+  - **Modifier** on a client's page edits the same fields. A new e-mail takes everything tied to the old one along, after a confirmation: Cal's bookings (`Attendee.email`), Acuity's history and orders, online orders, the site account, the membership, codes in that name and their uses, the mailing opt-out. If another client already has that e-mail, the two pages become one (theirs; a different name joins "Aussi à cet e-mail" with its phone and notes). Refused when both e-mails have a site account. Once linked, the e-mail can change but not be removed (step 51 in `AGENTS.md`).
+  - **Membership** sits under the contact line: its state, and "+1 an" (from the current end, or from today once it ended); another date or removing it are under "Autre date".
+  - **Rattacher** under the codes makes an existing code theirs (an Acuity carnet under another name…): in their name, and on their site account if they have one.
 
   A client's page shows:
   - contact, and the studio's notes (Acuity's came with the import);
   - other people listed under the same e-mail (a parent booking for their children…);
-  - membership, which can be set by hand ("Membre jusqu’au"), since Acuity had no export of members;
+  - membership, set by hand at the top of the page, since Acuity had no export of members;
   - their account on the site, with a button making a 7-day password link to send them;
   - their codes, every booking (Acuity's and Cal's, with Acuity's notes), and every order.
 - **Codes:** carnets, gift vouchers and codes the studio issues (below).

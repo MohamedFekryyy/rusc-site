@@ -18,6 +18,8 @@ GRANT USAGE, SELECT ON SEQUENCE public."Availability_id_seq" TO rusc_codes;
 GRANT UPDATE (status, paid, "idempotencyKey") ON public."Booking" TO rusc_codes;
 GRANT INSERT, DELETE ON public."Attendee", public."BookingSeat" TO rusc_codes;
 GRANT USAGE, SELECT ON SEQUENCE public."Attendee_id_seq", public."BookingSeat_id_seq" TO rusc_codes;
+-- A client's new e-mail (Clients → Modifier) moves their Cal bookings with it.
+GRANT UPDATE (email) ON public."Attendee" TO rusc_codes;
 GRANT SELECT, INSERT, DELETE ON public."BookingDenormalized" TO rusc_codes;
 GRANT SELECT (id, email, name, username) ON public.users TO rusc_codes;
 -- New classes (Cours → Nouveau cours): rūsc admin makes a class's Cal event
