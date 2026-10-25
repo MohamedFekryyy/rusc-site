@@ -9,7 +9,7 @@ import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, orderCodes, redeemCode, type CodeResult, type OrderCodes } from "@/lib/codes";
 import { CODE_PAYMENT_ENABLED } from "@/lib/code-payment";
 import { formatPrice, formatSlot, formatTime } from "@/lib/format";
-import { getToken } from "@/lib/auth";
+import { getToken, refreshAuth } from "@/lib/auth";
 import { addPlace, placesState, releasePlaces, removePlace, type PlaceState } from "@/lib/places";
 import { BOOKING, PAGES, type Lang } from "@/lib/routes";
 
@@ -381,6 +381,9 @@ export default function CartView({ lang }: { lang: Lang }) {
             const hasCodes = cart.items().some((i) => offerByKey(i.key)?.kind === "product" && i.key !== "adhesion");
             cart.clear();
             clearAppliedCode();
+            // A paid membership (or an attached card) changes what the member
+            // may do now: re-read the session so the site recognises it at once.
+            refreshAuth();
             setStage("done");
             const id = orderRef.current;
             if (!id || !hasCodes) return;

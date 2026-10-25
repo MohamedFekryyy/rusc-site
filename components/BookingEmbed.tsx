@@ -14,7 +14,7 @@ import {
   type BookingView,
   type OfferKey,
 } from "@/lib/cal";
-import { AuthError, addCode, canOpenStudio, getSession, type AuthUser } from "@/lib/auth";
+import { AUTH_EVENT, AuthError, addCode, canOpenStudio, getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
@@ -331,13 +331,20 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   const [sessionKnown, setSessionKnown] = useState(false);
   useEffect(() => {
     let alive = true;
-    getSession()
-      .then((user) => {
-        if (alive) { if (user) setMember(user); setSessionKnown(true); }
-      })
-      .catch(() => { if (alive) setSessionKnown(true); });
+    const load = () =>
+      getSession()
+        .then((user) => {
+          if (alive) { if (user) setMember(user); setSessionKnown(true); }
+        })
+        .catch(() => { if (alive) setSessionKnown(true); });
+    load();
+    // A payment just changed the status (bought a membership, attached a card):
+    // re-read it at once instead of only on mount, so the members-only offers
+    // open without a sign-out/sign-in round trip.
+    window.addEventListener(AUTH_EVENT, load);
     return () => {
       alive = false;
+      window.removeEventListener(AUTH_EVENT, load);
     };
   }, []);
   // Title of the offer just added to the cart (confirmation toast).

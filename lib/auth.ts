@@ -153,6 +153,14 @@ export async function getSession(): Promise<AuthUser | null> {
   return (await withToken<{ user: AuthUser }>("/session"))?.user ?? null;
 }
 
+// Re-read the session and tell every listener (Header, BookingEmbed…) that
+// it changed. Called after a payment that may change the member's status
+// (buying a membership, attaching a card): the cart page sees the fresh
+// state without a sign-out/sign-in round trip.
+export async function refreshAuth(): Promise<void> {
+  announce();
+}
+
 export const getAccount = () => withToken<AccountData>("/account");
 
 // Adds a code (carnet, voucher, Acuity code…) to the member's space.
