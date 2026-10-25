@@ -87,7 +87,7 @@ Keep this section current; the migration log below keeps the history.
 **Next for agents**
 - **Lena's requests of 2026-10-25, decided with the owner** (build in this order):
   1. **Open studio access:** live (step 50).
-  2. **Client card:** built (step 51).
+  2. **Client card:** live (step 51).
   3. **Cours, per person:** "Déplacer" to another session, the payment travelling with the place; "Annuler" frees it and, if the studio says so, gives it back (to the code if paid by code, otherwise a 1-class credit code). The default is "give back" at 24 h or more before the class, "keep" later; the studio can change it each time.
   4. **Horaires:** an optional end date per weekly slot (no Cal rebuild); editing a slot's time or one date moves the people booked in it and lists who to tell; places per single session as well as per class (a Cal patch, one image build).
 - **E-mails after payment:** once Resend works, Cal e-mails at booking time, before payment ("request received", and the studio gets a confirmation request for each cart booking). Better: turn Cal's class e-mails off (a patch: Cal.diy has no workflows) and have rūsc admin send "your place is confirmed" from the Stripe webhook.
@@ -933,4 +933,6 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - membership: +1 an on an active one, on none, on an ended one (since today), a date, removal, a bad date refused;
   - the client sync afterwards didn't bring the old e-mails back;
   - in the browser: the page at 1280 and 390 px (no sideways scroll), the confirmation only when the e-mail changes, FR and EN; the local preview (`preview.mjs`) still renders.
+- **Deployed** (`39bf294`): `schema.sql` on the live database (the `Attendee` e-mail grant read back; `INSERT 0 0` on the class rows), rūsc admin on Fly (release 54), the docs pushed (Vercel success). Live: `/health`, `/login`, `/api/classes`, `/api/places` answer 200; a client page and the three POSTs (`edit`, `code`, `member`) go to sign-in. The card wasn't used live (agents don't sign in to rūsc admin): the studio's first e-mail change, "Rattacher" or "+1 an" is the first.
+- **Seen in the logs:** three requests at 13:24 UTC through Fly's Singapore edge, blocked by Fly's own firewall as `rsc_exploit_attempt` (a scanner probing a React Server Components exploit). rūsc admin doesn't use React; nothing reached it.
 
