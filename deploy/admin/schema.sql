@@ -20,6 +20,9 @@ GRANT INSERT, DELETE ON public."Attendee", public."BookingSeat" TO rusc_codes;
 GRANT USAGE, SELECT ON SEQUENCE public."Attendee_id_seq", public."BookingSeat_id_seq" TO rusc_codes;
 -- A client's new e-mail (Clients → Modifier) moves their Cal bookings with it.
 GRANT UPDATE (email) ON public."Attendee" TO rusc_codes;
+-- Cours → Déplacer moves a place (its seat and attendee) to the booking of
+-- another session; payments, keyed by the seat, go with it.
+GRANT UPDATE ("bookingId") ON public."Attendee", public."BookingSeat" TO rusc_codes;
 GRANT SELECT, INSERT, DELETE ON public."BookingDenormalized" TO rusc_codes;
 GRANT SELECT (id, email, name, username) ON public.users TO rusc_codes;
 -- New classes (Cours → Nouveau cours): rūsc admin makes a class's Cal event
@@ -326,5 +329,23 @@ CREATE TABLE IF NOT EXISTS rusc.attendance (
   came boolean NOT NULL,
   marked_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Places the studio cancelled (Cours → Annuler), so the client's page keeps
+-- them: who, which class, how it was paid, and what they got back.
+CREATE TABLE IF NOT EXISTS rusc.cancellations (
+  id bigserial PRIMARY KEY,
+  seat_uid text NOT NULL,
+  offer text,
+  starts_at timestamptz NOT NULL,
+  name text,
+  email text,
+  places integer NOT NULL DEFAULT 1,
+  paid text,                           -- online, code, desk, acuity, or null (unpaid / offered)
+  given_back text NOT NULL,            -- code (back to their code), credit (a new code), none
+  credit_key text REFERENCES rusc.codes (key),
+  late boolean NOT NULL DEFAULT false, -- less than 24 hours before the class
+  at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cancellations_email ON rusc.cancellations (lower(email));
 
 RESET ROLE;

@@ -1149,7 +1149,15 @@ const STYLE = `
   /* Cards and forms. */
   form.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
   form.box label>input,form.box label>select,form.box label>textarea{width:100%;min-width:0}
-  form.box .wide{grid-column:1/-1}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}
+  form.box .wide{grid-column:1/-1}
+details.inline.quiet>summary{color:var(--muted)}
+.placebox{display:grid;gap:12px;margin-top:8px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);max-width:440px}
+.placebox form{display:grid;gap:8px;margin:0}
+.placebox form+form{border-top:1px solid var(--line);padding-top:12px}
+.placebox .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.placebox .row select{flex:1;min-width:0}
+.placebox label.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.placebox label.check>input{width:auto;margin:0;flex:none}form.box textarea{resize:vertical}@media (min-width:860px){form.box .two{grid-column:span 2}}
   form.box h3{grid-column:1/-1;margin:8px 0 -4px;font-size:13px;color:var(--muted);font-weight:600}
   .code{font:600 24px/1.2 var(--mono);letter-spacing:.06em;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 18px;display:inline-block}
   .codebox{display:flex;gap:10px;align-items:center}
@@ -1587,7 +1595,8 @@ async function loadSessions(from, to) {
     `SELECT b."startTime" AT TIME ZONE 'UTC' AS starts, e.slug, e.title, e."seatsPerTimeSlot" AS seats,
             a.name, a.email, coalesce(nullif(a."phoneNumber", ''), s.data->'responses'->>'phone') AS phone, s."referenceUid" AS seat_uid,
             c.display AS code, u.amount AS code_amount, c.unit AS code_unit, c.initial AS code_initial, ps.order_id AS paid_order, x.pay AS acuity_pay,
-            h.expires_at AS held_until, dp.method AS desk_method, dp.amount_cents AS desk_cents, att.came, s.data->>'rusc_added' AS added
+            h.expires_at AS held_until, dp.method AS desk_method, dp.amount_cents AS desk_cents, att.came, s.data->>'rusc_added' AS added,
+            s.data->>'rusc_holder' AS holder_uid
        FROM public."Booking" b
        JOIN public."EventType" e ON e.id = b."eventTypeId"
        JOIN public."Attendee" a ON a."bookingId" = b.id
@@ -1628,7 +1637,8 @@ async function loadSessions(from, to) {
     for (const rows of timetable.values()) {
       const overrides = rows.filter((row) => row.date === day);
       for (const row of overrides.length ? overrides : rows.filter((r) => !r.date && r.days.includes(dow))) {
-        if (row.start !== row.end) at(day, row.start.slice(0, 5), row.slug, row.title, row.seats);
+        // planned: in the timetable (a place can move there), not just booked.
+        if (row.start !== row.end) at(day, row.start.slice(0, 5), row.slug, row.title, row.seats).planned = true;
       }
     }
   }
@@ -1739,7 +1749,7 @@ const people = (list, s) =>
             p.phone ? `<a href="tel:${esc(String(p.phone).replace(/[^\d+]/g, ""))}">${icon("phone")}${esc(p.phone)}</a>` : "",
           ].join("");
           const presence = s ? attendanceSwitch(p, s) : "";
-          return `<tr><td><b>${esc(p.name)}</b>${contact ? `<span class="contact">${contact}</span>` : ""}</td><td><div class="paycell">${payment(p)}${s ? payActions(p, s) : ""}</div></td>${presence ? `<td class="act">${presence}</td>` : ""}</tr>`;
+          return `<tr><td><b>${esc(p.name)}</b>${contact ? `<span class="contact">${contact}</span>` : ""}</td><td><div class="paycell">${payment(p)}${s ? payActions(p, s) + placeActions(p, s) : ""}</div></td>${presence ? `<td class="act">${presence}</td>` : ""}</tr>`;
         })
         .join("")}</tbody></table>`
     : `<p class="muted" style="margin:0">${tr("Personne pour l’instant.", "Nobody yet.")}</p>`;
@@ -1840,6 +1850,71 @@ function attendanceSwitch(p, s) {
     <span class="att" role="group" aria-label="${tr("Présence", "Attendance")}">${button(true, "came", "came", tr("Venu·e", "Came"))}${button(false, "gone", "no-show", tr("Absent·e", "No-show"))}</span></form>`;
 }
 
+// The coming sessions (60 days) of each class a place could move to, with the
+// places left in each. Open studio goes by the hour: it isn't moved.
+async function attachTargets(sessions) {
+  if (!sessions.some((s) => s.people.some((p) => p.seat_uid))) return;
+  const today = parisToday();
+  const now = new Date();
+  const bySlug = new Map();
+  for (const list of (await loadSessions(today, addDays(today, 60))).values()) {
+    for (const t of list) {
+      if (!t.planned || !OFFERS[t.slug] || HOURLY.has(t.slug) || parisTime(t.day, t.time) <= now) continue;
+      if (!bySlug.has(t.slug)) bySlug.set(t.slug, []);
+      bySlug.get(t.slug).push({ day: t.day, time: t.time, free: t.seats ? t.seats - t.people.length : 0 });
+    }
+  }
+  for (const s of sessions) s.targets = (bySlug.get(s.slug) ?? []).filter((t) => t.day !== s.day || t.time !== s.time);
+}
+
+// How a row in Cours was paid, in the words of SEAT_PAID.
+const rowPaid = (p) =>
+  p.paid_order ? "online" : p.code ? "code" : p.desk_method ? (p.desk_method === "free" ? "offered" : "desk") : /^(code |payé)/.test(p.acuity_pay ?? "") ? "acuity" : null;
+
+// "Déplacer ou annuler": one quiet fold per person. Not for Acuity's history,
+// nor a place still in someone's cart (the cart frees it or it's paid).
+function placeActions(p, s) {
+  if (p.history || !p.seat_uid || !OFFERS[s.slug] || (p.held_until && toPay(p))) return "";
+  const extras = s.people.filter((x) => x.holder_uid === p.seat_uid).length;
+  const size = 1 + extras;
+  const fields = `<input type="hidden" name="seat" value="${esc(p.seat_uid)}">${returnFields(s)}`;
+  const hourly = HOURLY.has(s.slug);
+  const withFriends = extras ? ` <span class="muted small">${tr(`avec ${extras > 1 ? `ses ${extras} places en plus` : "sa place en plus"}`, `with ${extras > 1 ? `their ${extras} extra places` : "their extra place"}`)}</span>` : "";
+
+  const day = (t) => new Intl.DateTimeFormat(LOCALE(), { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(noon(t.day));
+  const targets = s.targets ?? [];
+  const id = `to-${p.seat_uid}`;
+  const move = hourly
+    ? ""
+    : targets.length
+      ? `<form method="post" action="/admin/places/move">${fields}
+          <label class="muted small" for="${esc(id)}">${tr("Déplacer vers une autre séance", "Move to another session")}${withFriends}</label>
+          <div class="row"><select id="${esc(id)}" name="to" required><option value="">${tr("Choisir une séance", "Pick a session")}</option>${targets
+            .map((t) => `<option value="${t.day} ${t.time}"${t.free < size ? " disabled" : ""}>${esc(day(t))} · ${esc(t.time)} · ${t.free < size ? tr("complet", "full") : `${t.free} ${tr(t.free > 1 ? "places libres" : "place libre", t.free > 1 ? "places free" : "place free")}`}</option>`)
+            .join("")}</select><button class="small" type="submit">${tr("Déplacer", "Move")}</button></div>
+          <p class="muted small" style="margin:0">${tr("Le paiement suit la place.", "The payment goes with the place.")}</p></form>`
+      : `<form><p class="muted small" style="margin:0">${tr("Pas d’autre séance de ce cours dans les 60 jours.", "No other session of this class in the next 60 days.")}</p></form>`;
+
+  // What cancelling gives back, ticked by default up to LATE_HOURS before.
+  const late = parisTime(s.day, s.time).getTime() - Date.now() < LATE_HOURS * 3_600_000;
+  const paid = rowPaid(p);
+  const back = paid === "code"
+    ? tr(`Rendre ${size > 1 ? "les séances" : "la séance"} à son code ${esc(p.code)}`, `Give ${size > 1 ? "the classes" : "the class"} back to their code ${esc(p.code)}`)
+    : CREDITED.has(paid)
+      ? tr(`Lui faire un avoir : ${hourly ? `${size} h` : `${size} ${size > 1 ? "séances" : "séance"}`} de ce cours, valable 1 an`, `Give them a credit for ${hourly ? `${size} h` : `${size} ${size > 1 ? "classes" : "class"}`} of this course, valid 1 year`)
+      : "";
+  const ask = tr(`Annuler la place de ${p.name ?? ""} ?`, `Cancel ${p.name ?? ""}'s place?`);
+  const cancel = `<form method="post" action="/admin/places/cancel" onsubmit="return confirm(${esc(JSON.stringify(ask))})">${fields}
+      ${back
+        ? `<label class="check"><input type="checkbox" name="give_back" value="1"${late ? "" : " checked"}> <span>${back}</span></label>
+           ${late ? `<p class="muted small" style="margin:0">${tr(`Moins de ${LATE_HOURS} h avant le cours : rien n’est rendu, sauf si vous cochez.`, `Less than ${LATE_HOURS} h before the class: nothing is given back unless you tick.`)}</p>` : ""}`
+        : `<p class="muted small" style="margin:0">${paid === "offered" ? tr("Offerte : rien à rendre.", "Offered: nothing to give back.") : tr("Pas encore payée : rien à rendre.", "Not paid yet: nothing to give back.")}</p>`}
+      <div><button class="ghost small" type="submit">${icon("trash")}${tr("Annuler la place", "Cancel the place")}${extras ? ` ${tr(`(+${extras})`, `(+${extras})`)}` : ""}</button></div></form>`;
+
+  return `<details class="inline quiet"><summary>${icon(hourly ? "trash" : "calendar-days")}${hourly ? tr("Annuler", "Cancel") : tr("Déplacer ou annuler", "Move or cancel")}</summary>
+    <div class="placebox">${move}${cancel}</div></details>`;
+}
+
 // "Ajouter quelqu’un": a class of ours (a Cal event type), today or later,
 // with places left.
 function addPersonForm(s) {
@@ -1888,6 +1963,11 @@ const CODE_REFUSALS = {
 };
 function coursFlash(url) {
   const note = url.searchParams.get("note");
+  if (note === "flash") {
+    const kept = FLASHES.get(url.searchParams.get("why") ?? "");
+    FLASHES.delete(url.searchParams.get("why") ?? "");
+    return kept?.html ?? "";
+  }
   if (note === "code") {
     const [fr, en] = CODE_REFUSALS[url.searchParams.get("why")] ?? CODE_REFUSALS.unknown;
     return `<p class="st off" data-note style="margin:12px 0">${icon("exclamation-circle")}<span>${tr(`Ajouté·e au cours, mais pas payé : ${fr}. La place est à régler.`, `Added to the class, but not paid: ${en}. The place is unpaid.`)}</span></p>`;
@@ -1987,6 +2067,205 @@ async function placePresence(form) {
     `INSERT INTO rusc.attendance (seat_uid, came) VALUES ($1, $2) ON CONFLICT (seat_uid) DO UPDATE SET came = EXCLUDED.came, marked_at = now()`,
     [seat.seat_uid, came === "1"],
   );
+}
+
+// ---------------------------------------------------------------- move or cancel a place
+// "Déplacer ou annuler" on a person in Cours. A place is their Cal seat, with
+// the extra places they booked for friends in the same class (rusc_holder).
+// Déplacer moves those seats to the booking of another session of the same
+// class: every payment is keyed by the seat, so it goes with them. Annuler
+// removes them and, if the studio says so, gives the class back: to the code
+// that paid it, or as a new code (an avoir) for a place paid by card, at the
+// desk or on Acuity. rusc.cancellations keeps it for the client's page.
+
+// A day and time in Paris, as an instant.
+const parisTime = (day, time) => {
+  const guess = new Date(`${day}T${time}:00Z`);
+  const shown = parisParts(guess);
+  return new Date(guess.getTime() - (new Date(`${shown.day}T${shown.time}:00Z`).getTime() - guess.getTime()));
+};
+const LATE_HOURS = 24; // closer to the class than this, a cancellation keeps the class by default
+
+// How a seat was paid, from the tables keyed by it.
+const SEAT_PAID = (alias) => `CASE
+  WHEN EXISTS (SELECT 1 FROM rusc.paid_seats WHERE seat_uid = ${alias}."referenceUid") THEN 'online'
+  WHEN EXISTS (SELECT 1 FROM rusc.uses WHERE seat_uid = ${alias}."referenceUid" AND cancelled_at IS NULL) THEN 'code'
+  WHEN EXISTS (SELECT 1 FROM rusc.desk_payments WHERE seat_uid = ${alias}."referenceUid" AND method <> 'free') THEN 'desk'
+  WHEN EXISTS (SELECT 1 FROM rusc.desk_payments WHERE seat_uid = ${alias}."referenceUid") THEN 'offered'
+  WHEN EXISTS (SELECT 1 FROM rusc.acuity_seats WHERE seat_uid = ${alias}."referenceUid" AND pay <> 'à régler') THEN 'acuity'
+END`;
+const CREDITED = new Set(["online", "desk", "acuity"]); // paid with money: an avoir
+
+// The place behind a Déplacer / Annuler form, its booking locked.
+async function placeSet(client, seatUid) {
+  const { rows } = await client.query(
+    `SELECT s."referenceUid" AS uid, s.data->>'rusc_holder' AS holder, b.id AS booking_id, b.uid AS booking_uid, b.status,
+            b."startTime" AT TIME ZONE 'UTC' AS start_time, b."userId" AS host_id,
+            e.id AS event_type_id, e.slug, e.title, e.length, e."scheduleId" AS schedule_id, e."seatsPerTimeSlot" AS capacity, a.name, a.email, a."phoneNumber" AS phone
+       FROM public."BookingSeat" s JOIN public."Booking" b ON b.id = s."bookingId"
+       JOIN public."EventType" e ON e.id = b."eventTypeId" LEFT JOIN public."Attendee" a ON a.id = s."attendeeId"
+      WHERE s."referenceUid" = $1 AND b.status IN ('accepted', 'pending')`,
+    [String(seatUid ?? "").slice(0, 100)],
+  );
+  const place = rows[0];
+  if (!place || !OFFERS[place.slug]) throw refused("Cette place n’existe plus.", "This place no longer exists.");
+  await client.query(`SELECT id FROM public."Booking" WHERE id = $1 FOR UPDATE`, [place.booking_id]);
+  const seats = await client.query(
+    `SELECT s.id, s."referenceUid" AS uid, s."attendeeId" AS attendee_id, ${SEAT_PAID("s")} AS paid
+       FROM public."BookingSeat" s
+      WHERE s."bookingId" = $1 AND (s."referenceUid" = $2 OR s.data->>'rusc_holder' = $2)
+      ORDER BY s."referenceUid" = $2 DESC, s.id`,
+    [place.booking_id, place.uid],
+  );
+  // Still in someone's cart on the site: the cart frees it or it gets paid first.
+  const cart = await client.query(
+    "SELECT 1 FROM rusc.holds WHERE seat_uid = $1 AND released_at IS NULL AND expires_at > now()",
+    [place.holder ?? place.uid],
+  );
+  return { ...place, seats: seats.rows, inCart: cart.rowCount > 0 && seats.rows.some((s) => !s.paid) };
+}
+
+// Removes seats and their attendees; a booking left empty is cancelled.
+async function removeSeats(client, bookingId, seats) {
+  await client.query(`DELETE FROM public."BookingSeat" WHERE id = ANY($1::int[])`, [seats.map((s) => s.id)]);
+  await client.query(`DELETE FROM public."Attendee" WHERE id = ANY($1::int[])`, [seats.map((s) => s.attendee_id)]);
+  await client.query("DELETE FROM rusc.attendance WHERE seat_uid = ANY($1::text[])", [seats.map((s) => s.uid)]);
+  const left = await client.query(`SELECT count(*)::int AS n FROM public."Attendee" WHERE "bookingId" = $1`, [bookingId]);
+  if (!left.rows[0].n) await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1`, [bookingId]);
+}
+
+const reachable = (email) => (email && !String(email).endsWith(ANONYMOUS) ? email : null);
+const whenLabel = (date) => new Intl.DateTimeFormat(LOCALE(), { timeZone: "Europe/Paris", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+const placesWord = (n) => `${n} ${tr(n > 1 ? "places" : "place", n > 1 ? "places" : "place")}`;
+
+async function placeMove(form) {
+  const [day, time] = String(form.get("to") ?? "").split(" ");
+  if (!isDay(day) || !/^\d{2}:\d{2}$/.test(time ?? "")) throw refused("Choisissez une séance.", "Pick a session.");
+  const start = parisTime(day, time);
+  const done = await inTransaction(async (client) => {
+    const place = await placeSet(client, form.get("seat"));
+    if (HOURLY.has(place.slug)) throw refused("L’atelier libre ne se déplace pas : annulez l’heure (avec un avoir), puis réservez la nouvelle.", "Open studio isn’t moved: cancel the hour (with a credit), then book the new one.");
+    if (place.inCart) throw refused("Cette place est dans un panier sur le site : elle est payée ou libérée d’abord.", "This place is in a cart on the site: it gets paid or freed first.");
+    if (start <= new Date()) throw refused("Cette séance est passée.", "This session is over.");
+    if (start.getTime() === new Date(place.start_time).getTime()) throw refused("C’est déjà cette séance.", "It’s already this session.");
+    const end = new Date(start.getTime() + place.length * 60_000);
+    if (!(await openAt(client, place.schedule_id, start, end))) throw refused("Ce cours n’a pas lieu à cette heure-là (voir Horaires).", "This class doesn’t run at that time (see Timetable).");
+    const found = await client.query(
+      `SELECT id, uid, status FROM public."Booking" WHERE "eventTypeId" = $1 AND "startTime" = $2::timestamptz AT TIME ZONE 'UTC'
+          AND status IN ('accepted', 'pending') ORDER BY status = 'accepted' DESC, id LIMIT 1 FOR UPDATE`,
+      [place.event_type_id, start.toISOString()],
+    );
+    let target = found.rows[0];
+    if (target) {
+      const taken = (await client.query(`SELECT count(*)::int AS n FROM public."BookingSeat" WHERE "bookingId" = $1`, [target.id])).rows[0].n;
+      if (place.capacity && taken + place.seats.length > place.capacity) {
+        throw refused(`Plus assez de places : il en reste ${Math.max(0, place.capacity - taken)}.`, `Not enough places: ${Math.max(0, place.capacity - taken)} left.`);
+      }
+      // As Ajouter does: the studio's word confirms the booking.
+      if (target.status === "pending") await client.query(`UPDATE public."Booking" SET status = 'accepted' WHERE id = $1`, [target.id]);
+    } else {
+      if (place.capacity && place.seats.length > place.capacity) throw refused(`Le cours a ${place.capacity} places.`, `The class has ${place.capacity} places.`);
+      target = (
+        await client.query(
+          `INSERT INTO public."Booking" (uid, title, "startTime", "endTime", "userId", "eventTypeId", status)
+           VALUES ($1, $2, $3::timestamptz AT TIME ZONE 'UTC', $4::timestamptz AT TIME ZONE 'UTC', $5, $6, 'accepted') RETURNING id, uid`,
+          [randomUUID(), place.title, start.toISOString(), end.toISOString(), place.host_id, place.event_type_id],
+        )
+      ).rows[0];
+    }
+    await client.query(`UPDATE public."BookingSeat" SET "bookingId" = $2 WHERE id = ANY($1::int[])`, [place.seats.map((s) => s.id), target.id]);
+    await client.query(`UPDATE public."Attendee" SET "bookingId" = $2 WHERE id = ANY($1::int[])`, [place.seats.map((s) => s.attendee_id), target.id]);
+    const uids = place.seats.map((s) => s.uid);
+    await client.query("UPDATE rusc.uses SET starts_at = $2, booking_uid = $3 WHERE seat_uid = ANY($1::text[])", [uids, start, target.uid]);
+    // Who came is about the old session.
+    await client.query("DELETE FROM rusc.attendance WHERE seat_uid = ANY($1::text[])", [uids]);
+    const left = await client.query(`SELECT count(*)::int AS n FROM public."Attendee" WHERE "bookingId" = $1`, [place.booking_id]);
+    if (!left.rows[0].n) await client.query(`UPDATE public."Booking" SET status = 'cancelled', "idempotencyKey" = NULL WHERE id = $1`, [place.booking_id]);
+    return place;
+  });
+  const contact = [reachable(done.email), done.phone].filter(Boolean).map(esc).join(" · ");
+  return `<p class="flash" data-note>${icon("check-circle")}<span><b>${esc(done.name ?? "")}</b> ${tr("déplacé·e au", "moved to")} ${esc(whenLabel(start))}${done.seats.length > 1 ? ` (${placesWord(done.seats.length)})` : ""}, ${tr("paiement compris", "payment included")}.${contact ? ` ${tr("Prévenez-le·la", "Let them know")} : ${contact}.` : ""}</span></p>`;
+}
+
+async function placeCancel(form) {
+  const giveBack = form.get("give_back") === "1";
+  const result = await inTransaction(async (client) => {
+    const place = await placeSet(client, form.get("seat"));
+    const start = new Date(place.start_time);
+    const late = start.getTime() - Date.now() < LATE_HOURS * 3_600_000;
+    const backToCodes = [];
+    for (const seat of place.seats.filter((s) => s.paid === "code")) {
+      if (giveBack) {
+        const use = await client.query("UPDATE rusc.uses SET cancelled_at = now() WHERE seat_uid = $1 AND cancelled_at IS NULL RETURNING key, amount", [seat.uid]);
+        for (const u of use.rows) {
+          const code = await client.query("UPDATE rusc.codes SET remaining = remaining + $2 WHERE key = $1 RETURNING display, unit, remaining", [u.key, u.amount]);
+          backToCodes.push(code.rows[0]);
+        }
+      } else {
+        // Kept: the use stays, off the seat, so reconcile() doesn't give it back.
+        await client.query(
+          `UPDATE rusc.uses SET seat_uid = NULL, note = concat_ws(' · ', nullif(note, ''), $2::text) WHERE seat_uid = $1 AND cancelled_at IS NULL`,
+          [seat.uid, `annulé le ${parisToday()}, non rendu`],
+        );
+      }
+    }
+    // Paid with money: an avoir of the same class, one per place (an hour each for open studio).
+    const money = place.seats.filter((s) => CREDITED.has(s.paid));
+    let credit = null;
+    if (giveBack && money.length) {
+      const hourly = HOURLY.has(place.slug);
+      const amount = hourly ? money.length * Math.max(1, Math.round(place.length / 30) / 2) : money.length;
+      const { key, display } = newCode();
+      const holder = [place.name, reachable(place.email)?.toLowerCase()].filter(Boolean).join(" · ") || null;
+      const account = reachable(place.email) ? (await client.query("SELECT id FROM rusc.accounts WHERE lower(email) = lower($1)", [place.email])).rows[0] : null;
+      const expires = addDays(parisToday(), 365);
+      await client.query(
+        `INSERT INTO rusc.codes (key, display, label, unit, offers, initial, remaining, expires_on, holder, note, source, account_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, 'studio', $10)`,
+        [key, display, `Avoir · ${OFFERS[place.slug].label}`, hourly ? "hours" : "sessions", [place.slug], amount, expires, holder,
+          `Annulation de la place du ${whenLabel(start)}`, account?.id ?? null],
+      );
+      credit = { display, unit: hourly ? "hours" : "sessions", amount, expires };
+    }
+    const kinds = [...new Set(place.seats.map((s) => s.paid).filter(Boolean))];
+    const given = !giveBack ? "none" : credit && backToCodes.length ? "code+credit" : credit ? "credit" : backToCodes.length ? "code" : "none";
+    await client.query(
+      `INSERT INTO rusc.cancellations (seat_uid, offer, starts_at, name, email, places, paid, given_back, credit_key, late)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [place.uid, place.slug, start, place.name, reachable(place.email)?.toLowerCase() ?? null, place.seats.length, kinds.join(",") || null, given,
+        credit ? normalize(credit.display) : null, late],
+    );
+    await removeSeats(client, place.booking_id, place.seats);
+    return { place, start, credit, backToCodes, kinds, giveBack };
+  });
+  const { place, start, credit, backToCodes, kinds } = result;
+  const what = `${tr("Place de", "Place of")} <b>${esc(place.name ?? "")}</b> ${tr("annulée", "cancelled")} (${esc(whenLabel(start))}${place.seats.length > 1 ? `, ${placesWord(place.seats.length)}` : ""}).`;
+  const parts = [
+    ...backToCodes.map((c) => tr(`Rendu à son code ${esc(c.display)} : il reste ${esc(fmtAmount(c.unit, c.remaining))}.`, `Given back to their code ${esc(c.display)}: ${esc(fmtAmount(c.unit, c.remaining))} left.`)),
+    credit
+      ? tr(`Avoir créé : <b>${esc(credit.display)}</b> (${esc(fmtAmount(credit.unit, credit.amount))}, jusqu’au ${esc(fmtDate(credit.expires))}), à donner au client pour réserver une autre date, sur le site ou avec Ajouter.`,
+          `Credit created: <b>${esc(credit.display)}</b> (${esc(fmtAmount(credit.unit, credit.amount))}, until ${esc(fmtDate(credit.expires))}), to give the client to book another date, on the site or with Add.`)
+      : "",
+    !backToCodes.length && !credit
+      ? kinds.some((k) => k !== "offered")
+        ? tr("Rien n’est rendu.", "Nothing is given back.")
+        : kinds.length
+          ? tr("Elle était offerte : rien à rendre.", "It was offered: nothing to give back.")
+          : tr("Elle n’était pas payée : rien à rendre.", "It wasn’t paid: nothing to give back.")
+      : "",
+  ].filter(Boolean);
+  return `<p class="flash" data-note>${icon("check-circle")}<span>${what} ${parts.join(" ")}</span></p>`;
+}
+
+// A note that can't go in the address (it may carry a new code): kept here
+// for a few minutes, shown once by the page the form returns to.
+const FLASHES = new Map();
+function keepFlash(html) {
+  const now = Date.now();
+  for (const [id, f] of FLASHES) if (now - f.at > 10 * 60_000) FLASHES.delete(id);
+  const id = randomUUID().slice(0, 8);
+  FLASHES.set(id, { html, at: now });
+  return id;
 }
 
 // "Ajouter quelqu’un": the person joins the class's Cal booking at that time
@@ -2100,6 +2379,7 @@ async function coursList(url) {
   const days = Math.min(Math.max(Number(url.searchParams.get("jours")) || 14, 1), 60);
   const today = parisToday();
   const byDay = await loadSessions(today, addDays(today, days));
+  await attachTargets([...byDay.values()].flat());
   const body = [...byDay.entries()]
     .map(([day, list]) => `<h2 class="day">${esc(dayTitle(day, today))}</h2>${list.map(sessionBox).join("")}`)
     .join("");
@@ -2154,6 +2434,7 @@ async function coursCalendar(month) {
 // One day: its classes and everyone booked, past or coming.
 async function coursDay(day, url) {
   const list = (await loadSessions(day, addDays(day, 1))).get(day) ?? [];
+  await attachTargets(list);
   const long = new Intl.DateTimeFormat(LOCALE(), { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(noon(day));
   return shell(
     "cours",
@@ -3364,6 +3645,11 @@ async function clientPage(id, flash, edit = false) {
     db.query("SELECT *, ordered_at AT TIME ZONE 'Europe/Paris' AS ordered FROM rusc.acuity_orders WHERE $1 <> '' AND lower(email) = $1 ORDER BY ordered_at DESC", [email]),
     db.query("SELECT * FROM rusc.orders WHERE $1 <> '' AND lower(email) = $1 ORDER BY created_at DESC", [email]),
   ]);
+  const cancelled = await db.query(
+    `SELECT x.*, k.display AS credit FROM rusc.cancellations x LEFT JOIN rusc.codes k ON k.key = x.credit_key
+      WHERE $1 <> '' AND lower(x.email) = $1 ORDER BY x.starts_at DESC`,
+    [email],
+  );
   const today = parisToday();
   const m = member.rows[0];
   const a = account.rows[0];
@@ -3379,6 +3665,15 @@ async function clientPage(id, flash, edit = false) {
         : b.paid_order ? `<span class="st ok">${icon("check-circle")}${tr("Payé en ligne", "Paid online")}</span>`
         : b.desk_method ? deskPaid(b)
         : `<span class="muted">${tr("site", "site")}</span>`,
+    })),
+    // Places the studio cancelled (Cours → Annuler), and what came back.
+    ...cancelled.rows.map((x) => ({
+      at: new Date(x.starts_at),
+      what: `${offerLabel(x.offer)}${x.places > 1 ? ` · ${x.places} ${tr("places", "places")}` : ""}`,
+      how: `<span class="muted">${tr("annulée par l’atelier le", "cancelled by the studio on")} ${esc(fmtDate(x.at))}${
+        x.credit ? ` · ${tr("avoir", "credit")} <a href="/admin/codes/${esc(x.credit_key)}">${esc(x.credit)}</a>` : ""}${
+        /code/.test(x.given_back) ? ` · ${tr("rendue à son code", "given back to their code")}` : ""}${
+        x.given_back === "none" && x.paid && x.paid !== "offered" ? ` · ${tr("non rendue", "not given back")}` : ""}</span>`,
     })),
     ...history.rows.map((h) => ({
       at: new Date(h.starts_at),
@@ -3820,6 +4115,10 @@ async function handle(req, res, url) {
         if (url.pathname === "/admin/cours/ajouter") {
           const { refused: why } = await addPerson(form);
           return send(res, 303, "", { location: coursBack(form, why ? "code" : "added", why) });
+        }
+        if (url.pathname === "/admin/places/move" || url.pathname === "/admin/places/cancel") {
+          const html = url.pathname.endsWith("move") ? await placeMove(form) : await placeCancel(form);
+          return send(res, 303, "", { location: coursBack(form, "flash", keepFlash(html)) });
         }
         if (url.pathname === "/admin/places/paid") {
           await placePaid(form);
