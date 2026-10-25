@@ -30,7 +30,7 @@ Bilingual marketing site for rūsc, a ceramics studio in Chamonix. Each language
   - Acuity, owner `19154889`, still runs the live studio-rusc.com until the switch.
 - **Payments:** a site-wide cart (`lib/cart.ts`, `/panier/`, `/en/cart/`), paid with Stripe Checkout embedded in the cart page (`app/api/checkout/`). Both keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`) are in Vercel since 2026-09-24, so the cart takes live payments (step 25); without them it would say online payment opens soon. Stripe's webhook goes to rūsc admin (`https://rusc-admin.fly.dev/stripe/webhook`, secret `STRIPE_WEBHOOK_SECRET` in its Fly secrets), which records orders, marks paid places and creates the codes for carnets and vouchers bought online (step 21).
 
-## Where things stand (updated 2026-10-12)
+## Where things stand (updated 2026-10-25)
 
 Keep this section current; the migration log below keeps the history.
 
@@ -85,6 +85,11 @@ Keep this section current; the migration log below keeps the history.
 - **A membership in her cart she didn't add:** no code adds one by itself. The cart is kept in the browser with no expiry, and "Adhérer" on the membership card adds it straight away. Her screenshot would tell which.
 
 **Next for agents**
+- **Lena's requests of 2026-10-25, decided with the owner** (build in this order):
+  1. **Open studio access:** members can't book it because almost nobody has a row in `rusc.members` (Acuity had no member export), and every gate reads only that (`publicUser` in rūsc admin; `OfferCard`, `BookingEmbed`, checkout on the site). Rule: an active membership **or** an open-studio hours card (`libre10`/`libre20` presets, Acuity's imported ones too) with hours left, whose holder e-mail is the account's or that the member added in their space. Signing in is enough. Keep the member discount (`memberDiscountEnabled`) separate from this gate: today checkout's `isMember` is false for everyone when `MEMBER_DISCOUNT_PERCENT=0`, which would block open studio.
+  2. **Client card:** change the e-mail even once linked, carrying bookings, codes, membership, orders and the site account to the new one (merge if it exists); attach an existing code to the client; membership up top with "+1 an" or a date. No postal address.
+  3. **Cours, per person:** "Déplacer" to another session, the payment travelling with the place; "Annuler" frees it and, if the studio says so, gives it back (to the code if paid by code, otherwise a 1-class credit code). The default is "give back" at 24 h or more before the class, "keep" later; the studio can change it each time.
+  4. **Horaires:** an optional end date per weekly slot (no Cal rebuild); editing a slot's time or one date moves the people booked in it and lists who to tell; places per single session as well as per class (a Cal patch, one image build).
 - **E-mails after payment:** once Resend works, Cal e-mails at booking time, before payment ("request received", and the studio gets a confirmation request for each cart booking). Better: turn Cal's class e-mails off (a patch: Cal.diy has no workflows) and have rūsc admin send "your place is confirmed" from the Stripe webhook.
 - **Check member prices and codes in the cart end to end** (built by Rrose, not tested here).
 - **Password reset by e-mail**, once Resend works. Today the studio makes a link from the client's page.
