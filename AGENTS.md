@@ -89,7 +89,7 @@ Keep this section current; the migration log below keeps the history.
 - **Lena's requests of 2026-10-25, decided with the owner** (build in this order):
   1. **Open studio access:** live (step 50).
   2. **Client card:** live (step 51).
-  3. **Cours, per person:** built (step 52).
+  3. **Cours, per person:** live (step 52).
   4. **Horaires:** an optional end date per weekly slot (no Cal rebuild); editing a slot's time or one date moves the people booked in it and lists who to tell; places per single session as well as per class (a Cal patch, one image build).
 - **E-mails after payment:** once Resend works, Cal e-mails at booking time, before payment ("request received", and the studio gets a confirmation request for each cart booking). Better: turn Cal's class e-mails off (a patch: Cal.diy has no workflows) and have rūsc admin send "your place is confirmed" from the Stripe webhook.
 - **Check member prices and codes in the cart end to end** (built by Rrose, not tested here).
@@ -951,4 +951,5 @@ The work was done on the `nextjs-migration` branch and merged into `main` the sa
   - cancellations: card with an avoir (1 session, in the client's name, on their account, 1 year); code given back (balance +1); code kept, late (balance unchanged, still after the code give-back sweep ran); offered and unpaid (nothing); open studio with an avoir in hours; desk cash kept; a booker and friend with a 2-session avoir; a second cancel of the same place refused; the class's booking cancelled once empty;
   - a real bug found and fixed: the "kept" note's parameter had no type for Postgres (a 500, rolled back);
   - in the browser, by real clicks (a local-only copy accepting http form posts, deleted after): move, then cancel with the class back to the carnet; FR and EN; 390 px with no sideways scroll; the one-time note not shown again; the client's page listing the cancellation and its avoir; the admin's preview still renders.
+- **Deployed** (`d5cf32d`): `schema.sql` on the live database (`UPDATE ("bookingId")` on `Attendee` and `BookingSeat` read back; `rusc.cancellations` owned by `rusc_codes`; `INSERT 0 0` on the class rows), rūsc admin on Fly (release 55), `main` pushed. Live: `/health`, `/login`, `/api/classes`, `/api/places` answer 200; `/admin/cours` and both new POSTs (`/admin/places/move`, `/admin/places/cancel`) go to sign-in. Not used live (agents don't sign in to rūsc admin): the studio's first move or cancellation is the first.
 
