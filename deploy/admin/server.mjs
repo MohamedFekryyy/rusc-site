@@ -3971,9 +3971,7 @@ async function handle(req, res, url) {
     // wakes rūsc admin, which then frees unpaid places whose hold ran out.
     if (url.pathname === "/tasks/release-places") {
       await releaseExpired();
-      // memberReminders temporarily disabled (unfinished feature): it threw
-      // "column today does not exist" every run and interrupted the email path.
-      // await memberReminders().catch((e) => console.error("reminders", e.message));
+      await memberReminders().catch((e) => console.error("reminders", e.message));
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/logo.webp") return send(res, 200, LOGO, { "content-type": "image/webp", "cache-control": "public, max-age=604800" });
