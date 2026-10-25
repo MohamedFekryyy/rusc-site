@@ -59,7 +59,8 @@ export async function POST(request: Request) {
   // using the bearer token the cart sends (stored as TOKEN_KEY client-side).
   // The browser's own "member" flag is never trusted.
   const token = readToken(request, body);
-  const isMember = memberDiscountEnabled() && (await resolveMember(token));
+  const visitor = await resolveMember(token);
+  const isMember = memberDiscountEnabled() && visitor.member;
 
   // Classes: the places to pay for, from rūsc admin (never from the browser):
   // the class, and how many of the person's places are still unpaid. Their
@@ -88,9 +89,10 @@ export async function POST(request: Request) {
     if (!offer) return classes ? bad("unknown_item") : bad("checkout_unavailable", 503);
 
     // Members-only offers (open studio slots/passes, except the membership
-    // itself which anyone can buy): a non-member cannot put them in a cart.
-    // The browser's flag is never trusted — membership is resolved server-side.
-    if (offer.tone === "member" && offer.key !== "adhesion" && !isMember) {
+    // itself which anyone can buy): for members and open-studio card holders,
+    // whatever the member discount. The browser's flag is never trusted —
+    // rūsc admin decides, server-side.
+    if (offer.tone === "member" && offer.key !== "adhesion" && !visitor.openStudio) {
       return bad("members_only");
     }
 

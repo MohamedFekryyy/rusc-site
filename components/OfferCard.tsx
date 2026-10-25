@@ -68,22 +68,22 @@ const AMOUNT_LABEL = { fr: "Montant en euros", en: "Amount in euros" };
 
 // Members-only notice / CTA for an open-studio card shown to a non-member.
 const MEMBER_LOCK = {
-  fr: { text: "Réservé aux membres — adhérez d’abord pour réserver l’atelier libre.", cta: "Devenir membre" },
-  en: { text: "Members only — join first to book the open studio.", cta: "Become a member" },
+  fr: { text: "Réservé aux membres et aux cartes atelier libre : connectez-vous, ou adhérez.", cta: "Devenir membre" },
+  en: { text: "For members and open-studio card holders: sign in, or join.", cta: "Become a member" },
 } as const;
 
 // One offer on the booking page, styled like the cards of the Cours and
 // Stages pages. Workshops open their booker; cards, membership and gift
 // vouchers go straight to the cart.
 //
-// `isMember` gates the members-only offers (atelier-libre-*): for a
-// non-member the button is replaced by a "members only" notice linking to the
+// `openStudio` gates the members-only offers (atelier-libre-*): for a
+// visitor without a membership or open-studio card the button is replaced by a "members only" notice linking to the
 // membership page. The membership offer itself (adhesion, tone "member") is
 // always clickable — it's how a visitor becomes a member.
-export default function OfferCard({ offer, lang, isMember }: { offer: Offer; lang: Lang; isMember: boolean }) {
+export default function OfferCard({ offer, lang, openStudio }: { offer: Offer; lang: Lang; openStudio: boolean }) {
   const { image, icon: Mark } = media(offer);
   const t = offer[lang];
-  const membersOnly = offer.tone === "member" && offer.key !== "adhesion" && !isMember;
+  const membersOnly = offer.tone === "member" && offer.key !== "adhesion" && !openStudio;
   return (
     <article className="card">
       <Image className="thumb" src={image} alt="" sizes="(max-width: 640px) 100vw, 360px" />

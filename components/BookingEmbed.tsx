@@ -14,13 +14,13 @@ import {
   type BookingView,
   type OfferKey,
 } from "@/lib/cal";
-import { getSession, type AuthUser } from "@/lib/auth";
+import { canOpenStudio, getSession, type AuthUser } from "@/lib/auth";
 import { amountBounds, cart, validAmount } from "@/lib/cart";
 import { loadClasses } from "@/lib/classes";
 import { checkCode, formatBalance, redeemCode, type CodeResult } from "@/lib/codes";
 import { formatTime } from "@/lib/format";
 import { holdPlaces, type PlaceState } from "@/lib/places";
-import { CART, HOME, PAGES, bookingHref, replaceUrl, type Lang } from "@/lib/routes";
+import { CART, HOME, LOGIN, PAGES, bookingHref, replaceUrl, type Lang } from "@/lib/routes";
 import OfferCard from "./OfferCard";
 
 const TEXT = {
@@ -75,8 +75,11 @@ const TEXT = {
       `Votre code a réglé ${paid} place${paid > 1 ? "s" : ""} ; ${rest > 1 ? `les ${rest} autres sont` : "l’autre est"} dans votre panier.`,
     slotCodeFailed: "Votre code n’a pas pu être utilisé : la séance est dans votre panier.",
     membersOnlyTitle: "Réservé aux membres",
-    membersOnlyBody: "L’atelier libre est réservé aux membres. Adhérez d’abord (50 € / an), connectez-vous, puis revenez réserver.",
+    membersOnlyBody: "L’atelier libre est réservé aux membres et à qui a une carte atelier libre (10 h ou 20 h). Connectez-vous avec l’e-mail que l’atelier connaît (celui de votre adhésion, de votre carte ou de vos réservations), ou adhérez (50 € / an).",
+    membersOnlyBodySignedIn: "Ce compte n’a ni adhésion ni carte atelier libre en cours. Vous avez une carte ? Ajoutez son code dans votre espace : l’atelier libre s’ouvre aussitôt.",
     membersOnlyCta: "Devenir membre",
+    signIn: "Se connecter",
+    mySpace: "Mon espace",
   },
   en: {
     tabs:{ schedule: "Courses & workshops", catalog: "Membership & cards", gifts: "Gift vouchers" },
@@ -128,8 +131,11 @@ const TEXT = {
       `Your code paid for ${paid} place${paid > 1 ? "s" : ""}; the other${rest > 1 ? ` ${rest} are` : " is"} in your cart.`,
     slotCodeFailed: "Your code couldn’t be used: the class is in your cart.",
     membersOnlyTitle: "Members only",
-    membersOnlyBody: "Open studio is for members only. Join first (€50 / year), sign in, then come back to book.",
+    membersOnlyBody: "Open studio is for members and open-studio card holders (10 or 20 hours). Sign in with the e-mail the studio knows (from your membership, your card or your bookings), or join (€50 / year).",
+    membersOnlyBodySignedIn: "This account has no current membership or open-studio card. Have a card? Add its code in your space and open studio opens at once.",
     membersOnlyCta: "Become a member",
+    signIn: "Sign in",
+    mySpace: "My space",
   },
 };
 
@@ -336,13 +342,14 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
   // the tab lists them from then on.
   const [, setClassesLoaded] = useState(0);
   const offer = offerKey ? offerByKey(offerKey) : undefined;
-  // Members-only offers (open studio) require an active membership to book.
+  // Members-only offers (open studio): a membership, or an open-studio card
+  // still valid (rūsc admin's openStudio).
   const memberGated = offer ? offer.tone === "member" && offer.key !== "adhesion" : false;
   // While the session hasn't resolved yet, treat members-only offers as gated
   // (do NOT mount the booker): a non-member could otherwise grab a slot before
   // getSession() returns. needsMember turns false only once we know the visitor
   // is an active member.
-  const needsMember = memberGated && !member?.member;
+  const needsMember = memberGated && !canOpenStudio(member);
   const [codeBusy, setCodeBusy] = useState(false);
   // The code as the Cal callbacks see it, and the booking the first success
   // event already handled (Cal then sends a second one for the same booking).
@@ -394,7 +401,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
         event.preventDefault();
         // Members-only offers (open studio passes) can't be added by a guest.
         const gatedKey = offerByKey(key);
-        if (gatedKey && gatedKey.tone === "member" && key !== "adhesion" && !member?.member) {
+        if (gatedKey && gatedKey.tone === "member" && key !== "adhesion" && !canOpenStudio(member)) {
           setToast(t.membersOnlyTitle);
           return;
         }
@@ -709,10 +716,17 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
               <p className="k" style={{ fontSize: "11px", letterSpacing: ".2em", textTransform: "uppercase", color: "var(--ochre)", marginBottom: "14px" }}>
                 {t.membersOnlyTitle}
               </p>
-              <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 20px" }}>{t.membersOnlyBody}</p>
-              <a className="btn member" href={PAGES.membres[lang]} style={{ display: "inline-block", padding: "10px 20px" }}>
-                {t.membersOnlyCta}
-              </a>
+              <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto 20px" }}>
+                {member ? t.membersOnlyBodySignedIn : t.membersOnlyBody}
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+                <a className="btn member" href={LOGIN[lang]} style={{ display: "inline-block", padding: "10px 20px" }}>
+                  {member ? t.mySpace : t.signIn}
+                </a>
+                <a className="btn guest" href={PAGES.membres[lang]} style={{ display: "inline-block", padding: "10px 20px" }}>
+                  {t.membersOnlyCta}
+                </a>
+              </div>
             </div>
           ) : offer.kind === "product" ? (
             <div key="product" style={productBox}>
@@ -742,7 +756,7 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       ) : (
         <div className="grid bk-swap" key={`grid-${view}`}>
           {offersIn(view).map((o) => (
-            <OfferCard key={o.key} offer={o} lang={lang} isMember={!sessionKnown || !!member?.member} />
+            <OfferCard key={o.key} offer={o} lang={lang} openStudio={!sessionKnown || canOpenStudio(member)} />
           ))}
         </div>
       )}

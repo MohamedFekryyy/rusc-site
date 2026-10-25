@@ -2858,12 +2858,26 @@ async function signedInAccount(req) {
   );
   return rows[0] ?? null;
 }
+// Open studio is for members. Acuity had no member export, so most members
+// show only another way: an open-studio hours card still valid, on the account
+// or whose holder names the account's e-mail exactly (holders read
+// "Name · e-mail", or Acuity's text); or an open-studio visit on Acuity within
+// the last 12 months (open studio was members-only there too).
+// `member` alone sets the member price.
 async function publicUser(account) {
-  const member = await db.query(
-    "SELECT 1 FROM rusc.members WHERE lower(email) = lower($1) AND until >= (now() AT TIME ZONE 'Europe/Paris')::date",
-    [account.email],
+  const { rows } = await db.query(
+    `SELECT EXISTS (SELECT 1 FROM rusc.members WHERE lower(email) = lower($1) AND until >= (now() AT TIME ZONE 'Europe/Paris')::date) AS member,
+            EXISTS (SELECT 1 FROM rusc.history h
+                     WHERE lower(h.email) = lower($1) AND h.offer = 'atelier-libre-1h' AND NOT h.canceled
+                       AND h.starts_at > now() - interval '12 months') AS regular,
+            EXISTS (SELECT 1 FROM rusc.codes c
+                     WHERE c.active AND c.unit = 'hours' AND c.offers @> ARRAY['atelier-libre-1h']
+                       AND (c.expires_on IS NULL OR c.expires_on >= (now() AT TIME ZONE 'Europe/Paris')::date)
+                       AND (c.account_id = $2 OR lower($1) IN (SELECT m[1] FROM regexp_matches(lower(coalesce(c.holder, '')), '([^[:space:]<>(),;:·]+@[^[:space:]<>(),;:·]+)', 'g') m))) AS card`,
+    [account.email, account.id],
   );
-  return { id: String(account.id), name: account.name, email: account.email, member: member.rowCount > 0 };
+  const { member, regular, card } = rows[0];
+  return { id: String(account.id), name: account.name, email: account.email, member, openStudio: member || regular || card };
 }
 
 // The member's space: membership, codes (added to the account, or in their

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import AuthForm from "@/components/AuthForm";
-import { AUTH_EVENT, AuthError, addCode, getAccount, logOut, type AccountCode, type AccountData, type AccountVisit } from "@/lib/auth";
+import { AUTH_EVENT, AuthError, addCode, canOpenStudio, getAccount, logOut, type AccountCode, type AccountData, type AccountVisit } from "@/lib/auth";
 import { offerByKey } from "@/lib/cal";
 import { loadClasses } from "@/lib/classes";
 import { BOOKING, bookingHref, type Lang } from "@/lib/routes";
@@ -338,12 +338,12 @@ export default function AccountArea({ lang }: { lang: Lang }) {
         ) : (
           <p style={muted}>{t.none}</p>
         )}
-        {/* Book a class; members also book open studio by the hour. */}
+        {/* Book a class; members and open-studio card holders also book open studio by the hour. */}
         <div style={{ display: "grid", gap: "8px", margin: "16px 0 0" }}>
           <a className="btn member" href={BOOKING[lang]} style={compactButton}>
             {t.book}
           </a>
-          {member && (
+          {(member || canOpenStudio(account.user)) && (
             <a className="btn guest" href={bookingHref(lang, "catalog", "atelier-libre-1h")} style={compactButton}>
               {t.bookSession}
             </a>

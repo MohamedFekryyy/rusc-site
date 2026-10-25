@@ -29,7 +29,12 @@ export type AuthUser = {
   name: string;
   email: string;
   member: boolean;
+  // May book open studio: a member, or an open-studio card still valid
+  // (rūsc admin's publicUser). Missing from an older admin: member decides.
+  openStudio?: boolean;
 };
+
+export const canOpenStudio = (user: AuthUser | null | undefined): boolean => !!user && (user.openStudio ?? user.member);
 
 export type AuthResult = { token: string; user: AuthUser };
 
