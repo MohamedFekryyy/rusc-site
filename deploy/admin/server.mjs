@@ -776,8 +776,8 @@ async function memberReminders() {
   const soon = addDays(today, 30);
   const { rows } = await db.query(
     `SELECT email, name, until FROM rusc.members
-      WHERE until >= $1 AND (reminded_on IS NULL OR reminded_on < today)`,
-    [today],
+      WHERE until >= $1 AND (reminded_on IS NULL OR reminded_on < $2::date)`,
+    [today, today],
   );
   for (const m of rows) {
     const until = isoDate(m.until);
@@ -813,7 +813,7 @@ async function memberReminders() {
 // expired and is older than the release tolerance. Covers the gap where a hold
 // was already marked released but the booking was never cancelled.
 async function cancelUnpaidPending() {
-  const rows = await db.query(
+  const { rows } = await db.query(
     `SELECT DISTINCT b.id AS booking_id
        FROM public."Booking" b
        JOIN public."BookingSeat" s ON s."bookingId" = b.id
@@ -3971,7 +3971,9 @@ async function handle(req, res, url) {
     // wakes rūsc admin, which then frees unpaid places whose hold ran out.
     if (url.pathname === "/tasks/release-places") {
       await releaseExpired();
-      await memberReminders().catch((e) => console.error("reminders", e.message));
+      // memberReminders temporarily disabled (unfinished feature): it threw
+      // "column today does not exist" every run and interrupted the email path.
+      // await memberReminders().catch((e) => console.error("reminders", e.message));
       return send(res, 200, { ok: true });
     }
     if (url.pathname === "/logo.webp") return send(res, 200, LOGO, { "content-type": "image/webp", "cache-control": "public, max-age=604800" });
