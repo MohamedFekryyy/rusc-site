@@ -11,7 +11,7 @@ import mv3h from "@/assets/photos/model-vivant-3h-o.jpg";
 export const metadata: Metadata = {
   title: "Courses — ceramics, hand-building, life drawing · rūsc Chamonix",
   description:
-    "Throwing, hand-building, raw-glaze decoration, children's course and life drawing at rūsc, Chamonix. Single courses or class passes, member rates.",
+    "Throwing, hand-building, slip decoration, children's course and life drawing at rūsc, Chamonix. Single courses or class passes, member rates.",
   alternates: { canonical: "/en/cours/", languages: { fr: "/cours/", en: "/en/cours/" } },
 };
 
@@ -38,10 +38,10 @@ export default function Cours() {
           <BookingButton lang="en" workshop="atelier-modelage-2h" tone="guest">Book</BookingButton>
         </article>
         <article className="card">
-          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={decorACru} alt="Raw-glaze decoration — rūsc" />
+          <Image className="thumb" sizes="(max-width: 640px) 100vw, 360px" src={decorACru} alt="Slip decoration on raw clay - rūsc" />
           <p className="k">1-hour course</p>
-          <h3>raw-glaze decoration 1h</h3>
-          <p>A one-hour course dedicated to raw-glaze decoration, to personalise your pieces before firing.</p>
+          <h3>slip decoration 1h</h3>
+          <p>A one-hour course dedicated to slip decoration, to personalise your pieces before firing.</p>
           <p className="price">1h course: €20 · member €18</p>
           <p className="price" style={{ fontSize: "13px", color: "var(--muted)" }}>+ firing from €7 member · €8 non-member</p>
           <details style={{ marginTop: "10px", fontSize: "14.5px" }}>

@@ -80,7 +80,7 @@ export const OFFERS = [
   {
     key: "decor-a-cru-1h", view: "schedule", tone: "guest", kind: "session", price: 2000,
     fr: { tag: "Cours d’1 h", title: "décor à cru 1h", unit: "20 € · membre 18 €", cta: "Réserver" },
-    en: { tag: "1-hour course", title: "raw-glaze decoration 1h", unit: "€20 · member €18", cta: "Book" },
+    en: { tag: "1-hour course", title: "slip decoration 1h", unit: "€20 · member €18", cta: "Book" },
   },
   {
     key: "modelage-enfant", view: "schedule", tone: "guest", kind: "session", price: 5000,
