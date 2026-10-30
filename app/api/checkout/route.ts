@@ -88,11 +88,12 @@ export async function POST(request: Request) {
     // Unknown, or a class made in rūsc admin while it can't be reached.
     if (!offer) return classes ? bad("unknown_item") : bad("checkout_unavailable", 503);
 
-    // Members-only offers (open studio slots/passes, except the membership
-    // itself which anyone can buy): for members and open-studio card holders,
-    // whatever the member discount. The browser's flag is never trusted —
-    // rūsc admin decides, server-side.
-    if (offer.tone === "member" && offer.key !== "adhesion" && !visitor.openStudio) {
+    // Open studio is members-only, but a NEW member must be able to buy the
+    // pass and join in the same order: "membership alone" and "membership +
+    // open-studio hours" are allowed, "open-studio hours alone" is not.
+    // The browser's flag is never trusted — rūsc admin decides, server-side.
+    const boughtHere = incoming.some((i) => (typeof i?.key === "string" ? i.key : "") === "adhesion");
+    if (offer.tone === "member" && offer.key !== "adhesion" && !visitor.openStudio && !boughtHere) {
       return bad("members_only");
     }
 
