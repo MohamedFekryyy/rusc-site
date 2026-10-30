@@ -1540,7 +1540,7 @@ function langSwitch() {
 }
 
 // Every studio page: the same header and menu. SOON items are next.
-const MENU = [["cours", "calendar-days", "Cours", "Classes"], ["clients", "people", "Clients", "Clients"], ["codes", "ticket", "Codes", "Codes"], ["commandes", "bag", "Commandes", "Orders"], ["horaires", "clock", "Horaires", "Timetable"]];
+const MENU = [["cours", "calendar-days", "Cours", "Classes"], ["pieces", "clipboard-document", "Pièces", "Pieces"], ["clients", "people", "Clients", "Clients"], ["codes", "ticket", "Codes", "Codes"], ["commandes", "bag", "Commandes", "Orders"], ["horaires", "clock", "Horaires", "Timetable"]];
 const SOON = new Set(); // menu items not ready yet: shown greyed out
 function shell(active, title, body) {
   const menu = MENU.map(([key, name, fr, en]) =>
@@ -2477,22 +2477,33 @@ async function calFeed() {
       ORDER BY 1, a.name`,
     [from, to],
   );
-  const events = rows.rows.map((r) => {
-    const start = new Date(r.starts);
-    const end = new Date(r.ends);
-    const title = OFFERS[r.slug] ? offerLabel(r.slug) : r.title;
-    const pay = r.code
-      ? `Code ${r.code}`
-      : r.paid_order ? "Payé en ligne" : r.desk_method ? (r.desk_method === "free" ? "Offert" : "Payé à l’atelier") : r.acuity_pay ? "Payé (Acuity)" : "En attente de paiement";
-    const desc = [`Élève : ${r.name || "—"}`, `Téléphone : ${r.phone || "—"}`, `Email : ${r.email || "—"}`, `Paiement : ${pay}`].join("\n");
+  // One event per CLASS, not per place: a class booked by six people must show
+  // as one block on the phone's calendar, not six side-by-side columns. The
+  // students are listed in the description instead.
+  const groups = new Map();
+  for (const r of rows.rows) {
+    const key = `${r.slug || r.title}|${r.starts}|${r.ends}`;
+    if (!groups.has(key)) groups.set(key, { slug: r.slug, title: r.title, starts: r.starts, ends: r.ends, people: [] });
+    groups.get(key).people.push(r);
+  }
+  const events = [...groups.values()].map((g) => {
+    const start = new Date(g.starts);
+    const end = new Date(g.ends);
+    const title = OFFERS[g.slug] ? offerLabel(g.slug) : g.title;
+    const lines = g.people.map((r) => {
+      const pay = r.code
+        ? `code ${r.code}`
+        : r.paid_order ? "payé en ligne" : r.desk_method ? (r.desk_method === "free" ? "offert" : "payé à l’atelier") : r.acuity_pay ? "payé (Acuity)" : "en attente de paiement";
+      return `- ${r.name || "—"} (${r.phone || "—"}) · ${pay}`;
+    });
     return [
       "BEGIN:VEVENT",
-      `UID:${r.slug || r.title}-${icsStamp(start)}-${icsEscape(r.email || r.name || "")}@rusc`,
+      `UID:${g.slug || g.title}-${icsStamp(start)}@rusc`,
       `DTSTAMP:${icsStamp(new Date())}`,
       `DTSTART:${icsStamp(start)}`,
       `DTEND:${icsStamp(end)}`,
-      `SUMMARY:${icsEscape(title)} — ${icsEscape(r.name || "")}`,
-      `DESCRIPTION:${icsEscape(desc)}`,
+      `SUMMARY:${icsEscape(title)}${g.people.map((r) => ` — ${icsEscape(String(r.name || "").trim())}`).join("")}`,
+      `DESCRIPTION:${icsEscape(lines.join("\n"))}`,
       "END:VEVENT",
     ].join("\r\n");
   });
@@ -3165,7 +3176,7 @@ async function publicUser(account) {
 // name), coming bookings and past visits (Cal and Acuity's history).
 async function accountData(account) {
   const email = account.email.toLowerCase();
-  const [member, codes, coming, past] = await Promise.all([
+  const [member, codes, coming, past, pieces] = await Promise.all([
     db.query("SELECT since, until FROM rusc.members WHERE lower(email) = $1", [email]),
     db.query(
       `SELECT display, label, unit, remaining, initial, expires_on, active FROM rusc.codes
@@ -3195,6 +3206,16 @@ async function accountData(account) {
        ) x ORDER BY starts DESC LIMIT 60`,
       [email],
     ),
+    // Pieces marked ready and not yet collected: shown in the member's space,
+    // so nobody has to send an email just to say "come and get it".
+    db.query(
+      `SELECT p.firing, count(*)::int AS n
+         FROM rusc.pieces p LEFT JOIN rusc.clients c ON c.id = p.client_id
+        WHERE p.ready_at IS NOT NULL AND p.collected_at IS NULL
+          AND (lower(coalesce(p.email, '')) = $1 OR lower(coalesce(c.email, '')) = $1)
+        GROUP BY p.firing ORDER BY p.firing DESC`,
+      [email],
+    ),
   ]);
   const visit = (b) => ({ start: new Date(b.starts).toISOString(), offer: OFFERS[b.slug] ? b.slug : null, title: b.title });
   return {
@@ -3203,6 +3224,7 @@ async function accountData(account) {
     codes: codes.rows.map((c) => ({ code: c.display, label: c.label, unit: c.unit, remaining: num(c.remaining), initial: num(c.initial), expiresOn: isoDate(c.expires_on), active: c.active })),
     coming: coming.rows.map(visit),
     past: past.rows.map(visit),
+    pieces: pieces.rows.map((p) => ({ firing: isoDate(p.firing), count: num(p.n) })),
   };
 }
 
@@ -3537,6 +3559,200 @@ async function acuityOrdersTable() {
   return `<h2>${tr("Avant le site : commandes Acuity", "Before the site: Acuity orders")}</h2>
     <p class="muted">${tr(`${rows.length} commandes de carnets et bons cadeaux passées sur Acuity.`, `${rows.length} card and gift-voucher orders placed on Acuity.`)}</p>
     <table><thead><tr><th>Date</th><th>${tr("Client", "Customer")}</th><th>${tr("Achat", "Bought")}</th><th>Total</th><th>${tr("État", "Status")}</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// ---------------------------------------------------------------- Pieces
+// The pieces out of the kiln, waiting for their owner. A firing gathers ~40
+// pieces and one student may have several. The studio ticks each piece ready,
+// then one button sends one email per student listing their pieces. Nothing is
+// ever sent automatically: notified_at is only written when it is sent.
+
+async function piecesPage(url) {
+  const flash =
+    num(url.searchParams.get("notified")) > 0
+      ? tr(`${num(url.searchParams.get("notified"))} email(s) envoye(s).`, `${num(url.searchParams.get("notified"))} email(s) sent.`)
+      : url.searchParams.has("added")
+        ? tr("Piece ajoutee.", "Piece added.")
+        : url.searchParams.has("deleted")
+          ? tr("Piece retiree.", "Piece removed.")
+          : "";
+  const { rows } = await db.query(
+    `SELECT p.*, c.first_name, c.last_name, c.email AS client_email
+       FROM rusc.pieces p LEFT JOIN rusc.clients c ON c.id = p.client_id
+      ORDER BY p.collected_at NULLS FIRST, p.firing DESC, lower(coalesce(p.name, c.first_name, p.email, ''))`,
+  );
+  const firings = [...new Set(rows.map((r) => r.firing))].sort((a, b) => String(b).localeCompare(String(a)));
+  const chosen = url.searchParams.get("four") || firings.find((f) => rows.some((r) => r.firing === f && !r.collected_at)) || firings[0] || "";
+  const list = rows.filter((r) => r.firing === chosen);
+  const waiting = list.filter((r) => !r.collected_at);
+  const ready = waiting.filter((r) => r.ready_at && !r.notified_at);
+  const mailOf = (p) => p.email || p.client_email;
+  // One row per STUDENT, not per piece: only the count matters. Ready and
+  // collected stay per piece underneath, the row shows the totals.
+  const byPerson = new Map();
+  for (const p of list) {
+    const key = String(p.client_id ?? p.email ?? p.name ?? p.id);
+    if (!byPerson.has(key)) byPerson.set(key, { ids: [], name: p.name || [p.first_name, p.last_name].filter(Boolean).join(" "), mail: mailOf(p), count: 0, ready: 0, notified: 0, collected: 0, rows: [] });
+    const g = byPerson.get(key);
+    g.ids.push(p.id);
+    g.rows.push(p);
+    g.count++;
+    if (p.ready_at) g.ready++;
+    if (p.notified_at) g.notified++;
+    if (p.collected_at) g.collected++;
+  }
+  const act = (path, ids, label, extra = "") =>
+    `<form method="post" action="/admin/pieces/${path}" style="display:inline">${ids.map((id) => `<input type="hidden" name="ids" value="${id}">`).join("")}<input type="hidden" name="four" value="${esc(chosen)}">${extra}<button class="plain small" type="submit">${label}</button></form>`;
+  const rowsHtml = [...byPerson.values()]
+    .map((g) => {
+      const who = esc(g.name || g.mail || "-");
+      const state = g.collected === g.count
+        ? `<span class="pill">${tr("recuperees", "collected")}</span>`
+        : g.notified === g.count
+          ? `<span class="pill">${tr("prevenu", "notified")}</span>`
+          : g.ready === g.count
+            ? `<span class="pill">${tr("pretes", "ready")}</span>`
+            : g.ready > 0
+              ? `<span class="pill">${g.ready}/${g.count} ${tr("pretes", "ready")}</span>`
+              : `<span class="muted">${tr("en attente", "waiting")}</span>`;
+      const actions = [
+        g.ready === g.count && g.collected < g.count ? act("unready", g.ids, tr("Pas prete", "Not ready")) : act("ready", g.ids, tr("Prete", "Ready")),
+        g.collected === g.count ? act("uncollected", g.ids, tr("Non recuperees", "Not collected")) : act("collected", g.ids, tr("Recuperees", "Collected")),
+        `<form method="post" action="/admin/pieces/delete" style="display:inline" onsubmit="return confirm(${esc(JSON.stringify(tr("Retirer ces pieces de la liste ?", "Remove these pieces from the list?")))})">${g.ids.map((id) => `<input type="hidden" name="ids" value="${id}">`).join("")}<input type="hidden" name="four" value="${esc(chosen)}"><button class="plain small" type="submit">${icon("trash")}</button></form>`,
+      ].join(" ");
+      return `<tr><td>${who}${g.mail ? `<br><span class="muted">${esc(g.mail)}</span>` : `<br><span class="off">${tr("sans email", "no email")}</span>`}</td>
+        <td>${g.count}</td><td>${state}</td><td>${actions}</td></tr>`;
+    })
+    .join("");
+  const options = firings.map((f) => `<option value="${esc(f)}"${f === chosen ? " selected" : ""}>${esc(f)}</option>`).join("");
+  const toNotify = ready.filter((r) => mailOf(r)).length;
+  return shell(
+    "pieces",
+    tr("Pieces", "Pieces"),
+    `<h1>${tr("Pieces", "Pieces")}</h1>
+     <p class="muted">${tr("Une ligne par piece. Cochez Prete quand elle sort du four, puis envoyez les emails : un seul message par eleve, meme s'il a plusieurs pieces.", "One row per piece. Tick Ready when it leaves the kiln, then send the emails: one message per student, even with several pieces.")}</p>
+     ${flash ? `<p class="ok">${flash}</p>` : ""}
+     ${firings.length > 1 ? `<form method="get" action="/admin/pieces" class="box"><label>${tr("Date de cuisson", "Firing date")}<select name="four" onchange="this.form.submit()">${options}</select></label></form>` : ""}
+     ${chosen ? `<h2>${esc(chosen)}</h2><p class="muted">${tr(`${waiting.length} en attente · ${ready.length} prete(s) a annoncer`, `${waiting.length} waiting · ${ready.length} ready to announce`)}</p>` : ""}
+     <table><thead><tr><th>${tr("Eleve", "Student")}</th><th>${tr("Pieces", "Pieces")}</th><th>${tr("Etat", "Status")}</th><th></th></tr></thead>
+     <tbody>${rowsHtml || `<tr><td colspan="4" class="muted">${tr("Aucune piece pour l'instant.", "No pieces yet.")}</td></tr>`}</tbody></table>
+     ${ready.length ? `<form method="post" action="/admin/pieces/notify"><input type="hidden" name="four" value="${esc(chosen)}"><button type="submit"${toNotify ? "" : " disabled"}>${tr(`Envoyer les emails (${toNotify} eleve(s))`, `Send the emails (${toNotify} student(s))`)}</button></form>` : ""}
+     <form class="box" method="post" action="/admin/pieces/add">
+       <h3>${tr("Ajouter une piece", "Add a piece")}</h3>
+       <label>${tr("Date de cuisson", "Firing date")}<input name="firing" type="date" value="${esc(/^\d{4}-\d{2}-\d{2}$/.test(chosen) ? chosen : parisToday())}" required></label>
+       <label>${tr("Eleve (telephone, nom ou email)", "Student (phone, name or email)")}<input name="client" required autocomplete="off" inputmode="tel" placeholder="06 12 34 56 78"></label>
+       <label>${tr("Nombre de pieces", "How many pieces")}<input name="count" type="number" min="1" max="40" value="1" required></label>
+       <p class="wide muted">${tr("Un bol ou une tasse, ce qui compte c'est le nombre.", "A bowl or a cup, what matters is the number.")}</p>
+       <button class="wide" type="submit">${tr("Ajouter", "Add")}</button>
+     </form>`,
+  );
+}
+
+// The student a piece belongs to: an email, or an exact name in the clients.
+async function pieceOwner(input) {
+  const term = String(input ?? "").trim();
+  if (!term) return null;
+  if (EMAIL.test(term)) {
+    const { rows } = await db.query("SELECT id, first_name, last_name, email FROM rusc.clients WHERE lower(email) = lower($1)", [term]);
+    return rows[0] ? { client_id: rows[0].id, name: clientName(rows[0]), email: rows[0].email } : { client_id: null, name: term, email: term };
+  }
+  // A phone number: what the studio has under the fingers at the desk.
+  const digits = term.replace(/[^\d+]/g, "");
+  if (digits.replace(/\D/g, "").length >= 6) {
+    const tail = digits.replace(/\D/g, "").slice(-9);
+    const { rows } = await db.query(
+      `SELECT id, first_name, last_name, email FROM rusc.clients
+        WHERE regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE '%' || $1
+        ORDER BY id DESC LIMIT 2`,
+      [tail],
+    );
+    if (rows.length === 1) return { client_id: rows[0].id, name: clientName(rows[0]), email: rows[0].email };
+    if (rows.length > 1) throw refused("Plusieurs clients ont ce numero. Tapez le nom complet ou l'email.", "Several clients share that number. Type the full name or email.");
+  }
+  // An exact name, then a partial one (at least 3 letters), if it is unique.
+  const { rows } = await db.query(
+    `SELECT id, first_name, last_name, email FROM rusc.clients
+      WHERE lower(concat_ws(' ', first_name, last_name)) = lower($1) ORDER BY id DESC LIMIT 1`,
+    [term],
+  );
+  if (rows[0]) return { client_id: rows[0].id, name: clientName(rows[0]), email: rows[0].email };
+  if (term.length >= 3) {
+    const like = await db.query(
+      `SELECT id, first_name, last_name, email FROM rusc.clients
+        WHERE lower(concat_ws(' ', first_name, last_name)) LIKE $1 ORDER BY id DESC LIMIT 2`,
+      [`%${term.toLowerCase()}%`],
+    );
+    if (like.rows.length === 1) return { client_id: like.rows[0].id, name: clientName(like.rows[0]), email: like.rows[0].email };
+    if (like.rows.length > 1) throw refused("Plusieurs eleves correspondent. Precisez le nom.", "Several students match. Be more precise.");
+  }
+  throw refused("Eleve introuvable. Essayez son telephone, ou tapez son email pour l'ajouter quand meme.", "Student not found. Try their phone, or type their email to add it anyway.");
+}
+
+async function piecesAdd(form) {
+  const firing = String(form.get("firing") ?? "").trim().slice(0, 60);
+  const count = Math.min(40, Math.max(1, num(form.get("count") ?? 1) || 1));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(firing)) throw refused("Indiquez la date de cuisson.", "Give the firing date.");
+  const owner = await pieceOwner(form.get("client"));
+  if (!owner) throw refused("Indiquez l'eleve.", "Give the student.");
+  for (let i = 0; i < count; i++) {
+    await db.query("INSERT INTO rusc.pieces (firing, client_id, email, name, label) VALUES ($1, $2, $3, $4, $5)", [firing, owner.client_id, owner.email, owner.name, "piece"]);
+  }
+  return firing;
+}
+
+async function pieceSet(form, column, value) {
+  const ids = form.getAll("ids").map((v) => num(v)).filter(Boolean);
+  if (!ids.length) throw refused("Piece introuvable.", "Piece not found.");
+  const { rows } = await db.query(`UPDATE rusc.pieces SET ${column} = ${value} WHERE id = ANY($1::bigint[]) RETURNING firing`, [ids]);
+  if (!rows[0]) throw refused("Piece introuvable.", "Piece not found.");
+  return String(form.get("four") || rows[0].firing);
+}
+
+async function piecesDelete(form) {
+  const ids = form.getAll("ids").map((v) => num(v)).filter(Boolean);
+  if (!ids.length) throw refused("Piece introuvable.", "Piece not found.");
+  await db.query("DELETE FROM rusc.pieces WHERE id = ANY($1::bigint[]) AND collected_at IS NULL", [ids]);
+  return String(form.get("four") || "");
+}
+
+// One email per student, listing every ready piece they have in that firing.
+async function piecesNotify(form) {
+  const firing = String(form.get("four") ?? "").trim();
+  if (!firing) throw refused("Fournee manquante.", "Firing missing.");
+  const { rows } = await db.query(
+    `SELECT p.id, coalesce(p.email, c.email) AS to_email, coalesce(p.name, concat_ws(' ', c.first_name, c.last_name)) AS who, p.label
+       FROM rusc.pieces p LEFT JOIN rusc.clients c ON c.id = p.client_id
+      WHERE p.firing = $1 AND p.ready_at IS NOT NULL AND p.notified_at IS NULL AND p.collected_at IS NULL
+      ORDER BY lower(coalesce(p.email, c.email, '')), p.id`,
+    [firing],
+  );
+  const byEmail = new Map();
+  for (const r of rows) {
+    if (!r.to_email || String(r.to_email).endsWith(ANONYMOUS)) continue;
+    const key = String(r.to_email).toLowerCase();
+    if (!byEmail.has(key)) byEmail.set(key, { to: r.to_email, who: r.who, ids: [], count: 0 });
+    byEmail.get(key).ids.push(r.id);
+    byEmail.get(key).count++;
+  }
+  let sent = 0;
+  for (const group of byEmail.values()) {
+    const { rows: off } = await db.query("SELECT 1 FROM rusc.unsubscribed WHERE lower(email) = lower($1)", [group.to]);
+    if (off.length) continue;
+    const many = group.count > 1;
+    const first = String(group.who || "").trim().split(" ")[0];
+    const text = [
+      `Bonjour ${first},`,
+      "",
+      many ? `${group.count} de vos pieces sont pretes.` : "Votre piece est prete.",
+      "Vous pouvez venir les chercher a l'atelier.",
+      "",
+      "rusc · 99 Promenade Marie-Paradis, 74400 Chamonix-Mont-Blanc",
+    ].join("\n");
+    await sendEmail(group.to, "Vos pieces sont pretes - rusc", text);
+    await db.query("UPDATE rusc.pieces SET notified_at = now() WHERE id = ANY($1::bigint[])", [group.ids]);
+    sent++;
+  }
+  return sent;
 }
 
 // ---------------------------------------------------------------- Clients
@@ -4148,6 +4364,28 @@ async function handle(req, res, url) {
           const { closed, skipped } = await horairesClose(form);
           return send(res, 303, "", { location: `/admin/horaires?closed=${closed}&skipped=${skipped}` });
         }
+        if (url.pathname === "/admin/pieces/add") {
+          const four = await piecesAdd(form);
+          return send(res, 303, "", { location: `/admin/pieces?four=${encodeURIComponent(four)}&added=1` });
+        }
+        if (url.pathname === "/admin/pieces/ready" || url.pathname === "/admin/pieces/unready") {
+          const ready = url.pathname.endsWith("/ready");
+          const four = await pieceSet(form, "ready_at", ready ? "now()" : "NULL");
+          return send(res, 303, "", { location: `/admin/pieces?four=${encodeURIComponent(four)}` });
+        }
+        if (url.pathname === "/admin/pieces/collected" || url.pathname === "/admin/pieces/uncollected") {
+          const taken = url.pathname.endsWith("/collected");
+          const four = await pieceSet(form, "collected_at", taken ? "now()" : "NULL");
+          return send(res, 303, "", { location: `/admin/pieces?four=${encodeURIComponent(four)}` });
+        }
+        if (url.pathname === "/admin/pieces/delete") {
+          const four = await piecesDelete(form);
+          return send(res, 303, "", { location: `/admin/pieces?four=${encodeURIComponent(four)}&deleted=1` });
+        }
+        if (url.pathname === "/admin/pieces/notify") {
+          const sent = await piecesNotify(form);
+          return send(res, 303, "", { location: `/admin/pieces?four=${encodeURIComponent(String(form.get("four") ?? ""))}&notified=${sent}` });
+        }
         if (url.pathname === "/admin/codes") {
           const key = await adminCreate(form);
           return send(res, 303, "", { location: `/admin/codes/${key}?created=1` });
@@ -4168,6 +4406,7 @@ async function handle(req, res, url) {
       if (url.pathname === "/admin/commandes") return send(res, 200, await commandesPage());
       if (url.pathname === "/admin/clients") return send(res, 200, await clientsPage(url));
       if (url.pathname === "/admin/horaires") return send(res, 200, await horairesPage(url));
+      if (url.pathname === "/admin/pieces") return send(res, 200, await piecesPage(url));
       if (url.pathname === "/admin/cours/nouveau") return send(res, 200, classNewPage());
       if (url.pathname === "/admin/clients/suggest") return send(res, 200, await clientSuggest(url.searchParams.get("q")));
       if (url.pathname === "/admin/codes/check") return send(res, 200, await codeCheck(url));

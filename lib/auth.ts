@@ -55,6 +55,8 @@ export type AccountData = {
   codes: AccountCode[];
   coming: AccountVisit[];
   past: AccountVisit[];
+  // Pieces out of the kiln and not collected yet, per firing date.
+  pieces?: { firing: string; count: number }[];
 };
 
 export class AuthError extends Error {

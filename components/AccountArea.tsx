@@ -25,6 +25,10 @@ const TEXT = {
     join: "Devenir membre",
     coming: "Mes prochains cours",
     none: "Aucun cours à venir.",
+    pieces: "Mes pièces",
+    piecesReady: (n: number, when: string) =>
+      n > 1 ? `${n} pièces prêtes, cuites le ${when}.` : `1 pièce prête, cuite le ${when}.`,
+    piecesHint: "Elles vous attendent à l’atelier.",
     book: "Réserver un cours",
     bookSession: "Réserver une séance d’1h",
     codes: "Mes carnets et codes",
@@ -58,6 +62,10 @@ const TEXT = {
     join: "Become a member",
     coming: "My next classes",
     none: "No classes coming up.",
+    pieces: "My pieces",
+    piecesReady: (n: number, when: string) =>
+      n > 1 ? `${n} pieces ready, fired on ${when}.` : `1 piece ready, fired on ${when}.`,
+    piecesHint: "They are waiting for you at the studio.",
     book: "Book a class",
     bookSession: "Book a 1h session",
     codes: "My cards and codes",
@@ -326,6 +334,17 @@ export default function AccountArea({ lang }: { lang: Lang }) {
 
       <div style={block}>
         <h3 style={heading}>{t.coming}</h3>
+        {account.pieces && account.pieces.length > 0 && (
+          <div style={{ marginBottom: "14px", padding: "12px 14px", border: "1px solid var(--line)", borderRadius: "12px" }}>
+            <strong style={{ display: "block", fontSize: "14px", marginBottom: "4px" }}>{t.pieces}</strong>
+            {account.pieces.map((p) => (
+              <p key={p.firing} style={{ ...muted, margin: "2px 0" }}>
+                {t.piecesReady(p.count, date(p.firing))}
+              </p>
+            ))}
+            <p style={{ ...small, marginTop: "6px" }}>{t.piecesHint}</p>
+          </div>
+        )}
         {account.coming.length ? (
           <ul style={list}>
             {account.coming.map((v) => (

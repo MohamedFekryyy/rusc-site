@@ -348,4 +348,23 @@ CREATE TABLE IF NOT EXISTS rusc.cancellations (
 );
 CREATE INDEX IF NOT EXISTS cancellations_email ON rusc.cancellations (lower(email));
 
+-- The pieces waiting for their owner, after a firing. One row per piece: a
+-- student may have several in the same firing. The studio marks each one
+-- ready (statut), then sends one email per student listing their pieces.
+-- No email is sent automatically; 'notified_at' records when it was.
+CREATE TABLE IF NOT EXISTS rusc.pieces (
+  id bigserial PRIMARY KEY,
+  firing text NOT NULL,                 -- the firing's name, e.g. "Four 30/10"
+  client_id bigint REFERENCES rusc.clients (id) ON DELETE SET NULL,
+  email text,
+  name text,
+  label text NOT NULL,                  -- one word: bol, tasse, vase…
+  ready_at timestamptz,                 -- ticked ready by the studio
+  notified_at timestamptz,              -- the email that told this student
+  collected_at timestamptz,             -- picked up
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pieces_firing ON rusc.pieces (firing, ready_at NULLS LAST, id);
+CREATE INDEX IF NOT EXISTS pieces_email ON rusc.pieces (lower(email));
+
 RESET ROLE;
