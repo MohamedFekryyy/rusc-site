@@ -410,9 +410,12 @@ export default function BookingEmbed({ lang }: { lang: Lang }) {
       const key = adder?.dataset.cart;
       if (adder && isOfferKey(key)) {
         event.preventDefault();
-        // Members-only offers (open studio passes) can't be added by a guest.
+        // Members-only booking: a new member must be able to BUY an open-studio
+        // pass (or any card) and only then reach the slot. Only a dated slot
+        // (kind "session") is gated here; passes and the membership are bought
+        // by anyone. Without this, the cart silently stays empty.
         const gatedKey = offerByKey(key);
-        if (gatedKey && gatedKey.tone === "member" && key !== "adhesion" && !canOpenStudio(member)) {
+        if (gatedKey && gatedKey.kind !== "product" && gatedKey.tone === "member" && key !== "adhesion" && !canOpenStudio(member)) {
           setToast(t.membersOnlyTitle);
           return;
         }
